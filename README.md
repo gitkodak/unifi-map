@@ -428,6 +428,13 @@ unifi-map all --support-file support-XXXX.tgz \
 Both accept a plain byte count or a `K`, `M` or `G` suffix, and the error you
 get when a limit is hit names the flag to raise.
 
+There is a third limit with no flag: the archive is abandoned past 100,000
+entries. That one guards walking time rather than memory, since an archive can
+be cheap to decompress and still enormous to iterate, and no realistic support
+file comes close (a real one runs to a few thousand). Raising it means editing
+`MAX_ARCHIVE_ENTRIES` in `support.py`; open an issue if you hit it legitimately,
+because that would be worth knowing.
+
 ## Usage
 
 ```bash

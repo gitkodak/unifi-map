@@ -606,6 +606,17 @@ class TestRefusals:
         snapshot = load_support_file(support_archive, max_member=10_000, max_total=100_000)
         assert snapshot.get("device")
 
+    def test_an_archive_with_absurdly_many_entries_stops_being_walked(self, tmp_path, monkeypatch):
+        # The third cap, and the only one with no flag: an archive can be cheap
+        # to decompress and still cost real time to walk, since the entry count
+        # is unrelated to the bytes decoded. Nothing here is read into memory,
+        # so neither size cap fires and this is the only thing that stops it.
+        monkeypatch.setattr("unifi_map.support.MAX_ARCHIVE_ENTRIES", 10)
+        path = tmp_path / "many.tgz"
+        _write_archive(path, {f"{ROOT}/unifi/junk-{i}.txt": b"x" for i in range(25)})
+        with pytest.raises(SupportFileError, match="more than 10 entries"):
+            load_support_file(path)
+
     def test_a_symlink_member_is_skipped(self, tmp_path):
         path = tmp_path / "linked.tgz"
         with tarfile.open(path, "w:gz") as archive:
