@@ -465,6 +465,110 @@ class TestDrawioLabelsAreNotMarkup:
         assert "&lt;b&gt;switch&lt;/b&gt;" in self._render("switch")
 
 
+class TestDrawioGeometryIsAddressable:
+    """Every `mxGeometry` must carry `as="geometry"` or draw.io ignores it.
+
+    `as` is a Python keyword and cannot be a `SubElement` kwarg, so it is set
+    afterwards by `_geometry()` and is easy to lose in a refactor. Losing it is
+    silent: the XML stays well-formed, every other test still passes, and
+    draw.io piles every shape on top of itself at the origin. Nothing else
+    catches that, so this asserts it on the emitted document.
+    """
+
+    def _render(self):
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.render_drawio import render_drawio
+        from unifi_map.theme import LIGHT
+
+        topo = Topology()
+        topo.add(Node(id="a", label="a", kind=Kind.SWITCH, ip="10.0.0.1"))
+        topo.add(Node(id="b", label="b", kind=Kind.AP))
+        topo.edges.append(Edge(src="b", dst="a", label="1"))
+        layout = Layout(
+            nodes={
+                "a": Placed(x=0.0, y=0.0, width=10.0, height=10.0),
+                "b": Placed(x=0.0, y=20.0, width=10.0, height=10.0),
+            },
+            width=10.0,
+            height=30.0,
+        )
+        return render_drawio(topo, layout, "t", LIGHT)
+
+    def test_every_geometry_element_is_marked_as_geometry(self):
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(self._render())
+        geometries = root.iter("mxGeometry")
+        unmarked = [g for g in geometries if g.get("as") != "geometry"]
+        assert not unmarked, f'{len(unmarked)} mxGeometry element(s) missing as="geometry"'
+
+    def test_the_document_contains_geometry_at_all(self):
+        # Guards the assertion above from passing vacuously if cells stop
+        # carrying geometry entirely.
+        import xml.etree.ElementTree as ET
+
+        assert list(ET.fromstring(self._render()).iter("mxGeometry"))
+
+
+class TestStaggerIsAppliedOnceToBothRenderers:
+    """The SVG and the draw.io coordinates must come from byte-identical DOT.
+
+    `_write_outputs()` staggers up front and feeds the result to both paths. If
+    a change routes unstaggered DOT to one of them, or writes the `.dot` from
+    before the stagger, the diagram still renders and the draw.io shapes land
+    somewhere plausible but no longer where the SVG drew them. Comparing the
+    written `.dot` against the positions in the written `.drawio` catches that
+    without mocking Graphviz: on this fixture the stagger moves nodes by some
+    790pt, so a path that skipped it cannot coincidentally agree.
+
+    It does not prove the stagger is applied only *once*, because `unflatten`
+    turns out to be idempotent here (measured: a second pass moves nothing).
+    Double-staggering is therefore harmless rather than untested.
+    """
+
+    @needs_graphviz
+    def test_drawio_positions_match_the_dot_that_was_written(self, snapshot, tmp_path):
+        import xml.etree.ElementTree as ET
+
+        from unifi_map.cli import _write_outputs
+        from unifi_map.layout import compute_layout
+
+        topo = build_topology(snapshot)
+        _write_outputs(
+            render_dot(topo, "t", SANE),
+            topo,
+            tmp_path,
+            "m",
+            ["dot", "drawio"],
+            SANE,
+            {},
+            stagger_depth=2,
+        )
+
+        # The .dot on disk is the post-stagger source, by contract.
+        expected = compute_layout((tmp_path / "m.dot").read_text(encoding="utf-8"))
+        root = ET.fromstring((tmp_path / "m.drawio").read_text(encoding="utf-8"))
+
+        placed = {
+            cell.get("id"): cell.find("mxGeometry")
+            for cell in root.iter("mxCell")
+            if cell.find("mxGeometry") is not None
+        }
+        # Layout keys are already DOT node ids, which is what the cells use.
+        compared = 0
+        for node_id, want in expected.nodes.items():
+            geometry = placed.get(node_id)
+            if geometry is None or geometry.get("x") is None:
+                continue
+            # Same DOT means the same Graphviz answer, so these agree to the
+            # one decimal place the renderer writes rather than approximately.
+            assert abs(float(geometry.get("x")) - want.x) < 0.5, node_id
+            assert abs(float(geometry.get("y")) - want.y) < 0.5, node_id
+            compared += 1
+        assert compared > 1, "compared too few nodes to prove anything"
+
+
 class TestCredentialFilePermissions:
     """The file holds a key with the account's full permissions.
 
