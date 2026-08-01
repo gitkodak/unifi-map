@@ -100,9 +100,11 @@ class TestLayouts:
 
     @needs_graphviz
     def test_both_layouts_place_every_node(self, snapshot: Snapshot):
+        # Through `compute_layout` rather than run_dot plus parse_plain by hand,
+        # so the wrapper callers actually use is on this path too.
         topo = build_topology(snapshot)
         for style in (SANE, UNIFI):
-            layout = parse_plain(run_dot(render_dot(topo, "t", style), "plain").decode())
+            layout = compute_layout(render_dot(topo, "t", style))
             for node_id in topo.nodes:
                 assert "n_" + node_id.replace(":", "") in layout.nodes
 
@@ -119,14 +121,6 @@ def test_svg_scales_without_a_fixed_pixel_ceiling(snapshot: Snapshot):
     svg = run_dot(render_dot(build_topology(snapshot), "t", SANE), "svg").decode()
     # viewBox is what lets the SVG zoom to any size with crisp labels.
     assert "viewBox" in svg
-
-
-@needs_graphviz
-def test_layout_positions_every_node(snapshot: Snapshot):
-    topo = build_topology(snapshot)
-    layout = compute_layout(render_dot(topo, "t", SANE))
-    for node_id in topo.nodes:
-        assert "n_" + node_id.replace(":", "") in layout.nodes
 
 
 def test_parse_plain_flips_y_axis_into_screen_space():
