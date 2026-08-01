@@ -107,3 +107,37 @@ def test_the_advertised_test_count_is_true(request):
     assert claimed == actual, (
         f"AI_DISCLOSURE.md claims {claimed} tests; the suite collects {actual}. Update the number."
     )
+
+
+def test_the_changelog_documents_the_current_version():
+    """A version bump without a changelog entry is the likely release mistake.
+
+    Deliberately not "the newest heading must equal `__version__`": mid-cycle
+    the newest heading is `Unreleased` while `__version__` still names the last
+    release, which is the correct state. What must always hold is that the
+    version the package reports has a section describing it.
+    """
+    from unifi_map import __version__
+
+    root = Path(__file__).resolve().parents[1]
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    headings = re.findall(r"^## (\d+\.\d+\.\d+)", changelog, re.M)
+    assert __version__ in headings, (
+        f"__version__ is {__version__} but CHANGELOG.md has no section for it. "
+        f"Sections found: {headings}. See RELEASING.md."
+    )
+
+
+def test_no_changelog_section_is_declared_twice():
+    """Repeated `### Added` inside one version means entries were misfiled.
+
+    It has happened twice, both times from anchoring an edit on text that
+    appears in more than one place, and both times it hid an entry landing in an
+    already-released section.
+    """
+    changelog = (Path(__file__).resolve().parents[1] / "CHANGELOG.md").read_text(encoding="utf-8")
+    # Split on version headings, ignoring the preamble before the first one.
+    for block in re.split(r"^## ", changelog, flags=re.M)[1:]:
+        name = block.splitlines()[0].strip()
+        subs = re.findall(r"^### (.+)$", block, re.M)
+        assert len(subs) == len(set(subs)), f"section {name!r} repeats a heading: {subs}"

@@ -359,34 +359,12 @@ headings, check what was in between.
   notion of (head and tail labels are the closest), and whether this becomes a
   third `--layout` or a separate output.
 
-- **Decide what "making a release" actually means here.** Today it is: edit
-  `__version__`, write the CHANGELOG entry, tag, push, mirror. That is a version
-  bump, not a release, and the gap is worth closing deliberately rather than by
-  accident. Questions to answer, roughly in order of how much they change:
-
-  - **Is installation meant to be `pip install unifi-map`?** Right now the only
-    documented install is a git clone plus `pip install -e .`. Publishing to
-    PyPI is the single biggest decision, because it implies owning a name,
-    keeping metadata honest, and never breaking a published artifact. If the
-    answer is no, say so in the README so people stop wondering.
-  - **Should the tag build anything?** `[project.scripts]` already declares a
-    `unifi-map` entry point and the backend is plain setuptools, so `sdist` and
-    `wheel` need no new machinery. A tag-triggered workflow could attach both to
-    a GitHub Release. CI currently only runs on push to `main`, so it would need
-    a `tags:` trigger.
-  - **Are release notes duplicated?** A GitHub Release body and the CHANGELOG
-    entry say the same thing. Generate one from the other rather than writing
-    both by hand and letting them drift.
-  - **What is checked before a tag?** At minimum `make check`, that
-    `__version__` matches the CHANGELOG's newest heading, and that the heading
-    is not still `Unreleased`. A version bumped without a CHANGELOG entry is the
-    likely mistake and is cheap to catch.
-  - **Reproducibility.** Graphviz is a system dependency, so the wheel is not
-    self-contained. Decide whether that is documented (it is, in Install) or
-    whether a container image is wanted.
-
-  Write the outcome down as a short `RELEASING.md` rather than leaving it in a
-  maintainer's head; that is the actual deliverable.
+- **Decide whether a release should produce an artifact.** `RELEASING.md` now
+  documents the process that exists, which is a tag plus a changelog entry, and
+  says plainly that there is no published package. The open question is whether
+  `pip install unifi-map` should work. That means owning a PyPI name and never
+  breaking a published artifact, so it is a commitment rather than a chore. The
+  entry point and build backend already exist; CI would need a `tags:` trigger.
 
 - **A man page, generated from the source rather than written twice.**
   `build_parser()` in `cli.py` is already the single source of truth for every

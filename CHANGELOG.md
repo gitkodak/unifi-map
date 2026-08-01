@@ -29,6 +29,15 @@ a major one later.
 
 Refactors, docs and tests alone do not need a release at all.
 
+## Unreleased
+
+### Added
+
+- `RELEASING.md` documents how a version actually goes out, written after doing
+  it by hand twice rather than invented in advance. Two tests enforce the parts
+  that have gone wrong: the changelog must have a section for the version the
+  package reports, and no version may repeat a `### Added` style heading.
+
 ## 0.3.0 - 2026-08-01
 
 ### Added
