@@ -31,6 +31,13 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
+### Deprecated
+
+- The `UDM_*` environment variable names. `UNIFI_*` is the supported spelling;
+  the old one still works and now prints a warning naming its replacement, once
+  per run rather than once per variable. No removal version is promised, since
+  anything here may change before 1.0.
+
 ### Added
 
 - `RELEASING.md` documents how a version actually goes out, written after doing

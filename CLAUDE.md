@@ -366,38 +366,19 @@ headings, check what was in between.
   breaking a published artifact, so it is a commitment rather than a chore. The
   entry point and build backend already exist; CI would need a `tags:` trigger.
 
-- **Retire the `UDM_*` environment variable aliases.** `config.py` accepts
-  `UNIFI_HOST` and `UDM_HOST`, and so on for the key, site and TLS setting.
-  `UNIFI_*` is the sensible name; `UDM_*` exists only because that is what Jason
-  had arbitrarily called things before the tool did, and it was kept so an
-  existing credential file did not need editing.
+- **Finish retiring the `UDM_*` environment aliases.** The warning is in:
+  `config.py` collects legacy names as it resolves them and emits one line
+  naming each replacement, and the README section is marked deprecated. What
+  remains is deleting them.
 
-  Two facts that decide the pace:
+  **No removal version is promised, on purpose.** Naming 1.0 would be a promise
+  made to sound organised, and the versioning policy already says anything may
+  change before then. Drop them whenever it suits.
 
-  - **His own credential file uses `UDM_*` exclusively.** Removing the alias
-    breaks his setup until `~/Development/envfiles/` is edited. Cheap, but it
-    has to happen first rather than be discovered afterwards.
-  - **The alias is documented**, under "Alternative variable names" in the
-    README, and covered by tests. That makes removal a breaking change for
-    anyone who read the docs and used it, not merely a tidy-up.
-
-  Three ways to go, his framing:
-
-  1. **Deprecate then remove.** Warn when a `UDM_*` name is used and say which
-     `UNIFI_*` name to move to, then drop it later. Correct, and the warning is
-     a few lines given `config.py` already resolves aliases in one place.
-  2. **Undocument but keep working.** Zero risk and zero effort, at the cost of
-     a path that is supported forever without being written down, which is its
-     own small lie.
-  3. **Just remove it.** Fastest, and breaks anyone who followed the README.
-
-  **Suggested: (1), with removal at 1.0.** That is the natural boundary. The
-  versioning policy already says pre-1.0 anything may change and 1.0 declares
-  the interface stable, so dropping a documented alias is exactly what the major
-  bump is for. Warning now costs almost nothing and means nobody is surprised.
-
-  While in there: his credential file still carries `UDM_USER` and `UDM_PASS`,
-  which have been dead since password auth was removed. Nothing reads them.
+  Before deleting: Jason's own credential file under `~/Development/envfiles/`
+  uses `UDM_*` exclusively, so it has to be renamed first rather than have the
+  breakage discovered by a failing fetch. It also still carries `UDM_USER` and
+  `UDM_PASS`, dead since password auth was removed and read by nothing.
 
 - **A man page, generated from the source rather than written twice.**
   `build_parser()` in `cli.py` is already the single source of truth for every

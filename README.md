@@ -208,11 +208,17 @@ UNIFI_HOST=192.168.1.1
 UNIFI_VERIFY_TLS=false
 ```
 
-### Alternative variable names
+### Legacy variable names, deprecated
 
-Every variable also answers to a `UDM_*` spelling, so an existing credential file
-does not need renaming: `UDM_HOST`, `UDM_API_KEY`, `UDM_SITE`, `UDM_VERIFY_TLS`.
-If both spellings are set, the `UNIFI_*` one wins.
+Every variable also answers to a `UDM_*` spelling: `UDM_HOST`, `UDM_API_KEY`,
+`UDM_SITE`, `UDM_VERIFY_TLS`. If both are set, the `UNIFI_*` one wins.
+
+These exist only because that is what the author had called things before this
+tool did. **They still work and will be removed in a future version**, so rename
+them when convenient. Using one prints a warning naming the replacement.
+
+No removal version is promised. Everything about this interface may change
+before 1.0.
 
 `UNIFI_MAP_ENV` is not read from the credential file itself; it is the
 environment variable that says *where* the credential file is.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -548,3 +549,72 @@ class TestCredentialsDoNotReachChildProcesses:
             [sys.executable, str(probe)], capture_output=True, env=_child_env(), check=False
         )
         assert result.stdout == b""
+
+
+class TestLegacyVariableNames:
+    """`UDM_*` still works and now says it is on the way out.
+
+    The alias exists only because that is what the author had called things
+    before the tool did. No removal version is promised anywhere, deliberately:
+    everything here is unstable before 1.0, and naming a version would be a
+    promise made to sound organised.
+    """
+
+    def _load(self, monkeypatch, env):
+        from unifi_map.config import load_config
+
+        for name in (
+            "UNIFI_HOST",
+            "UNIFI_API_KEY",
+            "UNIFI_SITE",
+            "UNIFI_VERIFY_TLS",
+            "UDM_HOST",
+            "UDM_API_KEY",
+            "UDM_SITE",
+            "UDM_VERIFY_TLS",
+        ):
+            monkeypatch.delenv(name, raising=False)
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        return load_config(Path("/dev/null"))
+
+    def test_the_legacy_names_still_work(self, monkeypatch):
+        config = self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        assert config.host == "c.example.com"
+        assert config.api_key == "k"
+
+    def test_using_them_warns_once_naming_the_replacement(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        # One line for the lot: a file written before the rename uses the old
+        # spelling for everything, and four warnings is noise.
+        assert caplog.text.count("deprecated environment variable") == 1
+        assert "UDM_HOST -> UNIFI_HOST" in caplog.text
+        assert "UDM_API_KEY -> UNIFI_API_KEY" in caplog.text
+
+    def test_no_removal_version_is_promised(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        assert "1.0" not in caplog.text
+
+    def test_the_current_spelling_is_silent(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UNIFI_API_KEY": "k"})
+        assert "deprecated" not in caplog.text
+
+    def test_only_the_legacy_names_actually_used_are_named(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        assert "UDM_API_KEY" in caplog.text
+        assert "UDM_HOST" not in caplog.text
+
+    def test_the_current_spelling_still_wins_when_both_are_set(self, monkeypatch):
+        config = self._load(
+            monkeypatch,
+            {
+                "UNIFI_HOST": "right.example.com",
+                "UDM_HOST": "wrong.example.com",
+                "UNIFI_API_KEY": "k",
+            },
+        )
+        assert config.host == "right.example.com"
