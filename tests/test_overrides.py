@@ -375,9 +375,11 @@ class TestHideOverride:
 class TestDeclaredDevices:
     """`[[device]]` states something no source reports.
 
-    An unmanaged switch, a non-UniFi access point, gear that was powered off
-    during the fetch. The controller cannot know these exist and this tool will
-    not guess, so the user says so.
+    A controller only reports what it manages, so the category is defined by a
+    relationship rather than by any property of the device: an unmanaged switch,
+    a fully managed third-party one, and UniFi gear that was powered off during
+    the fetch are all invisible for the same reason. This tool will not guess,
+    so the user says so.
     """
 
     def _apply(self, topo, table):
@@ -386,21 +388,21 @@ class TestDeclaredDevices:
         return apply(topo, parse(table))
 
     def test_a_declared_device_becomes_a_node(self, topo):
-        result = self._apply(topo, {"device": [{"name": "Unmanaged switch", "kind": "switch"}]})
-        node = result.topology.nodes["asserted-unmanaged-switch"]
-        assert node.label == "Unmanaged switch"
+        result = self._apply(topo, {"device": [{"name": "Basement switch", "kind": "switch"}]})
+        node = result.topology.nodes["asserted-basement-switch"]
+        assert node.label == "Basement switch"
         assert node.kind is Kind.SWITCH
         assert result.devices_added == 1
 
     def test_it_is_marked_asserted_so_it_cannot_pass_for_observed(self, topo):
         # The whole point. A map that drew a typed-in device identically to a
         # reported one would misrepresent where its information came from.
-        result = self._apply(topo, {"device": [{"name": "Unmanaged switch"}]})
-        assert result.topology.nodes["asserted-unmanaged-switch"].asserted is True
+        result = self._apply(topo, {"device": [{"name": "Basement switch"}]})
+        assert result.topology.nodes["asserted-basement-switch"].asserted is True
         assert all(
             not n.asserted
             for n in result.topology.nodes.values()
-            if n.id != "asserted-unmanaged-switch"
+            if n.id != "asserted-basement-switch"
         )
 
     def test_a_parent_produces_an_asserted_edge(self, topo):
@@ -408,11 +410,11 @@ class TestDeclaredDevices:
             topo,
             {
                 "device": [
-                    {"name": "Unmanaged switch", "kind": "switch", "parent": SWITCH_MAC, "port": 7}
+                    {"name": "Basement switch", "kind": "switch", "parent": SWITCH_MAC, "port": 7}
                 ]
             },
         )
-        edge = next(e for e in result.topology.edges if e.src == "asserted-unmanaged-switch")
+        edge = next(e for e in result.topology.edges if e.src == "asserted-basement-switch")
         assert edge.dst == SWITCH_MAC
         assert edge.label == "port 7"
         assert edge.asserted is True
@@ -424,24 +426,24 @@ class TestDeclaredDevices:
             topo,
             {
                 "device": [
-                    {"name": "Unmanaged switch", "kind": "switch", "parent": SWITCH_MAC},
-                    {"name": "Old laptop", "kind": "wired_client", "parent": "Unmanaged switch"},
+                    {"name": "Basement switch", "kind": "switch", "parent": SWITCH_MAC},
+                    {"name": "Old laptop", "kind": "wired_client", "parent": "Basement switch"},
                 ]
             },
         )
         parents = {e.src: e.dst for e in result.topology.edges}
-        assert parents["asserted-old-laptop"] == "asserted-unmanaged-switch"
+        assert parents["asserted-old-laptop"] == "asserted-basement-switch"
 
     def test_a_declared_device_can_be_referenced_by_other_overrides(self, topo):
         result = self._apply(
             topo,
             {
-                "device": [{"name": "Unmanaged switch", "kind": "switch"}],
-                "link": [{"from": AP_MAC, "to": "Unmanaged switch"}],
+                "device": [{"name": "Basement switch", "kind": "switch"}],
+                "link": [{"from": AP_MAC, "to": "Basement switch"}],
             },
         )
         assert any(
-            e.src == AP_MAC and e.dst == "asserted-unmanaged-switch" for e in result.topology.edges
+            e.src == AP_MAC and e.dst == "asserted-basement-switch" for e in result.topology.edges
         )
 
     def test_an_id_cannot_collide_with_a_mac(self, topo):

@@ -6,13 +6,18 @@
 # Selectors (`from`, `to`, `guest`, `host`) accept a MAC, an IP, or a
 # hostname/device name as shown on the map.
 
-# --- Devices nothing reports -------------------------------------------------
-# An unmanaged switch has no management plane, so no controller can know it is
-# there. Declared devices are drawn with a dotted outline, and are added before
-# every other override, so the blocks below can reference this one by name.
+# --- Devices the controller cannot see ---------------------------------------
+# A controller only reports what it manages, so anything it does not adopt is
+# invisible to it however capable that device is: an unmanaged switch with no
+# management plane at all, a fully managed third-party switch, or UniFi gear
+# that was powered off when you ran the fetch. Declaring it is the only way it
+# reaches the map.
+#
+# Declared devices are drawn with a dotted outline, and are added before every
+# other override, so the blocks below can reference this one by name.
 
 [[device]]
-name = "Basement unmanaged switch"
+name = "Basement switch"
 kind = "switch"              # gateway, switch, ap, bridge, wired_client,
                              # wireless_client or unknown
 ip = "10.0.0.9"              # optional

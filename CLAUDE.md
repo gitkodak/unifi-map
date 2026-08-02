@@ -237,7 +237,8 @@ Implemented end to end: schema, loader, `resolve()` and `apply()`. Notes:
   honest answer to what should happen to them.
 - Asserted edges carry `Edge.asserted` and render dotted in both backends. Keep
   them visually distinct from observed links.
-- **`[[device]]` declares a node nothing reports**, for an unmanaged switch or
+- **`[[device]]` declares a node the controller cannot see**, for a switch it
+  does not manage (managed or not, in itself) or
   gear that was off during the fetch. Those carry `Node.asserted` and render
   with a dotted outline, for the same reason edges do: the map must never
   present something typed in as though a controller had reported it. Offline

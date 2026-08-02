@@ -57,7 +57,8 @@ busy network this is usually the one worth handing to somebody else. Run
 - **Hides decommissioned hardware** by default, which the console itself offers
   no way to do.
 - **[Manual overrides](#manual-overrides), which the console has no equivalent
-  of.** Declare a device nothing reports, such as an unmanaged switch; assert a
+  of.** Declare a device the controller cannot see, such as a switch it does
+  not manage; assert a
   link the controller is not in the path of; say that a VM lives on a
   particular host; correct a wrong fingerprint; hide something. All of it drawn
   as a claim rather than an observation, so a reader can tell the difference.
@@ -661,7 +662,7 @@ controller genuinely does not know where something is attached.
 
 `stat/sta` only reports a client's uplink when that uplink is a UniFi device, so
 anything behind a non-UniFi box (VMs and containers behind a NAS, or a client on
-an unmanaged switch) comes back with no `sw_mac` at all. Those are resolved
+a switch the controller does not manage) comes back with no `sw_mac` at all. Those are resolved
 against the controller's own topology graph, where a client can be another
 client's uplink, which is how the console draws them correctly.
 
@@ -672,7 +673,7 @@ parent (which would invent a connection that does not exist).
 **You can place them yourself.** The tool refuses to guess, but you know where
 the cable goes, and [manual overrides](#manual-overrides) are how you say so. A
 `[[link]]` attaches the client to its real parent, and if that parent is an
-unmanaged switch nothing reports either, `[[device]]` declares the switch first
+switch the controller cannot see either, `[[device]]` declares the switch first
 and the link hangs off it. Both are drawn dotted, so the map still distinguishes
 what you asserted from what the controller reported. The placeholder disappears
 once nothing is left under it.
@@ -769,11 +770,12 @@ Things a controller cannot tell you, which you can state in an
 `overrides.toml` (picked up automatically when it exists, or pass `--overrides`):
 
 ```toml
-# A device nothing reports: an unmanaged switch, a non-UniFi access point, or
+# A device the controller cannot see: a switch it does not manage, a non-UniFi
+# access point, or
 # something that was powered off when you ran the fetch. `parent` and `port`
 # are optional; without them it floats.
 [[device]]
-name = "Basement unmanaged switch"
+name = "Basement switch"
 kind = "switch"            # gateway, switch, ap, bridge, wired_client,
                            # wireless_client or unknown
 ip = "10.0.0.9"            # optional

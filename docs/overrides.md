@@ -41,8 +41,10 @@ See [`examples/overrides.toml`](../examples/overrides.toml) for a working file.
 
 ### `[[device]]`
 
-Declares a device nothing reports: an unmanaged switch, a non-UniFi access
-point, or gear that was powered off when you ran the fetch. Everything else here
+Declares a device the controller cannot see. A controller only reports what it
+manages, so this covers an unmanaged switch with no management plane, a fully
+managed third-party switch, and UniFi gear that was powered off when you ran the
+fetch, all for the same reason. Everything else here
 corrects a node that exists; this one creates it.
 
 | Key | Required | Meaning |
