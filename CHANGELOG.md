@@ -97,6 +97,9 @@ Nothing yet.
   `SECURITY.md` explains UniFi will not issue one; the rendering issue template
   still said overrides were unimplemented; and `--per-network` was described as
   per-VLAN when it iterates client networks, which need not have a VLAN.
+- The informal register is confined to `README.md`, `AI_DISCLOSURE.md` and
+  `HUMAN_INPUT.md`, and kept out of `SECURITY.md`, `docs/` and `examples/`,
+  which had picked some up. The tiering is written down in `CLAUDE.md`.
 - Global options are accepted after the subcommand as well as before it, so
   `unifi-map all --support-file X.tgz` works. It did not: those options were
   attached only to the top-level parser, which made every `--support-file`
