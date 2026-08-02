@@ -33,6 +33,14 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Changed
 
+- Dependabot auto-merge holds anything whose update type it cannot identify,
+  rather than merging it. The condition asked "is this not a major bump", which
+  treats an empty or unrecognised value as safe, so anything leaving
+  `update-type` unpopulated made the step an unconditional merge. Not
+  hypothetical: `fetch-metadata` resolved `update-type` to null for Python pull
+  requests until v3.1.0, and Python dependencies are what this repository
+  tracks. It now asks "is this a minor or patch bump", so an unknown value
+  merges nothing.
 - `RELEASING.md` describes the process as it now is, and no longer counts how
   many times anything has happened. Two of those counts were simply wrong (the
   files carrying a version promise, and how far the demo screenshots had

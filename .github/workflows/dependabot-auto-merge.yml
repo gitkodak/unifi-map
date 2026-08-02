@@ -28,6 +28,10 @@ jobs:
     # Anyone can open a pull request. Only Dependabot's get this treatment.
     if: github.actor == 'dependabot[bot]'
     steps:
+      # This action is the guard's own dependency, which makes it the one bump
+      # in this repository worth reading rather than waving through: a change to
+      # what it outputs changes what the condition below does, and nothing fails
+      # while that happens.
       - name: Read what kind of update this is
         id: meta
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
@@ -38,7 +42,21 @@ jobs:
         # requests and Pillow, where a major version can change behaviour in
         # ways a passing test suite will not necessarily reveal. Those deserve a
         # look at the changelog rather than a green tick.
-        if: steps.meta.outputs.update-type != 'version-update:semver-major'
+        #
+        # Written as "is one of the safe kinds" rather than "is not major",
+        # which matters more than it reads. `!= major` treats an empty or
+        # unrecognised value as safe, so anything that leaves `update-type`
+        # unpopulated turns this into an unconditional merge, majors included.
+        # That was not hypothetical: fetch-metadata resolved `update-type` to
+        # null for Python pull requests until v3.1.0 fixed it, and Python
+        # dependencies are exactly what this repository tracks.
+        #
+        # Stated positively, an unknown value merges nothing. The failure is
+        # then a bump sitting unmerged, which somebody notices, rather than one
+        # merging itself, which nobody does.
+        if: >-
+          steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+          steps.meta.outputs.update-type == 'version-update:semver-patch'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
