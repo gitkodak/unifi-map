@@ -1,7 +1,20 @@
 # Output formats and options
 
-The formats beyond the diagrams, and the flags that change how a run
-behaves rather than what it draws.
+Every format `-f` accepts, and the flags that change how a run behaves rather
+than what it draws.
+
+| Format | Why |
+| --- | --- |
+| `svg` | Vector. Zoom to any size, labels stay crisp. Artwork is embedded, so it's one portable file. |
+| `pdf` | Vector, for printing. |
+| `png` | Raster, when something insists on it. |
+| `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net). Lucid also documents `.drawio` import, though that has not been tried. |
+| `dot` | Graphviz source, to tweak styling by hand. |
+| `mermaid` | Text that GitHub, GitLab and most wikis draw in place. No artwork; shape only. [More below](#mermaid-for-documentation). |
+| `json` | The normalised topology, for programs rather than people. [More below](#json-for-programs). |
+
+`svg`, `pdf`, `png` and `dot` are all Graphviz doing the drawing and need
+nothing said about them beyond that row. The two below do.
 
 ## JSON, for programs
 

@@ -209,22 +209,26 @@ class TestDocumentedCommandsActuallyRun:
         assert not broken, "README commands that do not parse:\n  " + "\n  ".join(broken)
 
 
-def test_every_output_format_is_in_the_readme_table():
-    """`## Output` must list every format `-f` accepts.
+def test_every_output_format_is_documented():
+    """Both places a reader meets the format list must name all of them.
 
-    `test_every_flag_is_mentioned_in_the_readme` checks flag *names*, not the
-    *values* a flag takes, so `ALL_FORMATS` grew twice without that table
-    noticing. Scoped to the section rather than the whole file: a format
-    mentioned in passing elsewhere is not the same as being listed where a
-    reader goes to find out what the tool can produce.
+    The README answers "what does this produce" in a sentence; `docs/output.md`
+    is the reference and its title promises every format. Each fell behind once:
+    the README table listed five of seven after mermaid and json were added, and
+    the reference page covered two of seven after the split, because it was
+    carved from the sections that happened to need prose.
     """
     from unifi_map.cli import ALL_FORMATS
 
-    text = README.read_text(encoding="utf-8")
-    start = text.index("## Output")
-    section = text[start : text.index("\n## ", start + 1)]
-    missing = [f for f in ALL_FORMATS if f"`{f}`" not in section]
-    assert not missing, f"formats absent from the Output table: {missing}"
+    readme = README.read_text(encoding="utf-8")
+    start = readme.index("## Output")
+    summary = readme[start : readme.index("\n## ", start + 1)]
+    missing = [f for f in ALL_FORMATS if f"`{f}`" not in summary]
+    assert not missing, f"formats absent from the README summary: {missing}"
+
+    reference = (ROOT / "docs" / "output.md").read_text(encoding="utf-8")
+    missing = [f for f in ALL_FORMATS if f"| `{f}` |" not in reference]
+    assert not missing, f"formats absent from the docs/output.md table: {missing}"
 
 
 class TestEveryOverrideBlockIsDocumented:
