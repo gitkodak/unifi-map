@@ -154,6 +154,51 @@ class TestDocumentedCommandsActuallyRun:
         assert not broken, "README commands that do not parse:\n  " + "\n  ".join(broken)
 
 
+class TestEveryOverrideBlockIsDocumented:
+    """Each `[[block]]` the loader accepts must appear in both override docs.
+
+    `[[device]]` was implemented, tested, described in `README.md` and
+    `CLAUDE.md`, and used in the demo overrides, while `docs/overrides.md` and
+    `examples/overrides.toml` never mentioned it. Nothing failed, because
+    nothing tied the loader's vocabulary to the documents describing it. An
+    external review found it; this finds the next one.
+    """
+
+    # The loader reads exactly these top-level tables.
+    BLOCKS: ClassVar = ["device", "link", "hosted", "node"]
+
+    def test_the_block_list_still_matches_the_loader(self):
+        # Guards the list above: a new block type must fail here rather than
+        # silently narrow every assertion below it.
+        source = (
+            Path(__file__).resolve().parents[1] / "src" / "unifi_map" / "overrides.py"
+        ).read_text(encoding="utf-8")
+        found = set(re.findall(r'payload\.get\("(\w+)"\)', source))
+        assert found == set(self.BLOCKS), f"loader reads {sorted(found)}, list says {self.BLOCKS}"
+
+    @pytest.mark.parametrize("block", BLOCKS)
+    def test_the_reference_doc_has_a_section(self, block):
+        text = (Path(__file__).resolve().parents[1] / "docs" / "overrides.md").read_text(
+            encoding="utf-8"
+        )
+        assert f"### `[[{block}]]`" in text, f"docs/overrides.md has no [[{block}]] section"
+
+    @pytest.mark.parametrize("block", BLOCKS)
+    def test_the_example_file_shows_one(self, block):
+        text = (Path(__file__).resolve().parents[1] / "examples" / "overrides.toml").read_text(
+            encoding="utf-8"
+        )
+        assert f"[[{block}]]" in text, f"examples/overrides.toml has no [[{block}]] example"
+
+    def test_the_example_file_actually_parses(self):
+        # A template nobody runs is a template that has quietly stopped working.
+        from unifi_map.overrides import load
+
+        path = Path(__file__).resolve().parents[1] / "examples" / "overrides.toml"
+        result = load(path)
+        assert result.devices and result.links and result.hosted and result.nodes
+
+
 def test_the_generated_flag_reference_is_current():
     """`make docs` must have been run. Same pattern as the metrics docs in the
     sibling exporter repo: generate, then fail if the tree changed.

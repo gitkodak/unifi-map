@@ -282,6 +282,12 @@ headings, check what was in between.
   ongoing maintenance for a dev-only benefit, and Dependabot plus the advisory
   job cover staying current. Revisit if this ever ships releases people install.
 
+  **This is the declined security-review finding** that `SECURITY.md` and
+  `AI_DISCLOSURE.md` both point here for, so keep the reasoning legible if it
+  moves. It is the only one left: the other decline, against tightening the
+  support-file size caps without data from a large site, stopped being a
+  decline when the caps became adjustable and the defaults dropped to 64M/128M.
+
 - **Draw our own device icons instead of falling back to Graphviz shapes.**
   `KIND_SHAPE` currently maps each role to a primitive: `doubleoctagon` for a
   gateway, `box3d` for a switch, `trapezium` for an AP, `diamond` for unknown.

@@ -48,6 +48,11 @@ Refactors, docs and tests alone do not need a release at all.
   framing the wrong part of the map. The two existing screenshots are refreshed
   by the same run; both predated the ISP mark on the Internet node and were
   visibly the wrong shape.
+- `docs/overrides.md` and `examples/overrides.toml` document `[[device]]`,
+  which they had both missed entirely despite it being implemented, tested and
+  described everywhere else. Tests now tie every block the loader accepts to a
+  section in the reference and an example in the template, and check that the
+  template still parses.
 - A flag reference at the bottom of the README, generated from the argument
   parser rather than written, so it cannot drift from `--help`. The flags are
   still explained in context where they are relevant; this is for looking one

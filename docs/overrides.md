@@ -39,6 +39,33 @@ takes comments, and it's pleasant to hand-edit. No new dependency.
 
 See [`examples/overrides.toml`](../examples/overrides.toml) for a working file.
 
+### `[[device]]`
+
+Declares a device nothing reports: an unmanaged switch, a non-UniFi access
+point, or gear that was powered off when you ran the fetch. Everything else here
+corrects a node that exists; this one creates it.
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `name` | yes | Label on the map, and what other blocks select it by |
+| `kind` | yes | `gateway`, `switch`, `ap`, `bridge`, `wired_client`, `wireless_client` or `unknown` |
+| `ip` | no | Address, shown under the name |
+| `model` | no | Model string, shown under the address |
+| `parent` | no | Selector for what it hangs off. Without one it floats. |
+| `port` | no | Port on the parent, for the edge label. Needs a `parent`. |
+| `icon` | no | Path to artwork you supply |
+| `note` | no | Free text |
+
+Declared devices are added before every other override, so a `[[link]]`, a
+`[[hosted]]` or a `[[node]]` can reference one, and one declared device can hang
+off another. Their ids are prefixed `asserted-`, which stops a device named
+after a MAC from shadowing a real node.
+
+They render with a **dotted outline**, the same reason asserted links render
+dotted: a map must never present something you typed in as though a controller
+had reported it. Offline devices use dashes and asserted ones use dots, so the
+two stay distinguishable without relying on colour.
+
 ### `[[link]]`
 
 | Key | Required | Meaning |

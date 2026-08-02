@@ -6,6 +6,23 @@
 # Selectors (`from`, `to`, `guest`, `host`) accept a MAC, an IP, or a
 # hostname/device name as shown on the map.
 
+# --- Devices nothing reports -------------------------------------------------
+# An unmanaged switch has no management plane, so no controller can know it is
+# there. Declared devices are drawn with a dotted outline, and are added before
+# every other override, so the blocks below can reference this one by name.
+
+[[device]]
+name = "Basement dumb switch"
+kind = "switch"              # gateway, switch, ap, bridge, wired_client,
+                             # wireless_client or unknown
+ip = "10.0.0.9"              # optional
+model = "NETGEAR GS308"      # optional, shown under the name
+parent = "Core Switch"       # optional; without it the device floats
+port = 24                    # optional, needs a parent
+note = "No management at all, bought years ago."
+# icon = "artwork/gs308.png" # optional, your own artwork
+
+
 # --- Links the controller cannot see -----------------------------------------
 # A direct connection the controller does not participate in. Without this the
 # NAS can only be anchored to "uplink not reported by controller".
