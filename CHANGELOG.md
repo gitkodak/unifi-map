@@ -98,6 +98,12 @@ told something untrue and may have acted on it.
   generated flag reference lives in `docs/usage.md`. It caught fourteen links
   the split broke silently.
 
+- Two released sections described one change twice. 0.7.0 had two entries for
+  `unifi-map shape`, written days apart; 0.6.0 had two for `RELEASING.md` that
+  contradicted each other, one saying a fix had been claimed and never made and
+  the other making that same claim. Both are merged. A test now fails when a
+  release describes the same subject twice, with genuinely separate changes to
+  one thing listed as exceptions rather than the rule loosened.
 - The artwork page lists user-supplied artwork among its sources. An `icon` in
   an overrides file is where a picture comes from when none of Ubiquiti's
   catalogues has one, and it is the only source that works under `--offline`.
@@ -166,11 +172,6 @@ told something untrue and may have acted on it.
   map. Exits non-zero on the first selector matching nothing or several things,
   which makes it usable in a hook or in CI. A missing file is an error rather
   than a pass.
-- `unifi-map shape` reports artwork resolution rates, topology depth, the
-  Graphviz version and the offline device count. The artwork counts were already
-  computed and discarded as log lines, and they measure the most fragile join in
-  the tool. Depth because fan-out alone does not distinguish a flat network from
-  a daisy chain. Graphviz version because layout differs between them.
 - `unifi-map shape`, which prints a short plain-text description of the shape
   of a network: counts, fan-out, which field names the controller returns, and
   versions. Meant for a bug report or for the features that are stuck waiting on
@@ -185,6 +186,13 @@ told something untrue and may have acted on it.
   It asks before producing anything, printing what it does and does not collect,
   and `--yes` skips that once read. A non-interactive run without `--yes`
   refuses rather than assuming: a cron job has nobody to consent on behalf of.
+
+  It reports counts and fan-out, topology depth, artwork resolution rates, the
+  Graphviz version and the offline device count. The artwork numbers were
+  already computed and thrown away as log lines, and they measure the most
+  fragile join in the tool; depth because fan-out alone does not distinguish a
+  flat network from a daisy chain; the Graphviz version because layout differs
+  between them.
 
   Pointed at an archive with `--support-file` it reads that directly rather
   than the cache, and adds how much there was to walk, how many entries, and
@@ -241,11 +249,16 @@ told something untrue and may have acted on it.
 
 ### Fixed
 
-- `RELEASING.md` actually tells you to check CI now. The previous entry claimed
-  this was corrected when `gh` was installed; the changelog said so and the file
-  still said CI could not be checked from here. The instruction now runs
-  `gh run watch`, and says to read the per-job output because `Dependency
-  advisories` is `continue-on-error` and reports success having failed inside.
+- `RELEASING.md` describes the process as it now is. Four things in it were
+  wrong. It said to rename `## Unreleased` away at release, which would delete
+  the section `CONTRIBUTING.md` tells contributors to use. It never mentioned
+  `make docs`, which is mandatory now that the man page carries the version. It
+  said CI could not be checked from here, which stopped being true once `gh` was
+  installed; the instruction now runs `gh run watch` and says to read the
+  per-job output, because `Dependency advisories` is `continue-on-error` and
+  reports success having failed inside. And it counted how many times things had
+  happened, where two of the counts were wrong and none told a reader anything
+  the sentence did not.
 - `CLAUDE.md` said the `sane` layout alias goes in 0.5.0. It goes in 0.6.0,
   which the code, the tests and the changelog all said; that one heading was
   missed when the promise moved.
@@ -265,14 +278,6 @@ told something untrue and may have acted on it.
   requests until v3.1.0, and Python dependencies are what this repository
   tracks. It now asks "is this a minor or patch bump", so an unknown value
   merges nothing.
-- `RELEASING.md` describes the process as it now is. Three things in it were
-  wrong: it said to rename `## Unreleased` away at release, which would delete
-  the section `CONTRIBUTING.md` tells contributors to use; it never mentioned
-  `make docs`, which is mandatory now that the man page carries the version; and
-  it said CI could not be checked from here, which stopped being true when `gh`
-  was installed. It also no longer counts how many times anything has happened,
-  since two of those counts were wrong and none of them told a reader anything
-  the sentence did not.
 - A test asserts the man page header carries a real date. The date comes from
   the changelog entry for the current version, so bumping `__version__` before
   dating that section produced an empty one, and the regenerate-and-compare

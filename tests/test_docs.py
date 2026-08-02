@@ -491,3 +491,31 @@ def test_no_changelog_section_is_declared_twice():
         name = block.splitlines()[0].strip()
         subs = re.findall(r"^### (.+)$", block, re.M)
         assert len(subs) == len(set(subs)), f"section {name!r} repeats a heading: {subs}"
+
+
+def test_no_release_describes_the_same_subject_twice():
+    """Two entries opening on the same thing are usually one change, twice.
+
+    Not a style rule. In 0.7.0 `unifi-map shape` was described in two entries
+    written days apart, and in 0.6.0 the two `RELEASING.md` entries actively
+    contradicted each other: one said a fix had been claimed and never made,
+    the other made that same claim. A reader got both and could not tell which
+    was true.
+
+    Genuinely separate changes to one thing are allowed and do happen, so the
+    exceptions are listed rather than the rule loosened.
+    """
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    # Two distinct improvements to the same flag in one release, not a repeat.
+    allowed = {("0.3.0", "--obfuscate")}
+
+    offenders = []
+    for match in re.finditer(r"^## (\d+\.\d+\.\d+)", text, re.M):
+        body = text[match.end() :]
+        following = re.search(r"^## ", body, re.M)
+        body = body[: following.start()] if following else body
+        subjects = re.findall(r"^- `([^`]+)`", body, re.M)
+        for subject in set(subjects):
+            if subjects.count(subject) > 1 and (match.group(1), subject) not in allowed:
+                offenders.append(f"{match.group(1)}: {subject}")
+    assert not offenders, f"one change described more than once: {sorted(offenders)}"
