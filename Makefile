@@ -1,5 +1,5 @@
 .PHONY: help check format lint test map fetch render sane offline dark demo \
-        demo-overrides demo-images demo-snapshot clean
+        demo-overrides demo-images demo-snapshot docs clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -17,6 +17,7 @@ help:
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
 	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
+	@echo "make docs           regenerate the README flag reference from the parser"
 	@echo "make dark     render from cache in the dark theme"
 	@echo "make clean    remove out/ and caches"
 
@@ -29,6 +30,9 @@ check: $(VENV)
 	$(PY) -m ruff format --check .
 	$(PY) -m ruff check .
 	$(PY) -m pytest -q
+
+docs: $(VENV)
+	$(PY) scripts/generate_cli_docs.py
 
 format: $(VENV)
 	$(PY) -m ruff format .

@@ -48,6 +48,12 @@ Refactors, docs and tests alone do not need a release at all.
   framing the wrong part of the map. The two existing screenshots are refreshed
   by the same run; both predated the ISP mark on the Internet node and were
   visibly the wrong shape.
+- A flag reference at the bottom of the README, generated from the argument
+  parser rather than written, so it cannot drift from `--help`. The flags are
+  still explained in context where they are relevant; this is for looking one
+  up. `make docs` regenerates it and a test fails if it is stale.
+- `--out-dir` and `-v` have help text. They had none, so they were missing from
+  `--help` output as well as from every reference.
 - Clients with no reported uplink are now counted in the output, with a pointer
   to overrides as the way to place them. The "Uplink not reported by controller"
   placeholder said what had happened but never that it was fixable, so the tool

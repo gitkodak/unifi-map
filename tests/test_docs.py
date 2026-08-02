@@ -64,12 +64,28 @@ def test_the_feature_list_is_the_first_section():
 _FLAGS_NOT_NEEDING_PROSE = {"--help", "--version", "--formats", "--verbose"}
 
 
+def _readme_prose() -> str:
+    """The README with the generated flag table removed.
+
+    The table lists every flag by construction, so leaving it in would make
+    `test_every_flag_is_mentioned_in_the_readme` pass no matter what. That test
+    is about a flag being *explained*, which only the prose does.
+    """
+    text = (DOCS[0]).read_text(encoding="utf-8")
+    start = text.find("<!-- BEGIN GENERATED FLAGS -->")
+    return text if start == -1 else text[:start]
+
+
 def test_every_flag_is_mentioned_in_the_readme():
     """A flag nobody documents is a flag nobody finds.
 
     Three flags were added in one sitting and none reached the README until a
     drift audit went looking, which is exactly the kind of thing that should not
     depend on somebody remembering.
+
+    Checked against the prose only. The generated reference at the bottom
+    contains every flag automatically, so counting it would retire this test
+    without anyone noticing.
     """
     import argparse
 
@@ -85,7 +101,7 @@ def test_every_flag_is_mentioned_in_the_readme():
                     collect(sub)
 
     collect(build_parser())
-    readme = (DOCS[0]).read_text(encoding="utf-8")
+    readme = _readme_prose()
     missing = sorted(f for f in flags - _FLAGS_NOT_NEEDING_PROSE if f not in readme)
     assert not missing, f"flags absent from README.md: {missing}"
 
@@ -104,9 +120,17 @@ class TestDocumentedCommandsActuallyRun:
     # is executed, only parsed.
     _COMMAND = re.compile(r"^\s*(unifi-map .+?)(?:\s+#.*)?$", re.M)
 
+    # A synopsis such as `unifi-map [global options] {fetch,render,all}` is not
+    # a command; the brackets and braces are metasyntax, not arguments.
+    _SYNOPSIS = re.compile(r"[\[\]{}]")
+
     def _commands(self) -> list[str]:
         text = DOCS[0].read_text(encoding="utf-8").replace("\\\n", " ")
-        found = [m.group(1).strip() for m in self._COMMAND.finditer(text)]
+        found = [
+            m.group(1).strip()
+            for m in self._COMMAND.finditer(text)
+            if not self._SYNOPSIS.search(m.group(1))
+        ]
         assert len(found) > 15, f"only found {len(found)} commands; did the regex rot?"
         return found
 
@@ -128,6 +152,31 @@ class TestDocumentedCommandsActuallyRun:
             except SystemExit:
                 broken.append(command)
         assert not broken, "README commands that do not parse:\n  " + "\n  ".join(broken)
+
+
+def test_the_generated_flag_reference_is_current():
+    """`make docs` must have been run. Same pattern as the metrics docs in the
+    sibling exporter repo: generate, then fail if the tree changed.
+
+    Without this the reference rots exactly like a hand-written one, except it
+    also *claims* to be generated, which is worse than not having it.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "generate_cli_docs",
+        Path(__file__).resolve().parents[1] / "scripts" / "generate_cli_docs.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    text = (DOCS[0]).read_text(encoding="utf-8")
+    start = text.find(module.BEGIN)
+    end = text.find(module.END)
+    assert start != -1 and end != -1, "README.md has no generated flag reference; run `make docs`"
+    assert text[start : end + len(module.END)] == module.render(), (
+        "README.md flag reference is out of date. Run `make docs`."
+    )
 
 
 class TestSharedOptionsWorkInEitherPosition:

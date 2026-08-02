@@ -381,6 +381,14 @@ headings, check what was in between.
   `UDM_PASS`, dead since password auth was removed and read by nothing.
 
 - **A man page, generated from the source rather than written twice.**
+  **Committed to for the next version bump** (0.5.0), deliberately decoupled
+  from the PyPI question: `man ./unifi-map.1` works from a clone, so there is no
+  reason to wait on packaging. The groundwork is done, in that
+  `scripts/generate_cli_docs.py` already walks `build_parser()` and `make docs`
+  plus `test_the_generated_flag_reference_is_current` already enforce the
+  regenerate-then-fail-if-stale loop; the man page should reuse both rather than
+  invent a second mechanism.
+
   `build_parser()` in `cli.py` is already the single source of truth for every
   flag and its help text, so the man page should come from it. Hand-writing one
   guarantees it goes stale, which is worse than not having one.

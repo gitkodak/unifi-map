@@ -833,8 +833,20 @@ def build_parser() -> argparse.ArgumentParser:
         "output is not a terminal, so this is only needed for an interactive "
         "run whose output something else is reading.",
     )
-    shared.add_argument("--out-dir", type=Path, default=argparse.SUPPRESS)
-    shared.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS)
+    shared.add_argument(
+        "--out-dir",
+        type=Path,
+        default=argparse.SUPPRESS,
+        help=f"Where diagrams are written (default: {DEFAULT_OUT})",
+    )
+    shared.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Log every artwork lookup, including the ones that found nothing, "
+        "and name nodes that --obfuscate would otherwise hide.",
+    )
 
     parser = _Parser(
         prog="unifi-map",

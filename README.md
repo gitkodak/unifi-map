@@ -849,6 +849,10 @@ parts you typed in.
 - **An infrastructure view** alongside the topology view: gateway, switches, APs
   and their uplinks presented as a rack/cabling diagram rather than a client
   tree. `--no-clients` is a rough approximation of this today.
+- **A man page**, generated from the same argument parser the flag reference
+  below comes from, so `man unifi-map` works after an install. Committed for the
+  next release. It does not wait on packaging: a man page is useful to anyone
+  who cloned the repository, whether or not this is ever on PyPI.
 
 ## Artwork, licensing and attribution
 
@@ -948,3 +952,66 @@ a known limitation.
 - `cache/` holds a MAC, hostname and IP inventory of every device on your
   network. It's gitignored and written `0600`. Don't commit it or paste it into
   an issue.
+
+<!-- BEGIN GENERATED FLAGS -->
+
+## Flag reference
+
+Generated from the argument parser by `scripts/generate_cli_docs.py`, so it
+cannot drift from `--help`. Each flag is explained in context further up;
+this is for looking one up. Run `unifi-map --help` for the same thing in a
+terminal.
+
+```
+unifi-map [global options] {fetch,render,all} [command options]
+```
+
+Global options are accepted on either side of the subcommand, so
+`unifi-map all --support-file X` and `unifi-map --support-file X all` are
+equivalent. Command options must follow the subcommand.
+
+### Global options
+
+| Flag | What it does | Default |
+| --- | --- | --- |
+| `--env-file` | Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi-map/env) |  |
+| `--cache-dir` | Where controller snapshots are read/written (default: cache) | `cache` |
+| `--asset-cache` | Where downloaded artwork is cached (default: cache/assets). Kept separate from --cache-dir so a read-only snapshot directory stays clean. | `cache/assets` |
+| `--support-file` `PATH` | Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and no network access. |  |
+| `--site` `NAME` | Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi-site support file. Without it, a live fetch uses UNIFI_SITE or `default`, and a support file uses the site with the most devices. |  |
+| `--support-max-member` `SIZE` | Largest single file to decode from a support archive (default 64M). Accepts a plain number or a K/M/G suffix. Raise it if a large site is refused. | `64M` |
+| `--support-max-total` `SIZE` | Total to decode from a support archive across all files (default 128M). | `128M` |
+| `--support-max-entries` `N` | How many archive entries to walk before giving up (default 100000). Separate from the size caps because entry count does not follow the bytes decoded. | `100000` |
+| `--fetch-fingerprints` | Allow downloading Ubiquiti's client fingerprint database, which is what gives clients real product artwork when reading a support file. Off by default: reading a support file otherwise contacts nothing. |  |
+| `--fetch-icon-font` | With --support-file, also fetch the generic client glyph font from a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because Ubiquiti publish no copy of that font. Off by default. |  |
+| `--icon-font` `DIR` | Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See the README. |  |
+| `--no-progress` | Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading. |  |
+| `--out-dir` | Where diagrams are written (default: out) | `out` |
+| `-v`, `--verbose` | Log every artwork lookup, including the ones that found nothing, and name nodes that --obfuscate would otherwise hide. |  |
+| `--version` | show program's version number and exit |  |
+
+`fetch` takes only the global options above.
+
+
+### `render` and `all` options
+
+| Flag | What it does | Default |
+| --- | --- | --- |
+| `-f`, `--formats` `svg\|pdf\|png\|dot\|drawio` | Output formats (default: svg drawio) | `svg drawio` |
+| `--icons` `unifi\|builtin` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
+| `--layout` `sane\|unifi` | unifi: left-to-right tree like the UniFi UI, no port labels. sane: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
+| `--theme` `dark\|light` | Colour theme (default: light) | `light` |
+| `--offline` | Never reach the network for artwork; use only what is already cached |  |
+| `--name` | Output filename stem | `network-map` |
+| `--force` | Overwrite output files that unifi-map did not write. Without this, an existing .dot or .drawio it does not recognise is left alone, so a diagram you have edited by hand is not silently replaced. |  |
+| `--overrides` | Manual corrections: links the controller cannot see, nesting, renames, your own artwork, and hiding. Defaults to overrides.toml when that file exists |  |
+| `--obfuscate` | Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared |  |
+| `--title` | Diagram title (default: Network map). Note that --obfuscate cannot clean a title you supply yourself |  |
+| `--no-clients` | Infrastructure only, no clients |  |
+| `--show-offline` `yes\|no` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
+| `--per-network` | Also emit one diagram per client network, which keeps a busy map readable |  |
+| `--legend`, `--no-legend` | Show the legend (default: on for --layout sane, off for --layout unifi) |  |
+| `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout sane, off for --layout unifi) |  |
+| `--stagger` `N` | With --layout sane, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12) | `12` |
+
+<!-- END GENERATED FLAGS -->
