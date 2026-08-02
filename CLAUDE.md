@@ -257,11 +257,12 @@ Restored after being deleted by accident in 9b18a1a, where a section replacement
 spanned two headings and took this with it. If you replace a range between
 headings, check what was in between.
 
-### Proposals from an external review, with assessments
+### Proposals from two external reviews, with assessments
 
-Six suggestions from agy, 2026-08-02, recorded with what was thought about them
-so the thinking is not redone. Ordered by how well they fit what is already
-here, which is not the order they arrived in.
+From agy and from Codex, both 2026-08-02, recorded with what was thought about
+them so the thinking is not redone. They overlap heavily, which is itself
+information: the same three ideas arrived independently. Merged rather than
+listed twice, and ordered by fit rather than by arrival.
 
 - **A `diff` subcommand**, comparing two cached snapshots and reporting what
   moved. The strongest of the set. Snapshots are already immutable, timestamped
@@ -271,11 +272,61 @@ here, which is not the order they arrived in.
   already calls each snapshot "a record of what the network looked like at that
   moment" and nothing currently reads one that way.
 
-  **Prerequisite, and it is a real one:** randomised client MACs, listed below
-  as its own gap. Every join here is on MAC, so a phone rotating its address
-  appears as one device leaving and another arriving. A diff would report that
-  as churn on every run and be ignored within a week. Solve the MAC problem
-  first or the feature is noise.
+  **Two prerequisites, and the first was missed when this was first written
+  here.** `Snapshot.write()` writes `cache_dir/<name>.json` every time, so each
+  fetch overwrites the last and there is no history to diff against. Something
+  has to retain snapshots first, as a timestamped mode rather than a changed
+  default, since the current behaviour is documented and deliberate. Codex
+  caught this; the entry originally named only the second blocker, which is a
+  fair reminder that "fits the existing design" is not the same as "the data is
+  there".
+
+  The second is randomised client MACs, listed below as its own gap. Every join
+  here is on MAC, so a phone rotating its address appears as one device leaving
+  and another arriving. A diff would report that as churn every run and be
+  ignored within a week.
+
+- **A diagnostic report**, `--report` or `inspect`, saying how good the map it
+  just drew actually is: how many nodes came from which endpoint, which clients
+  were placed from `stat/sta` versus the topology graph versus an override,
+  which could not be placed and why, artwork matches that were ambiguous and
+  refused, networks referenced by a client but absent from `networkconf`.
+
+  Codex picked this as the best near-term work and I agree, with one thing worth
+  noticing: **it merges two gaps already listed below**, "no reconciliation
+  report" and "provenance and confidence". They are the same feature seen from
+  two ends, and the second is what makes the first worth reading. Most of the
+  decisions are already made at runtime and thrown away as log lines.
+
+- **A normalised JSON export** of `Topology` itself, not the raw controller
+  responses. Cheap, because the model is already the stable thing and the raw
+  payloads are the unstable ones, and it is the honest way to let somebody build
+  an inventory check or a Home Assistant integration without learning UniFi's
+  schemas. Must honour `--obfuscate`, overrides and per-network filtering, and
+  should carry the provenance fields the report above would need, which is an
+  argument for doing them together.
+
+- **Generalised filters**: `--kind switch ap`, `--wireless-only`, `--guest-only`,
+  and most usefully `--root "Rack Switch"` for a subtree of a large map.
+  `--per-network` is a special case of this and already does the hard part,
+  which is keeping the ancestor path back to the gateway so a slice still reads
+  as part of one network.
+
+- **Multi-site handling, and a `sites` command.** Worth pairing: a multi-site
+  support file is now refused with a list of the sites in it, which is correct
+  but leaves discovery to an error message. A `sites` subcommand would make it
+  answerable before the failure. `--all-sites` is the natural companion, with a
+  separate cache directory per site, and both want testing against a real
+  multi-site console before the shape is fixed, since that is still untested.
+
+- **Historical clients**, opt-in and visibly dated. Codex's caveat is the right
+  one and matches the rules here: an old association is not evidence of where
+  something is now, so a stale client must never be drawn as a current link. If
+  it cannot be made obviously historical it should not be drawn at all.
+
+- **`overrides check`**, validating selectors without rendering anything. Small
+  and clearly useful: overrides fail loudly by design, and today the only way to
+  find out is to render. Pairs with the candidates generator below.
 
 - **`generate-overrides`**, emitting a skeleton `overrides.toml` seeded with the
   nodes the tool could not place. Closes a loop that is currently half open: the
@@ -444,7 +495,14 @@ here, which is not the order they arrived in.
   | Speed, media | `port_table[].speed` and `.media` (`SFP+`, `2P5GE`, `FE`) |
   | WAN cards | `stat/health` WAN subsystems, or `ispData` from a support file |
 
-  So this is a rendering job, not a data-gathering one. The parts that need
+  **`Edge` is not shaped for it, though.** It carries `label: str | None`, a
+  display string like "port 12", and the view needs a badge at each end with a
+  port number, a speed and a medium. Structured fields on `Edge`, with the label
+  derived from them rather than stored instead of them, is the change that has
+  to come first. Codex noticed this and it is the one piece of the view that is
+  not just drawing.
+
+  Otherwise this is a rendering job, not a data-gathering one. The parts that need
   thought are the two-badges-per-edge layout, which Graphviz has no direct
   notion of (head and tail labels are the closest), and whether this becomes a
   third `--layout` or a separate output.
