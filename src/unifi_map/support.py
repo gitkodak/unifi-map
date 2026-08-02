@@ -153,7 +153,8 @@ def _read_members(
         # that now takes minutes looks identical to one that has hung.
         log.warning(
             "Walking up to %s archive entries (the default is %s). This can take "
-            "a while on a large archive, and there is no output until it finishes.",
+            "a while on a large archive, and produces no output until it finishes "
+            "if the spinner is disabled.",
             f"{max_entries:,}",
             f"{MAX_ARCHIVE_ENTRIES:,}",
         )

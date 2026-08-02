@@ -42,8 +42,12 @@ Refactors, docs and tests alone do not need a release at all.
 
 - The README shows the demo with the example overrides applied, so what an
   asserted device and an asserted link actually look like is visible without
-  running anything. `make demo-images` regenerates the committed demo PNGs from
-  the demo dataset, which is what keeps them from drifting.
+  running anything. `make demo-images` regenerates every committed demo PNG,
+  including a detail crop whose bounds are computed from the layout rather than
+  fixed pixel coordinates, so it follows the overrides instead of silently
+  framing the wrong part of the map. The two existing screenshots are refreshed
+  by the same run; both predated the ISP mark on the Internet node and were
+  visibly the wrong shape.
 - `--site NAME` selects the site from the command line, for a live fetch as
   well as a support file. It overrides `UNIFI_SITE`, so a script can loop over
   sites without re-exporting a variable per invocation. `--support-site` still
@@ -58,8 +62,8 @@ Refactors, docs and tests alone do not need a release at all.
   size caps guard memory and this one guards time, since entry count does not
   follow the bytes decoded, and all three now behave the same way.
 - Raising `--support-max-entries` above the default warns that the run may take
-  a while, since walking a larger archive prints nothing until it finishes and
-  is otherwise indistinguishable from a hang.
+  a while, since walking a larger archive prints nothing until it finishes when
+  the spinner is disabled, and is then indistinguishable from a hang.
 - `RELEASING.md` documents how a version actually goes out, written after doing
   it by hand twice rather than invented in advance. Two tests enforce the parts
   that have gone wrong: the changelog must have a section for the version the

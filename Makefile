@@ -66,20 +66,12 @@ demo-overrides: $(VENV)
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
 
-# The three demo images committed under docs/images/, regenerated from the
-# demo dataset so the README cannot drift from what the tool actually draws.
-# Not run by `make check`: they are large binaries, and a rendering change
-# should update them deliberately rather than dirty the tree on every build.
-# example-obfuscated-dark.png is not here; it comes from a real network.
+# The demo images committed under docs/images/. Not run by `make check`: they
+# are large binaries, and a rendering change should update them deliberately
+# rather than dirty the tree on every build. See the script for what is
+# generated and why the crop is computed rather than hard-coded.
 demo-images: $(VENV)
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir docs/images \
-		render -f png --theme dark --name example-unifi-dark
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir docs/images \
-		render -f png --theme dark --layout sane --name example-sane-dark \
-		--title "Demo network"
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir docs/images \
-		render -f png --theme dark --overrides examples/demo/overrides.toml \
-		--name example-overrides-dark --title "Demo network, with overrides"
+	$(VENV)/bin/python scripts/make_demo_images.py
 
 demo-snapshot:
 	python3 scripts/make_demo_snapshot.py

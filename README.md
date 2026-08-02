@@ -458,8 +458,10 @@ open an issue saying so, because a second data point would be worth more than
 the reasoning that picked these.
 
 Raising `--support-max-entries` prints a warning first, because the cost is
-otherwise invisible: walking a much larger archive produces no output until it
-finishes, so a slow run and a hung one look identical.
+easy to miss. With the spinner running you can at least see the step is still
+going; with `--no-progress`, or piped to a file, walking a much larger archive
+produces no output at all until it finishes, so a slow run and a hung one look
+identical.
 
 ## Progress, and turning it off
 
@@ -797,16 +799,21 @@ that matches nothing, or several nodes, stops the run rather than being ignored.
 Anything you assert is drawn **dotted**, and the legend says so, so a claim of
 yours is never mistaken for something the controller reported.
 
-![The demo network with the example overrides applied](docs/images/example-overrides-dark.png)
+![A detail of the demo map showing asserted devices and links drawn dotted](docs/images/example-overrides-detail.png)
 
-*The shipped demo with `examples/demo/overrides.toml` applied, which
-`make demo-overrides` renders and `make demo-images` regenerates. Around the
-Rack Switch: the dotted-outlined **Bench switch** is declared by
-`[[device]]` and no source reports it, **reverse-proxy** hangs off a dotted
-asserted link rather than the placeholder it lands on without one,
-**build-runner** is nested inside **hypervisor**, and **Label printer** was
-renamed from the fingerprint's guess. A guest phone is hidden, so this map has
-one client fewer than the ones above.*
+*A detail of the demo map with `examples/demo/overrides.toml` applied. **Bench
+switch** is declared by `[[device]]` and no source reports it, so it gets a
+dotted outline. **reverse-proxy** hangs off a dotted asserted link rather than
+the "uplink not reported" placeholder it lands on without one, and
+**build-runner** is nested inside **hypervisor**. The Rack Switch and its own
+uplink are solid, because the controller reported those. The
+[full map](docs/images/example-overrides-dark.png) also shows **Label printer**,
+renamed from the fingerprint's guess, and is one client shorter than the maps
+above because a guest phone is hidden.*
+
+Both images come from `make demo-images`, and the crop is computed from the
+layout rather than fixed pixel coordinates, so it follows the overrides if the
+demo changes.
 
 Only leaf nodes can be hidden. Hiding a switch would orphan everything behind it,
 and there is no honest answer to what should happen to the children, so it is
