@@ -13,6 +13,7 @@ list of them.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -32,7 +33,9 @@ _PROSE = " ".join(
         "values are or shown record s present absent unknown further key not",
         "schema-shaped NOTES Counts and versions No addresses MACs hostnames SSIDs",
         "site network names appear above by construction not Linux Darwin Windows",
-        "cached snapshot support file live fetch",
+        "cached snapshot support file live fetch graphviz depth offline devices",
+        "ARTWORK how often the joins onto Ubiquiti catalogues succeed by sysid",
+        "resolved product UniFi hardware generic glyph found",
     ]
 )
 
@@ -240,3 +243,81 @@ class TestSupportFileStats:
         assert "sites in source     3" in report
         assert "1,234 bytes" in report
         assert "members read        7 of 7" in report
+
+
+class TestTheNewSections:
+    def test_depth_counts_the_longest_chain(self):
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.report import _depth
+
+        topo = Topology()
+        for name in "abcd":
+            topo.add(Node(id=name, label=name, kind=Kind.SWITCH))
+        topo.edges += [Edge(src="b", dst="a"), Edge(src="c", dst="b"), Edge(src="d", dst="c")]
+        assert _depth(topo) == 3
+
+    def test_depth_terminates_on_a_cycle(self):
+        # Overrides refuse cycles, but _depth must not hang if one reaches it.
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.report import _depth
+
+        topo = Topology()
+        for name in "ab":
+            topo.add(Node(id=name, label=name, kind=Kind.SWITCH))
+        topo.edges += [Edge(src="a", dst="b"), Edge(src="b", dst="a")]
+        assert _depth(topo) <= len(topo.nodes)
+
+    def test_artwork_appears_only_when_measured(self, snapshot):
+        from unifi_map.model import build_topology
+
+        topo = build_topology(snapshot)
+        assert "ARTWORK" not in build_report(topo, snapshot.payloads)
+        extras = Extras(artwork={"device_found": 7, "device_total": 7})
+        assert "ARTWORK" in build_report(topo, snapshot.payloads, extras)
+
+    def test_graphviz_version_is_reported_or_said_missing(self, snapshot):
+        from unifi_map.model import build_topology
+
+        topo = build_topology(snapshot)
+        assert "not found" in build_report(topo, snapshot.payloads)
+        extras = Extras(graphviz_version="2.43.0")
+        assert "2.43.0" in build_report(topo, snapshot.payloads, extras)
+
+
+class TestOverridesCheck:
+    def test_a_clean_file_passes(self):
+        from unifi_map.cli import build_parser, cmd_overrides
+
+        args = build_parser().parse_args(
+            [
+                "--cache-dir",
+                "examples/demo",
+                "overrides",
+                "check",
+                "--overrides",
+                "examples/demo/overrides.toml",
+            ]
+        )
+        assert cmd_overrides(args) == 0
+
+    def test_a_selector_matching_nothing_fails(self, tmp_path):
+        """Overrides fail loudly by design; this is how you find out cheaply."""
+        from unifi_map.cli import build_parser, cmd_overrides
+        from unifi_map.overrides import OverrideError
+
+        bad = tmp_path / "bad.toml"
+        bad.write_text('[[node]]\nmatch = "no-such-device"\nname = "x"\n')
+        args = build_parser().parse_args(
+            ["--cache-dir", "examples/demo", "overrides", "check", "--overrides", str(bad)]
+        )
+        with pytest.raises(OverrideError, match="matches nothing"):
+            cmd_overrides(args)
+
+    def test_no_file_at_all_is_an_error_not_a_pass(self, tmp_path, monkeypatch):
+        # Silently passing when there is nothing to check would be the worst
+        # outcome: a green check that verified nothing.
+        from unifi_map.cli import build_parser, cmd_overrides
+
+        monkeypatch.chdir(tmp_path)
+        args = build_parser().parse_args(["--cache-dir", str(Path.cwd()), "overrides", "check"])
+        assert cmd_overrides(args) == 2

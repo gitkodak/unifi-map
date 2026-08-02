@@ -496,6 +496,54 @@ going; with `--no-progress`, or piped to a file, walking a much larger archive
 produces no output at all until it finishes, so a slow run and a hung one look
 identical.
 
+## Mermaid, for documentation
+
+```bash
+unifi-map render -f mermaid --no-clients
+```
+
+Writes a `.mmd` that GitHub, GitLab and most wikis draw in place. It is the one
+destination the other formats cannot reach: a README cannot embed an SVG that
+adapts to the reader's colour scheme, and a draw.io file is not a picture until
+somebody opens it.
+
+This is the shipped demo, infrastructure only, rendered by whatever is showing
+you this page:
+
+```mermaid
+flowchart TB
+    n020000000101[/"gateway · 10.0.0.1"\]
+    n020000000102[["Core Switch · 10.0.0.2"]]
+    n020000000103[["Rack Switch · 10.0.0.3"]]
+    n020000000104[["Desk Switch · 10.0.0.4"]]
+    n020000000201{{"Living Room · 10.0.0.11"}}
+    n020000000202{{"Bedroom · 10.0.0.12"}}
+    n020000000204{{"Office · 10.0.0.14"}}
+    n020000000301[["Rack UPS · 10.0.0.20"]]
+    ninternet(["Example ISP · 203.0.113.10"])
+    ninternet -->|WAN| n020000000101
+    n020000000101 -->|port 25| n020000000102
+    n020000000102 -->|port 24| n020000000103
+    n020000000102 -->|port 12| n020000000104
+    n020000000102 -->|port 5| n020000000201
+    n020000000102 -->|port 6| n020000000202
+    n020000000103 -->|port 8| n020000000204
+    n020000000103 -->|port 2| n020000000301
+```
+
+**It loses all artwork**, necessarily: Mermaid draws boxes and text, so the
+product renders that make the SVG worth looking at have nowhere to go. What
+survives is the shape, which is what documentation usually wants.
+
+Node kind is carried by shape rather than colour, the same rule the other
+backends follow: rounded for the Internet, `[[double]]` for a switch, hexagonal
+for an access point. Links keep their meaning too, dashed for wireless and
+dotted for anything asserted in an overrides file.
+
+`--no-clients` is doing real work in that example. The full demo is 29 nodes,
+which is a wall of boxes on a page; the infrastructure is nine and reads at a
+glance.
+
 ## Helping: `unifi-map shape`
 
 Several things this tool cannot do are stuck on evidence rather than effort.
@@ -580,6 +628,8 @@ unifi-map fetch                            # snapshot the controller into cache/
 unifi-map fetch --support-file FILE.tgz     # or read a support file instead
 unifi-map render                           # render from the cached snapshot
 unifi-map render --per-network              # one diagram per client network
+unifi-map overrides check                   # validate overrides without rendering
+unifi-map shape                             # describe the network, for sharing
 unifi-map render --no-clients               # infrastructure only
 unifi-map render -f svg pdf drawio dot      # pick formats
 ```
@@ -899,6 +949,17 @@ note = "radios disabled on purpose, online but doing nothing"
 Selectors are tried as a MAC address, then an IP, then the label on the map. One
 that matches nothing, or several nodes, stops the run rather than being ignored.
 
+That is deliberate, and it means a stale selector is only discovered when you
+render. To find out without producing anything:
+
+```bash
+unifi-map overrides check
+```
+
+It applies the file against the cached snapshot and reports what it did, exiting
+non-zero on the first selector that matches nothing or matches several things,
+so it works in a pre-commit hook or CI.
+
 Anything you assert is drawn **dotted**, and the legend says so, so a claim of
 yours is never mistaken for something the controller reported.
 
@@ -1095,7 +1156,7 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
-| `-f`, `--formats` `{svg,pdf,png,dot,drawio}` | Output formats (default: svg drawio) | `svg drawio` |
+| `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid}` | Output formats (default: svg drawio) | `svg drawio` |
 | `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
 | `--theme` `{dark,light}` | Colour theme (default: light) | `light` |
@@ -1118,5 +1179,11 @@ equivalent. Command options must follow the subcommand.
 | Flag | What it does | Default |
 | --- | --- | --- |
 | `--yes` | Skip the consent prompt. Read what the report contains first; `unifi-map shape` on its own prints that and asks. |  |
+
+### `overrides` options
+
+| Flag | What it does | Default |
+| --- | --- | --- |
+| `--overrides` | Which file to check. Defaults to overrides.toml when it exists. |  |
 
 <!-- END GENERATED FLAGS -->

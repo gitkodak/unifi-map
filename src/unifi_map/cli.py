@@ -16,9 +16,12 @@ than a controller, so everything downstream behaves identically.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import hashlib
 import logging
+import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -43,6 +46,7 @@ from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
+from .render_mermaid import render_mermaid
 from .report import CONSENT, Extras, build_report
 from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
@@ -64,7 +68,7 @@ DEFAULT_ASSET_CACHE = Path("cache/assets")
 DEFAULT_OVERRIDES = Path("overrides.toml")
 
 # svg first: it is the format that actually solves the readability problem.
-ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio")
+ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio", "mermaid")
 
 # Below this many clients a view is not wide enough to need staggering, and
 # unflatten instead chains sibling APs into a pointless diagonal cascade.
@@ -418,7 +422,9 @@ def _describe(payload: object) -> str:
     return "no data"
 
 
-def _resolve_icons(topo: Topology, store: AssetStore, theme) -> dict[str, IconAsset]:
+def _resolve_icons(
+    topo: Topology, store: AssetStore, theme, counts: dict[str, int] | None = None
+) -> dict[str, IconAsset]:
     """Map node id to cached artwork, fetching as needed.
 
     UniFi devices are matched on sysid against Ubiquiti's hardware catalog.
@@ -449,6 +455,8 @@ def _resolve_icons(topo: Topology, store: AssetStore, theme) -> dict[str, IconAs
     device_total = len(devices)
     device_found = sum(1 for a in by_sysid.values() if a is not None)
     log.info("Artwork: %d/%d UniFi devices", device_found, device_total)
+    if counts is not None:
+        counts.update(device_found=device_found, device_total=device_total)
 
     # --- the upstream provider ---
     for node in topo.nodes.values():
@@ -496,6 +504,14 @@ def _resolve_icons(topo: Topology, store: AssetStore, theme) -> dict[str, IconAs
 
     # Counted per node, not per dev_id: several clients can share a fingerprint.
     plain = len(client_nodes) - from_fingerprint - from_hardware - from_glyph
+    if counts is not None:
+        counts.update(
+            client_total=len(client_nodes),
+            client_found=from_fingerprint + from_hardware + from_glyph,
+            from_fingerprint=from_fingerprint,
+            from_hardware=from_hardware,
+            from_glyph=from_glyph,
+        )
     log.info(
         "Artwork: %d/%d clients (%d product, %d UniFi hardware, %d generic glyph, %d none)",
         from_fingerprint + from_hardware + from_glyph,
@@ -541,6 +557,7 @@ def _write_outputs(
     stagger_depth: int = 0,
     force: bool = False,
     progress: bool = True,
+    title: str = "",
 ) -> None:
     mkdir_private(out_dir)
 
@@ -568,6 +585,18 @@ def _write_outputs(
         path = out_dir / f"{stem}.{fmt}"
         _write_output(path, data, force=force, guard=False)
         log.info("  %s (%.1f KiB)", path, len(data) / 1024)
+
+    if "mermaid" in formats:
+        # No Graphviz involved: Mermaid does its own layout, so the staggered
+        # DOT above has nothing to contribute here.
+        path = out_dir / f"{stem}.mmd"
+        _write_output(
+            path,
+            render_mermaid(topo, title, "TB" if style.layout == "tree" else "LR"),
+            force=force,
+            guard=False,
+        )
+        log.info("  %s", path)
 
     if "drawio" in formats:
         layout = compute_layout(dot_source)
@@ -679,6 +708,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         _stagger_for(topo, args.stagger, style),
         force=args.force,
         progress=args.progress,
+        title=title,
     )
 
     if args.per_network:
@@ -702,6 +732,7 @@ def cmd_render(args: argparse.Namespace) -> int:
                 _stagger_for(view, args.stagger, style),
                 force=args.force,
                 progress=args.progress,
+                title=f"{title}: {name}",
             )
 
     return 0
@@ -712,6 +743,58 @@ def _subtitle(tally: dict[str, int]) -> str:
     clients = tally.get("wired_client", 0) + tally.get("wireless_client", 0)
     stamp = dt.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z")
     return f"{devices} UniFi devices · {clients} clients · generated {stamp}"
+
+
+def cmd_overrides(args: argparse.Namespace) -> int:
+    """Validate an overrides file without rendering anything.
+
+    Overrides fail loudly by design: an unmatched or ambiguous selector stops
+    the run rather than being skipped. That is right, and it means the only way
+    to find out used to be rendering the whole map. This applies them against
+    the cached snapshot and reports, which is the same work without the output.
+    """
+    path = args.overrides or (DEFAULT_OVERRIDES if DEFAULT_OVERRIDES.is_file() else None)
+    if path is None:
+        log.error("No overrides file. Pass --overrides PATH, or put one at %s.", DEFAULT_OVERRIDES)
+        return 2
+
+    snapshot = Snapshot.read(args.cache_dir)
+    topo = build_topology(snapshot, include_offline=True)
+    overrides = load_overrides(path)
+    result = apply_overrides(topo, overrides)
+
+    log.info("%s applies cleanly against %s.", path, args.cache_dir)
+    log.info(
+        "  %d device(s) declared, %d link(s), %d nested, %d renamed, %d hidden",
+        result.devices_added,
+        result.links_added,
+        result.hosted_applied,
+        result.renamed,
+        len(result.hidden),
+    )
+    if result.icons:
+        log.info("  %d node(s) given artwork you supplied", len(result.icons))
+    return 0
+
+
+def _graphviz_version() -> str | None:
+    """Graphviz's version, which decides layout in ways this tool cannot.
+
+    Every rendering claim here is verified against one version, so knowing
+    somebody else's is worth a line.
+    """
+    import subprocess
+
+    executable = shutil.which("dot")
+    if executable is None:
+        return None
+    try:
+        result = subprocess.run([executable, "-V"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    output = (result.stderr or result.stdout or "").strip()
+    match = re.search(r"\b\d+\.\d+(\.\d+)?\b", output)
+    return match.group(0) if match else None
 
 
 def _controller_version(snapshot: Snapshot) -> str | None:
@@ -775,8 +858,18 @@ def cmd_shape(args: argparse.Namespace) -> int:
         source = "cached snapshot"
 
     topo = build_topology(snapshot, include_offline=True)
+
+    # Resolved offline: whatever is already cached counts, and nothing is
+    # fetched, so running this never becomes a reason to touch the network.
+    artwork: dict[str, int] = {}
+    store = AssetStore(cache_dir=args.asset_cache, offline=True)
+    with contextlib.suppress(Exception):
+        _resolve_icons(topo, store, get_theme("light"), artwork)
+
     extras = Extras(
         source=source,
+        graphviz_version=_graphviz_version(),
+        artwork=artwork,
         controller_version=_controller_version(snapshot),
         sites_seen=stats.get("sites_seen"),
         archive_bytes=stats.get("archive_bytes"),
@@ -1079,6 +1172,24 @@ def build_parser() -> argparse.ArgumentParser:
         "`unifi-map shape` on its own prints that and asks.",
     )
     shape.set_defaults(func=cmd_shape)
+    overrides = sub.add_parser(
+        "overrides",
+        parents=[shared],
+        help="Check an overrides file without rendering",
+    )
+    overrides.add_argument(
+        "action",
+        choices=("check",),
+        help="check: apply the file against the cached snapshot and report, "
+        "failing on any selector that matches nothing or several things",
+    )
+    overrides.add_argument(
+        "--overrides",
+        type=Path,
+        default=None,
+        help=f"Which file to check. Defaults to {DEFAULT_OVERRIDES} when it exists.",
+    )
+    overrides.set_defaults(func=cmd_overrides)
 
     return parser
 

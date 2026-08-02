@@ -121,10 +121,32 @@ class Extras:
     source: str = "live fetch"
     controller_version: str | None = None
     sites_seen: int | None = None
+    graphviz_version: str | None = None
+    # Artwork resolution, which measures the most fragile join in the tool and
+    # which nothing has ever recorded beyond one network.
+    artwork: dict[str, int] = field(default_factory=dict)
     archive_bytes: int | None = None
     archive_entries: int | None = None
     members_found: int | None = None
     notes: list[str] = field(default_factory=list)
+
+
+def _depth(topo: Topology) -> int:
+    """Longest chain of uplinks. Fan-out alone does not describe a network:
+    three hundred clients on one switch and three hundred behind five hops of
+    daisy-chain are different problems."""
+    parents = {}
+    for edge in topo.edges:
+        parents.setdefault(edge.src, edge.dst)
+
+    best = 0
+    for start in topo.nodes:
+        seen, node, hops = {start}, start, 0
+        while (node := parents.get(node)) is not None and node not in seen:
+            seen.add(node)
+            hops += 1
+        best = max(best, hops)
+    return best
 
 
 def _records(payload: Any) -> list[dict[str, Any]]:
@@ -186,6 +208,7 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
     unplaced = sum(1 for e in topo.edges if e.dst == UNKNOWN_UPLINK_ID)
     asserted_nodes = sum(1 for n in topo.nodes.values() if getattr(n, "asserted", False))
     asserted_edges = sum(1 for e in topo.edges if getattr(e, "asserted", False))
+    offline = sum(1 for n in topo.nodes.values() if getattr(n, "offline", False))
 
     out = [
         "=" * _WIDTH,
@@ -195,6 +218,7 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
         f"  source              {extras.source}",
         f"  controller version  {extras.controller_version or 'not reported'}",
         f"  python              {sys.version.split()[0]} on {platform.system()}",
+        f"  graphviz            {extras.graphviz_version or 'not found'}",
         "",
         "SCALE",
         f"  infrastructure      {infra}"
@@ -214,8 +238,22 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
         f"  children per parent min {fan[0]}, median {int(statistics.median(fan))}, max {fan[-1]}",
         f"  unplaced clients    {unplaced}"
         f"{'   (no uplink reported for these)' if unplaced else ''}",
+        f"  depth               {_depth(topo)}",
         f"  from overrides      {asserted_nodes} node(s), {asserted_edges} link(s)",
+        f"  offline devices     {offline}",
     ]
+
+    if extras.artwork:
+        a = extras.artwork
+        out += [
+            "",
+            "ARTWORK   (how often the joins onto Ubiquiti's catalogues succeed)",
+            f"  devices by sysid    {a.get('device_found', 0)} of {a.get('device_total', 0)}",
+            f"  clients resolved    {a.get('client_found', 0)} of {a.get('client_total', 0)}"
+            f"   ({a.get('from_fingerprint', 0)} product,"
+            f" {a.get('from_hardware', 0)} UniFi hardware,"
+            f" {a.get('from_glyph', 0)} generic glyph)",
+        ]
 
     if extras.archive_bytes is not None:
         out += [
