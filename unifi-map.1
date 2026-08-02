@@ -4,7 +4,7 @@ unifi\-map \- export a UniFi network topology as vector diagrams
 .SH SYNOPSIS
 .B unifi\-map
 [\fIglobal options\fR]
-\fBfetch\fR|\fBrender\fR|\fBall\fR
+\fBfetch\fR|\fBrender\fR|\fBall\fR|\fBshape\fR|\fBoverrides\fR
 [\fIcommand options\fR]
 .SH DESCRIPTION
 The UniFi Network web interface has no topology export, and a screenshot
@@ -37,15 +37,19 @@ secret and delete it when finished.
 .SH COMMANDS
 .TP
 \fBfetch\fR
-Read the controller (or \fB\-\-support\-file\fR) and cache the result.
-Never consults the cache first, so it always replaces the snapshot.
+Cache controller data (or read \-\-support\-file instead)
 .TP
 \fBrender\fR
-Draw diagrams from the cached snapshot, however old it is. Contacts no
-controller.
+Render diagrams from cache
 .TP
 \fBall\fR
-\fBfetch\fR followed by \fBrender\fR.
+Fetch then render
+.TP
+\fBshape\fR
+Describe the network's shape, for sharing in an issue
+.TP
+\fBoverrides\fR
+Check an overrides file without rendering
 .SH GLOBAL OPTIONS
 Accepted before or after the subcommand, so
 \fBunifi\-map all \-\-support\-file\fR \fIF\fR and
@@ -158,6 +162,9 @@ With \-\-layout tree, stagger leaf nodes into rows of ~N to control aspect ratio
 \fB\-\-yes\fR
 Skip the consent prompt. Read what the report contains first; `unifi\-map shape` on its own prints that and asks.
 .SH OVERRIDES OPTIONS
+.TP
+\fBaction\fR \fI{check}\fR
+check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things
 .TP
 \fB\-\-overrides\fR
 Which file to check. Defaults to overrides.toml when it exists.

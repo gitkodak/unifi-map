@@ -28,7 +28,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _cli_introspect import ROOT, build_parser, command_groups, options, release_date
+from _cli_introspect import (
+    ROOT,
+    build_parser,
+    command_groups,
+    options,
+    positionals,
+    release_date,
+    subcommands,
+)
 
 from unifi_map import __version__
 
@@ -64,6 +72,16 @@ def option_block(items) -> list[str]:
     return out
 
 
+def _command_block(parser) -> list[str]:
+    """One entry per subcommand, from its own help text."""
+    action = next(a for a in parser._actions if a.__class__.__name__ == "_SubParsersAction")
+    described = {c.dest: c.help for c in action._choices_actions}
+    out = []
+    for name in subcommands(parser):
+        out += [".TP", f"\\fB{esc(name)}\\fR", esc(described.get(name) or name)]
+    return out
+
+
 def render() -> str:
     parser = build_parser()
     date = release_date(__version__)
@@ -75,7 +93,7 @@ def render() -> str:
         ".SH SYNOPSIS",
         ".B unifi\\-map",
         "[\\fIglobal options\\fR]",
-        "\\fBfetch\\fR|\\fBrender\\fR|\\fBall\\fR",
+        "|".join(f"\\fB{esc(name)}\\fR" for name in subcommands(parser)),
         "[\\fIcommand options\\fR]",
         ".SH DESCRIPTION",
         "The UniFi Network web interface has no topology export, and a screenshot",
@@ -106,17 +124,9 @@ def render() -> str:
         "fields by name and that pass is demonstrably incomplete. Treat one as a",
         "secret and delete it when finished.",
         ".SH COMMANDS",
-        ".TP",
-        "\\fBfetch\\fR",
-        "Read the controller (or \\fB\\-\\-support\\-file\\fR) and cache the result.",
-        "Never consults the cache first, so it always replaces the snapshot.",
-        ".TP",
-        "\\fBrender\\fR",
-        "Draw diagrams from the cached snapshot, however old it is. Contacts no",
-        "controller.",
-        ".TP",
-        "\\fBall\\fR",
-        "\\fBfetch\\fR followed by \\fBrender\\fR.",
+        # From the parser, because a hand-written list here fell two commands
+        # behind without anything noticing.
+        *_command_block(parser),
         ".SH GLOBAL OPTIONS",
         "Accepted before or after the subcommand, so",
         "\\fBunifi\\-map all \\-\\-support\\-file\\fR \\fIF\\fR and",
@@ -124,8 +134,10 @@ def render() -> str:
         *option_block(options(parser)),
     ]
 
+    subs = subcommands(parser)
     for names, unique in command_groups(parser):
         listed = " and ".join(n.upper() for n in names)
+        unique = positionals(subs[names[0]]) + list(unique)
         if not unique:
             lines += [
                 f".SH {listed} OPTIONS",

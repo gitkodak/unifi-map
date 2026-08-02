@@ -29,7 +29,13 @@ END = "<!-- END GENERATED FLAGS -->"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _cli_introspect import build_parser, command_groups, options  # noqa: E402
+from _cli_introspect import (  # noqa: E402
+    build_parser,
+    command_groups,
+    options,
+    positionals,
+    subcommands,
+)
 
 
 def _cell(text: str) -> str:
@@ -68,7 +74,11 @@ def render() -> str:
         "terminal.",
         "",
         "```",
-        "unifi-map [global options] {fetch,render,all} [command options]",
+        "unifi-map [global options] "
+        + "{"
+        + ",".join(subcommands(parser))
+        + "}"
+        + " [command options]",
         "```",
         "",
         "Global options are accepted on either side of the subcommand, so",
@@ -80,12 +90,15 @@ def render() -> str:
         _table(_rows(options(parser))),
     ]
 
+    subs = subcommands(parser)
     for names, unique in command_groups(parser):
         listed = " and ".join(f"`{n}`" for n in names)
-        if not unique:
+        # Positionals come first: they are what you have to type.
+        rows = _rows(positionals(subs[names[0]])) + _rows(unique)
+        if not rows:
             out += ["", f"{listed} takes only the global options above.", ""]
             continue
-        out += ["", f"### {listed} options", "", _table(_rows(unique))]
+        out += ["", f"### {listed} options", "", _table(rows)]
 
     out += ["", END]
     return "\n".join(out)

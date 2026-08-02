@@ -341,29 +341,72 @@ def test_the_man_page_header_carries_a_date():
     )
 
 
-def test_the_man_page_documents_every_flag():
-    """A flag absent from the man page is a flag `man` cannot answer about."""
+def _introspect():
+    """The generators' shared introspection helper, loaded by path.
+
+    `scripts/` is not a package and is not on the path, so this is how the tests
+    reach the same code the generators use rather than a second implementation
+    that could disagree with it.
+    """
     import importlib.util
 
-    root = Path(__file__).resolve().parents[1]
     spec = importlib.util.spec_from_file_location(
-        "cli_introspect", root / "scripts" / "_cli_introspect.py"
+        "cli_introspect", ROOT / "scripts" / "_cli_introspect.py"
     )
     module = importlib.util.module_from_spec(spec)
     # Registered before executing: the dataclass in there resolves its own
     # annotations through sys.modules, and fails if its module is not there.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+    return module
+
+
+def test_the_man_page_documents_every_flag():
+    """A flag absent from the man page is a flag `man` cannot answer about."""
+    module = _introspect()
 
     parser = module.build_parser()
     expected = {o.names[-1] for o in module.options(parser)}
     for sub in module.subcommands(parser).values():
         expected |= {o.names[-1] for o in module.options(sub)}
 
-    page = (root / "unifi-map.1").read_text(encoding="utf-8")
+    page = (ROOT / "unifi-map.1").read_text(encoding="utf-8")
     # Hyphens are escaped in roff, so compare against the escaped spelling.
     missing = sorted(f for f in expected if f.replace("-", r"\-") not in page)
     assert not missing, f"flags absent from unifi-map.1: {missing}"
+
+
+def test_both_references_name_every_subcommand_and_positional():
+    """The generated references must list what a generated reference implies.
+
+    Not covered by the two staleness checks above, and that gap is the whole
+    reason for this test: those regenerate and compare, so a generator carrying
+    a hardcoded list passes them forever by producing the same wrong file every
+    time. Both generators did. `docs/usage.md` and the man page each printed a
+    synopsis reading `{fetch,render,all}` long after `shape` and `overrides`
+    shipped, and neither mentioned that `unifi-map overrides` requires `check`,
+    because the introspection walked `option_strings` and positionals have none.
+
+    A document that promises it "cannot drift from --help" is worse than a
+    hand-written one when it drifts, so the promise gets a test.
+    """
+    module = _introspect()
+    parser = module.build_parser()
+    subs = module.subcommands(parser)
+
+    usage = (ROOT / "docs" / "usage.md").read_text(encoding="utf-8")
+    page = (ROOT / "unifi-map.1").read_text(encoding="utf-8")
+
+    missing = [n for n in subs if n not in usage]
+    assert not missing, f"subcommands absent from docs/usage.md: {missing}"
+    missing = [n for n in subs if n not in page]
+    assert not missing, f"subcommands absent from unifi-map.1: {missing}"
+
+    for name, sub in subs.items():
+        for positional in module.positionals(sub):
+            label = positional.names[0]
+            assert label in usage, f"{name} positional {label!r} absent from docs/usage.md"
+            assert label in page, f"{name} positional {label!r} absent from unifi-map.1"
 
 
 class TestSharedOptionsWorkInEitherPosition:

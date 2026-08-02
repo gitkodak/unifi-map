@@ -66,6 +66,33 @@ def _default_for(action: argparse.Action) -> str:
     return str(value)
 
 
+def positionals(parser: argparse.ArgumentParser) -> list[Option]:
+    """Arguments with no leading dash, which `options()` cannot see.
+
+    `unifi-map overrides check` needs `check`, and a reference built only from
+    `option_strings` documented the flags beside it while never mentioning the
+    word you have to type.
+    """
+    found = []
+    for action in parser._actions:
+        if action.option_strings or isinstance(action, argparse._SubParsersAction):
+            continue
+        if action.help is argparse.SUPPRESS or not action.help:
+            continue
+        choices = ""
+        if action.choices:
+            choices = "{" + ",".join(str(c) for c in action.choices) + "}"
+        found.append(
+            Option(
+                names=(str(action.dest),),
+                argument=choices,
+                help=" ".join(str(action.help).split()),
+                default="",
+            )
+        )
+    return found
+
+
 def options(parser: argparse.ArgumentParser) -> list[Option]:
     found = []
     for action in parser._actions:
@@ -130,6 +157,7 @@ __all__ = [
     "build_parser",
     "command_groups",
     "options",
+    "positionals",
     "release_date",
     "subcommands",
 ]

@@ -115,6 +115,21 @@ told something untrue and may have acted on it.
 - The artwork page lists user-supplied artwork among its sources. An `icon` in
   an overrides file is where a picture comes from when none of Ubiquiti's
   catalogues has one, and it is the only source that works under `--offline`.
+- **Both generated references were wrong in the same two ways, and neither
+  staleness check could have noticed.** `docs/usage.md` and the man page each
+  printed a synopsis reading `{fetch,render,all}`, two commands behind, and the
+  man page listed only those three under `COMMANDS`. Neither said that
+  `unifi-map overrides` requires a `check` argument, because the introspection
+  walked `option_strings` and a positional has none. All three lists are now
+  derived from the parser.
+
+  The two existing checks regenerate the file and fail on a diff, which catches
+  an author who forgot to run `make docs` and cannot catch a generator holding a
+  hardcoded list: it produces the same wrong file every time and compares equal
+  to itself forever. A separate test now asserts that both documents name every
+  subcommand and every positional. A document claiming it cannot drift from
+  `--help` is worse than a hand-written one when it does, so the claim is tested
+  rather than trusted.
 
 ## 0.7.2 - 2026-08-02
 

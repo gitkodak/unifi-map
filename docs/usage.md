@@ -201,7 +201,7 @@ this is for looking one up. Run `unifi-map --help` for the same thing in a
 terminal.
 
 ```
-unifi-map [global options] {fetch,render,all} [command options]
+unifi-map [global options] {fetch,render,all,shape,overrides} [command options]
 ```
 
 Global options are accepted on either side of the subcommand, so
@@ -264,6 +264,7 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
+| `action` `{check}` | check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things |  |
 | `--overrides` | Which file to check. Defaults to overrides.toml when it exists. |  |
 
 <!-- END GENERATED FLAGS -->
