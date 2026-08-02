@@ -153,7 +153,7 @@ UNIFI_VERIFY_TLS=true
 | --- | --- | --- | --- |
 | `UNIFI_HOST` | yes | | Hostname or IP of the console or controller |
 | `UNIFI_API_KEY` | yes | | An API key (see below) |
-| `UNIFI_SITE` | no | `default` | Which site to read (see below) |
+| `UNIFI_SITE` | no | `default` | Which site to read; `--site` overrides it (see below) |
 | `UNIFI_VERIFY_TLS` | no | `true` | `true`, `false`, or a path to a CA bundle |
 
 ### `UNIFI_API_KEY`
@@ -180,6 +180,16 @@ assumed, so `unifi.example.com` and `https://unifi.example.com` are equivalent.
 A UniFi controller can manage several *sites* (separate networks under one
 controller). If you have never created a second one, yours is `default` and you
 can ignore this.
+
+`--site NAME` does the same thing and takes precedence, which is the one to
+reach for when scripting: it saves re-exporting a variable per invocation, and
+it works for support files too.
+
+```bash
+for site in default branch-office warehouse; do
+  unifi-map --site "$site" all --name "map-$site"
+done
+```
 
 The catch is that this wants the site's **internal name**, which is not the
 label shown in the UI. They are separate fields: on a single-site console the
@@ -414,7 +424,8 @@ Two smaller caveats:
   WAN and VPN entries, which no client belongs to and which nothing draws.
 
 For a console with more than one site, the largest is mapped and a warning says
-so; pass `--support-site NAME` to choose another.
+so; pass `--site NAME` to choose another. (`--support-site` was the original
+spelling and still works, but `--site` covers both inputs and is preferred.)
 
 Only seven files are ever read out of the archive, as a stream. It is never
 unpacked, which matters because a support file also contains extensive logs.

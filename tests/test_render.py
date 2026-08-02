@@ -248,6 +248,62 @@ def test_client_sets_the_api_key_header_and_makes_no_request(tmp_path):
     assert not hasattr(client, "logout")
 
 
+class TestSiteSelection:
+    """`--site` exists so a script can loop over sites without re-exporting.
+
+    It covers both inputs. `--support-site` did the same job for support files
+    only and predates it; it still works because 0.3.0 shipped it.
+    """
+
+    def test_site_works_in_either_position(self):
+        from unifi_map.cli import build_parser
+
+        assert build_parser().parse_args(["--site", "branch", "all"]).site == "branch"
+        assert build_parser().parse_args(["all", "--site", "branch"]).site == "branch"
+
+    def test_no_site_means_no_opinion(self):
+        # None rather than "default", so the environment still gets a say.
+        from unifi_map.cli import build_parser
+
+        assert build_parser().parse_args(["all"]).site is None
+
+    def test_the_flag_beats_the_environment(self, tmp_path, monkeypatch):
+        from unifi_map.config import load_config
+
+        for name in ("UNIFI_SITE", "UDM_SITE", "UNIFI_HOST", "UNIFI_API_KEY"):
+            monkeypatch.delenv(name, raising=False)
+        env = tmp_path / "creds.env"
+        env.write_text("UNIFI_HOST=h\nUNIFI_API_KEY=k\nUNIFI_SITE=from-env\n")
+        assert load_config(env).site == "from-env"
+        assert load_config(env, site="from-flag").site == "from-flag"
+
+    def test_the_environment_still_wins_over_the_built_in_default(self, tmp_path, monkeypatch):
+        from unifi_map.config import load_config
+
+        for name in ("UNIFI_SITE", "UDM_SITE", "UNIFI_HOST", "UNIFI_API_KEY"):
+            monkeypatch.delenv(name, raising=False)
+        env = tmp_path / "creds.env"
+        env.write_text("UNIFI_HOST=h\nUNIFI_API_KEY=k\n")
+        assert load_config(env).site == "default"
+
+    def test_support_site_still_works_and_says_it_is_deprecated(self, caplog):
+        from unifi_map.cli import _requested_site, build_parser
+
+        args = build_parser().parse_args(["fetch", "--support-site", "old"])
+        with caplog.at_level("WARNING"):
+            assert _requested_site(args) == "old"
+        assert any("deprecated" in r.getMessage() for r in caplog.records)
+
+    def test_site_wins_when_both_are_given(self, caplog):
+        from unifi_map.cli import _requested_site, build_parser
+
+        args = build_parser().parse_args(["fetch", "--site", "new", "--support-site", "old"])
+        with caplog.at_level("WARNING"):
+            assert _requested_site(args) == "new"
+        # No warning: the caller is already using the flag being recommended.
+        assert not any("deprecated" in r.getMessage() for r in caplog.records)
+
+
 class TestLegendHonesty:
     """The legend must describe only what the diagram actually encodes."""
 

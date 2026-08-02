@@ -94,6 +94,7 @@ GLOBAL_DEFAULTS = {
     "cache_dir": DEFAULT_CACHE,
     "asset_cache": DEFAULT_ASSET_CACHE,
     "support_file": None,
+    "site": None,
     "support_site": None,
     "support_max_member": SUPPORT_MAX_MEMBER,
     "support_max_total": SUPPORT_MAX_TOTAL,
@@ -143,11 +144,22 @@ def _stagger_for(topo: Topology, requested: int, style: Style) -> int:
     return requested if clients >= STAGGER_MIN_CLIENTS else 0
 
 
+def _requested_site(args: argparse.Namespace) -> str | None:
+    """The site asked for, from either flag.
+
+    `--support-site` predates `--site` and still works, because 0.3.0 shipped
+    it. `--site` wins if somebody passes both.
+    """
+    if args.support_site and not args.site:
+        log.warning("--support-site is deprecated; use --site, which works for both inputs.")
+    return args.site or args.support_site
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
     if args.support_file:
         return _fetch_from_support_file(args)
 
-    config = load_config(args.env_file)
+    config = load_config(args.env_file, site=_requested_site(args))
     client = UniFiClient(config)
     log.info("Reading %s (site %s)", config.host, config.site)
     with spinner(f"Querying {config.host}", args.progress):
@@ -213,7 +225,7 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
     with spinner(f"Reading {args.support_file.name}", args.progress):
         snapshot = load_support_file(
             args.support_file,
-            args.support_site,
+            _requested_site(args),
             fingerprint_db,
             max_member=args.support_max_member,
             max_total=args.support_max_total,
@@ -707,11 +719,21 @@ def build_parser() -> argparse.ArgumentParser:
         "controller. Needs no credentials and no network access.",
     )
     shared.add_argument(
+        "--site",
+        default=argparse.SUPPRESS,
+        metavar="NAME",
+        help="Which site to read. Overrides UNIFI_SITE for a live fetch, and "
+        "picks the site from a multi-site support file. Without it, a live "
+        "fetch uses UNIFI_SITE or `default`, and a support file uses the site "
+        "with the most devices.",
+    )
+    shared.add_argument(
         "--support-site",
         default=argparse.SUPPRESS,
         metavar="NAME",
-        help="Which site to map from a multi-site support file "
-        "(default: the one with the most devices)",
+        # Kept working because 0.3.0 shipped it. --site does both inputs, which
+        # is what somebody scripting across sites actually wants.
+        help=argparse.SUPPRESS,
     )
     shared.add_argument(
         "--support-max-member",

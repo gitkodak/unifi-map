@@ -160,7 +160,7 @@ def read_dotenv(path: Path) -> dict[str, str]:
     return values
 
 
-def load_config(env_file: Path | None = None) -> ExporterConfig:
+def load_config(env_file: Path | None = None, site: str | None = None) -> ExporterConfig:
     """Build config from *env_file*, or the first file in the default search path.
 
     Real environment variables always win over file contents, so a one-off run
@@ -211,6 +211,9 @@ def load_config(env_file: Path | None = None) -> ExporterConfig:
     return ExporterConfig(
         host=host,
         api_key=api_key,
-        site=_first(_ALIASES["site"], values, legacy) or "default",
+        # An explicit --site beats the environment, which beats the default.
+        # Resolved here rather than in the CLI so precedence lives in one
+        # place alongside the environment lookup it is competing with.
+        site=site or _first(_ALIASES["site"], values, legacy) or "default",
         verify_tls=_parse_verify(_first(_ALIASES["verify"], values, legacy) or "true"),
     )

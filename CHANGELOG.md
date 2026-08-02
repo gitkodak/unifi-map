@@ -40,6 +40,10 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
+- `--site NAME` selects the site from the command line, for a live fetch as
+  well as a support file. It overrides `UNIFI_SITE`, so a script can loop over
+  sites without re-exporting a variable per invocation. `--support-site` still
+  works and now warns; it only ever covered support files.
 - A progress spinner on the three steps slow enough to look like a hang:
   reading a support archive, resolving artwork, and running Graphviz. It turns
   itself off whenever output is not a terminal, so piping, redirecting and CI
