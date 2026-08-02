@@ -115,7 +115,14 @@ MAX_MEMBER_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 128 * 1024 * 1024
 
 # An archive with millions of entries costs time to walk even though nothing is
-# decoded. Real ones run to a few thousand.
+# decoded, so neither size cap above stops one: entry count is unrelated to the
+# bytes decoded.
+#
+# Tunable for the same reason the size caps are, and not because a hit is
+# expected. The one archive measured held about 2,500 entries, but one sample of
+# one small site says nothing about whether that number grows with the site, and
+# the archive does carry per-client material. Rather than assume it does not
+# scale, this is raisable like the others. Refusing to guess costs one flag.
 MAX_ARCHIVE_ENTRIES = 100_000
 
 
@@ -127,6 +134,7 @@ def _read_members(
     path: Path,
     max_member: int = MAX_MEMBER_BYTES,
     max_total: int = MAX_TOTAL_BYTES,
+    max_entries: int = MAX_ARCHIVE_ENTRIES,
 ) -> dict[str, bytes]:
     """Pull the wanted members out of the archive in a single streaming pass.
 
@@ -146,10 +154,12 @@ def _read_members(
         with tarfile.open(path, "r|gz") as archive:
             for member in archive:
                 entries += 1
-                if entries > MAX_ARCHIVE_ENTRIES:
+                if entries > max_entries:
                     raise SupportFileError(
-                        f"{path} holds more than {MAX_ARCHIVE_ENTRIES} entries. A real "
-                        "support file has a few thousand; refusing to keep walking it."
+                        f"{path} holds more than {max_entries} entries; refusing to "
+                        "keep walking it. The one archive measured held about 2,500. "
+                        "Raise it with --support-max-entries if yours is legitimately "
+                        "larger, and please open an issue saying so."
                     )
                 if len(found) == len(MEMBERS):
                     break
@@ -565,6 +575,7 @@ def load_support_file(
     fingerprint_db: Any = None,
     max_member: int = MAX_MEMBER_BYTES,
     max_total: int = MAX_TOTAL_BYTES,
+    max_entries: int = MAX_ARCHIVE_ENTRIES,
 ) -> Snapshot:
     """Read *path* and return a Snapshot equivalent to a live fetch.
 
@@ -573,13 +584,15 @@ def load_support_file(
     it clients still draw, without product artwork. `AssetStore.fingerprint_db()`
     obtains it from Ubiquiti's published copy, so no controller is involved.
 
-    *max_member* and *max_total* cap what is decoded into memory. They are
-    arguments because the right value depends on the site; see the constants.
+    *max_member* and *max_total* cap what is decoded into memory; *max_entries*
+    caps how much of the archive is walked, which is a separate concern because
+    entry count does not follow the bytes decoded. All three are arguments
+    because the right value depends on the site; see the constants.
 
     Raises `SupportFileError` if the archive is unreadable or does not carry
     the device and topology data a map needs.
     """
-    members = _read_members(path, max_member, max_total)
+    members = _read_members(path, max_member, max_total, max_entries)
     missing = [MEMBERS[name] for name in ("devices", "topology") if name not in members]
     if missing:
         raise SupportFileError(

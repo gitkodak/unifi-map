@@ -40,10 +40,22 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
+- `--support-max-entries` caps how much of a support archive is walked. It was
+  already capped at 100,000; what is new is being able to change it. The two
+  size caps guard memory and this one guards time, since entry count does not
+  follow the bytes decoded, and all three now behave the same way.
 - `RELEASING.md` documents how a version actually goes out, written after doing
   it by hand twice rather than invented in advance. Two tests enforce the parts
   that have gone wrong: the changelog must have a section for the version the
   package reports, and no version may repeat a `### Added` style heading.
+
+### Fixed
+
+- Global options are accepted after the subcommand as well as before it, so
+  `unifi-map all --support-file X.tgz` works. It did not: those options were
+  attached only to the top-level parser, which made every `--support-file`
+  example in the README unrunnable as printed. Both forms are now supported,
+  and a test parses every command the README prints.
 
 ## 0.3.0 - 2026-08-01
 

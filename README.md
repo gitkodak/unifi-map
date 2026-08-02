@@ -415,25 +415,32 @@ so; pass `--support-site NAME` to choose another.
 Only seven files are ever read out of the archive, as a stream. It is never
 unpacked, which matters because a support file also contains extensive logs.
 
-Those seven are size-capped, since the whole point is that somebody else can
-send you one. The defaults are 64M for any single file and 128M in total, sized
-against a real archive whose largest relevant member was 400K. A very large site
-could legitimately exceed them, so they are adjustable rather than fixed:
+Reading one is capped three ways, since the whole point is that somebody else
+can send you one. Two cap what is decoded into memory, and the third caps how
+much of the archive is walked, which is a separate concern because entry count
+does not follow the bytes decoded.
+
+| Flag | Default | Guards against |
+| --- | --- | --- |
+| `--support-max-member` | 64M | one huge member decompressed on trust |
+| `--support-max-total` | 128M | many members that are individually fine |
+| `--support-max-entries` | 100000 | an archive that is cheap to decompress and enormous to iterate |
 
 ```bash
 unifi-map all --support-file support-XXXX.tgz \
   --support-max-member 256M --support-max-total 512M
 ```
 
-Both accept a plain byte count or a `K`, `M` or `G` suffix, and the error you
-get when a limit is hit names the flag to raise.
+The sizes accept a plain byte count or a `K`, `M` or `G` suffix, and every one
+of the three errors names the flag to raise.
 
-There is a third limit with no flag: the archive is abandoned past 100,000
-entries. That one guards walking time rather than memory, since an archive can
-be cheap to decompress and still enormous to iterate, and no realistic support
-file comes close (a real one runs to a few thousand). Raising it means editing
-`MAX_ARCHIVE_ENTRIES` in `support.py`; open an issue if you hit it legitimately,
-because that would be worth knowing.
+The defaults come from a single 154M archive off a UDM Pro Max, whose largest
+relevant member was 400K and which held about 2,500 entries. That is one sample
+of one small network, so treat the headroom as a guess rather than a measured
+safety margin: it says nothing about how any of these numbers grow with site
+size. All three are therefore adjustable. If you hit one legitimately, please
+open an issue saying so, because a second data point would be worth more than
+the reasoning that picked these.
 
 ## Usage
 

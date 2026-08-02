@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -87,6 +88,114 @@ def test_every_flag_is_mentioned_in_the_readme():
     readme = (DOCS[0]).read_text(encoding="utf-8")
     missing = sorted(f for f in flags - _FLAGS_NOT_NEEDING_PROSE if f not in readme)
     assert not missing, f"flags absent from README.md: {missing}"
+
+
+class TestDocumentedCommandsActuallyRun:
+    """Every `unifi-map ...` the README prints must parse.
+
+    `test_every_flag_is_mentioned_in_the_readme` checks the docs use the right
+    vocabulary; nothing checked the grammar. So all seven documented
+    `--support-file` invocations put the flag after the subcommand, argparse
+    rejected every one of them, and the feature's entire documented usage was
+    unrunnable without a single test noticing.
+    """
+
+    # Continuation lines, comments and placeholder paths are stripped; nothing
+    # is executed, only parsed.
+    _COMMAND = re.compile(r"^\s*(unifi-map .+?)(?:\s+#.*)?$", re.M)
+
+    def _commands(self) -> list[str]:
+        text = DOCS[0].read_text(encoding="utf-8").replace("\\\n", " ")
+        found = [m.group(1).strip() for m in self._COMMAND.finditer(text)]
+        assert len(found) > 15, f"only found {len(found)} commands; did the regex rot?"
+        return found
+
+    def test_every_readme_command_parses(self):
+        import shlex
+
+        from unifi_map.cli import build_parser
+
+        broken = []
+        for command in self._commands():
+            argv = shlex.split(command)[1:]
+            try:
+                build_parser().parse_args(argv)
+            except SystemExit:
+                broken.append(command)
+        assert not broken, "README commands that do not parse:\n  " + "\n  ".join(broken)
+
+
+class TestSharedOptionsWorkInEitherPosition:
+    """Global options are accepted before *and* after the subcommand.
+
+    `unifi-map all --support-file X` is the form every comparable tool uses and
+    the form the README reaches for unprompted, so both are supported. The
+    machinery is fragile in a specific way, hence the third test.
+    """
+
+    OPTIONS: ClassVar = [
+        ("--support-file", "x.tgz", "support_file", "x.tgz"),
+        ("--support-max-entries", "7", "support_max_entries", 7),
+        ("--support-max-member", "1M", "support_max_member", 1024 * 1024),
+        ("--cache-dir", "somewhere", "cache_dir", "somewhere"),
+        ("--out-dir", "elsewhere", "out_dir", "elsewhere"),
+    ]
+
+    @pytest.mark.parametrize("flag,value,attr,want", OPTIONS, ids=[o[0] for o in OPTIONS])
+    def test_before_and_after_the_subcommand_agree(self, flag, value, attr, want):
+        from unifi_map.cli import build_parser
+
+        before = build_parser().parse_args([flag, value, "all"])
+        after = build_parser().parse_args(["all", flag, value])
+        assert str(getattr(before, attr)) == str(want)
+        assert str(getattr(after, attr)) == str(want)
+
+    def test_an_option_given_before_the_subcommand_is_not_reset_by_it(self):
+        # The failure this guards is silent: the value parses, then the
+        # subparser writes its own default over it and the tool runs against
+        # the wrong input rather than reporting anything.
+        from unifi_map.cli import build_parser
+
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "render"])
+        assert str(args.cache_dir) == "examples/demo"
+
+    def test_no_shared_option_carries_a_real_default(self):
+        """They must all use SUPPRESS, or the post-parse fill-in skips them.
+
+        `parents=` shares action *objects* rather than copying them, so a real
+        default on one of these is a default on every parser at once, and the
+        last one to apply it wins. That is precisely how the first attempt at
+        this broke the pre-subcommand form while the tests still passed.
+        """
+        import argparse
+
+        from unifi_map.cli import GLOBAL_DEFAULTS, build_parser
+
+        parser = build_parser()
+        subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+        leaky = {
+            (name, action.dest)
+            for name, sub in subparsers.choices.items()
+            for action in sub._actions
+            if action.dest in GLOBAL_DEFAULTS and action.default is not argparse.SUPPRESS
+        }
+        assert not leaky, f"shared options with a non-SUPPRESS default: {sorted(leaky)}"
+
+    def test_every_shared_option_has_a_default_to_fall_back_on(self):
+        import argparse
+
+        from unifi_map.cli import GLOBAL_DEFAULTS, build_parser
+
+        # `help` and `version` are argparse's own actions; they suppress because
+        # they exit rather than because they need a value.
+        suppressed = {
+            a.dest
+            for a in build_parser()._actions
+            if a.default is argparse.SUPPRESS and a.dest not in ("help", "version")
+        }
+        assert suppressed <= set(GLOBAL_DEFAULTS), (
+            f"suppressed with no default: {sorted(suppressed - set(GLOBAL_DEFAULTS))}"
+        )
 
 
 def test_the_advertised_test_count_is_true(request):

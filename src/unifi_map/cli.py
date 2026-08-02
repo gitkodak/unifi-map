@@ -35,6 +35,7 @@ from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
+from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
 from .support import MAX_MEMBER_BYTES as SUPPORT_MAX_MEMBER
 from .support import MAX_TOTAL_BYTES as SUPPORT_MAX_TOTAL
 from .support import SupportFileError, load_support_file
@@ -58,6 +59,50 @@ ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio")
 # Below this many clients a view is not wide enough to need staggering, and
 # unflatten instead chains sibling APs into a pointless diagonal cascade.
 STAGGER_MIN_CLIENTS = 15
+
+
+# Defaults for the options shared between the top-level parser and every
+# subcommand. They live here rather than on the arguments because those must use
+# `argparse.SUPPRESS`; see the comment in `build_parser`.
+class _Parser(argparse.ArgumentParser):
+    """An ArgumentParser that fills in the shared options' defaults last.
+
+    They cannot be ordinary argparse defaults. The shared options are attached
+    to both this parser and every subparser via `parents=`, which shares the
+    same action objects rather than copying them, so whichever parser sees the
+    option last would write its default over a value supplied to the other.
+    `argparse.SUPPRESS` prevents that by leaving the attribute unset, and the
+    real value is applied here once parsing is finished.
+
+    `set_defaults()` is not the way to do it: it reassigns `action.default` for
+    every matching dest, and since the action objects are shared that puts the
+    defaults straight back onto the subparsers. That silently broke every
+    invocation that passed an option before the subcommand.
+    """
+
+    def parse_args(self, args=None, namespace=None):  # type: ignore[override]
+        parsed = super().parse_args(args, namespace)
+        for key, value in GLOBAL_DEFAULTS.items():
+            if not hasattr(parsed, key):
+                setattr(parsed, key, value)
+        return parsed
+
+
+GLOBAL_DEFAULTS = {
+    "env_file": None,
+    "cache_dir": DEFAULT_CACHE,
+    "asset_cache": DEFAULT_ASSET_CACHE,
+    "support_file": None,
+    "support_site": None,
+    "support_max_member": SUPPORT_MAX_MEMBER,
+    "support_max_total": SUPPORT_MAX_TOTAL,
+    "support_max_entries": SUPPORT_MAX_ENTRIES,
+    "fetch_fingerprints": False,
+    "fetch_icon_font": False,
+    "icon_font": None,
+    "out_dir": DEFAULT_OUT,
+    "verbose": False,
+}
 
 
 def _bytes_arg(raw: str) -> int:
@@ -168,6 +213,7 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
         fingerprint_db,
         max_member=args.support_max_member,
         max_total=args.support_max_total,
+        max_entries=args.support_max_entries,
     )
     snapshot.write(args.cache_dir)
     log.info("Wrote snapshot to %s/", args.cache_dir)
@@ -610,87 +656,114 @@ def cmd_all(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="unifi-map",
-        description="Export a UniFi network topology as zoomable vector diagrams "
-        "and editable draw.io files.",
-    )
-    parser.add_argument(
+    # Options accepted both before and after the subcommand.
+    #
+    # argparse attaches an option to exactly one parser, so with these on the
+    # top level only, `unifi-map all --support-file X` is an error. Every
+    # documented example reached for that form, because it is the convention
+    # every comparable tool follows, so both are accepted rather than teaching
+    # people the unusual one.
+    #
+    # `default=SUPPRESS` is what makes sharing them safe. A subparser defining
+    # the same option would otherwise write its own default over a value given
+    # before the subcommand, silently discarding it. With SUPPRESS the attribute
+    # is absent unless actually supplied, so whichever position it was given in
+    # wins and the real defaults come from `set_defaults()` below.
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument(
         "--env-file",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         help="Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi-map/env)",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--cache-dir",
         type=Path,
-        default=DEFAULT_CACHE,
+        default=argparse.SUPPRESS,
         help=f"Where controller snapshots are read/written (default: {DEFAULT_CACHE})",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--asset-cache",
         type=Path,
-        default=DEFAULT_ASSET_CACHE,
+        default=argparse.SUPPRESS,
         help=f"Where downloaded artwork is cached (default: {DEFAULT_ASSET_CACHE}). "
         "Kept separate from --cache-dir so a read-only snapshot directory stays clean.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--support-file",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         metavar="PATH",
         help="Read the topology from a UniFi support file (.tgz) instead of a "
         "controller. Needs no credentials and no network access.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--support-site",
-        default=None,
+        default=argparse.SUPPRESS,
         metavar="NAME",
         help="Which site to map from a multi-site support file "
         "(default: the one with the most devices)",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--support-max-member",
         type=_bytes_arg,
-        default=SUPPORT_MAX_MEMBER,
+        default=argparse.SUPPRESS,
         metavar="SIZE",
         help=f"Largest single file to decode from a support archive (default "
         f"{SUPPORT_MAX_MEMBER // (1024 * 1024)}M). Accepts a plain number or a "
         "K/M/G suffix. Raise it if a large site is refused.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--support-max-total",
         type=_bytes_arg,
-        default=SUPPORT_MAX_TOTAL,
+        default=argparse.SUPPRESS,
         metavar="SIZE",
         help=f"Total to decode from a support archive across all files (default "
         f"{SUPPORT_MAX_TOTAL // (1024 * 1024)}M).",
     )
-    parser.add_argument(
+    shared.add_argument(
+        "--support-max-entries",
+        type=int,
+        default=argparse.SUPPRESS,
+        metavar="N",
+        help=f"How many archive entries to walk before giving up (default "
+        f"{SUPPORT_MAX_ENTRIES}). Separate from the size caps because entry "
+        "count does not follow the bytes decoded.",
+    )
+    shared.add_argument(
         "--fetch-fingerprints",
         action="store_true",
+        default=argparse.SUPPRESS,
         help="Allow downloading Ubiquiti's client fingerprint database, which is "
         "what gives clients real product artwork when reading a support file. "
         "Off by default: reading a support file otherwise contacts nothing.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--fetch-icon-font",
         action="store_true",
+        default=argparse.SUPPRESS,
         help="With --support-file, also fetch the generic client glyph font from "
         "a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because "
         "Ubiquiti publish no copy of that font. Off by default.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--icon-font",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         metavar="DIR",
         help="Load the client glyph font from a directory you copied off a "
         "controller yourself (needs its style.css and .ttf). Needs no "
         "credentials and no network. See the README.",
     )
-    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
-    parser.add_argument("-v", "--verbose", action="store_true")
+    shared.add_argument("--out-dir", type=Path, default=argparse.SUPPRESS)
+    shared.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS)
+
+    parser = _Parser(
+        prog="unifi-map",
+        description="Export a UniFi network topology as zoomable vector diagrams "
+        "and editable draw.io files.",
+        parents=[shared],
+    )
     parser.add_argument("--version", action="version", version=f"unifi-map {__version__}")
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -799,12 +872,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser(
-        "fetch", help="Cache controller data (or read --support-file instead)"
+        "fetch", parents=[shared], help="Cache controller data (or read --support-file instead)"
     ).set_defaults(func=cmd_fetch)
     sub.add_parser(
-        "render", parents=[render_flags], help="Render diagrams from cache"
+        "render", parents=[shared, render_flags], help="Render diagrams from cache"
     ).set_defaults(func=cmd_render)
-    sub.add_parser("all", parents=[render_flags], help="Fetch then render").set_defaults(
+    sub.add_parser("all", parents=[shared, render_flags], help="Fetch then render").set_defaults(
         func=cmd_all
     )
 
