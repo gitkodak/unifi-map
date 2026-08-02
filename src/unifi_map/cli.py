@@ -586,7 +586,7 @@ def cmd_render(args: argparse.Namespace) -> int:
 
     if args.layout in DEPRECATED_LAYOUTS:
         log.warning(
-            "--layout %s is deprecated and will be removed in 0.5.0; use --layout %s.",
+            "--layout %s is deprecated and will be removed in 0.6.0; use --layout %s.",
             args.layout,
             DEPRECATED_LAYOUTS[args.layout],
         )
@@ -898,7 +898,7 @@ def build_parser() -> argparse.ArgumentParser:
     render_flags.add_argument(
         "--layout",
         # `sane` is accepted but not advertised: metavar controls what usage
-        # prints, while choices still lets the old value through until 0.5.0.
+        # prints, while choices still lets the old value through until 0.6.0.
         choices=(*LAYOUTS, *DEPRECATED_LAYOUTS),
         metavar="{" + ",".join(LAYOUTS) + "}",
         default="unifi",

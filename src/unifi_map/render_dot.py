@@ -42,7 +42,9 @@ LAYOUTS = ("tree", "unifi")
 # implies the alternative is not, and it borrows a clinical term as a judgement.
 # Accepted for now so nobody's script breaks mid-version.
 #
-# **Scheduled for removal in 0.5.0.** Unlike the `UDM_*` environment names,
+# **Scheduled for removal in 0.6.0**, moved from 0.5.0 because that is the
+# release introducing `tree`: deprecating and removing in one version gives
+# nobody a release to migrate in. Unlike the `UDM_*` environment names,
 # which are deliberately open-ended, this one has a date: it is a single flag
 # value, trivial to change, and carrying it indefinitely would mean the word
 # stays in `--help` forever.

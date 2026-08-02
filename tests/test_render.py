@@ -917,7 +917,7 @@ class TestPerNetworkFilenamesAreUnique:
 
 
 class TestTheSaneLayoutAliasIsDeprecated:
-    """`sane` still works, is hidden, and is promised gone in 0.5.0.
+    """`sane` still works, is hidden, and is promised gone in 0.6.0.
 
     Renamed because the word implies the alternative is not, and borrows a
     clinical term as a judgement. `tree` says what the layout actually is.
@@ -959,5 +959,5 @@ class TestTheSaneLayoutAliasIsDeprecated:
         from pathlib import Path
 
         root = Path(__file__).resolve().parents[1]
-        assert "0.5.0" in (root / "src" / "unifi_map" / "render_dot.py").read_text()
-        assert "0.5.0" in (root / "src" / "unifi_map" / "cli.py").read_text()
+        assert "0.6.0" in (root / "src" / "unifi_map" / "render_dot.py").read_text()
+        assert "0.6.0" in (root / "src" / "unifi_map" / "cli.py").read_text()

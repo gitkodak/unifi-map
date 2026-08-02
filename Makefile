@@ -17,7 +17,7 @@ help:
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
 	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
-	@echo "make docs           regenerate the README flag reference from the parser"
+	@echo "make docs           regenerate the flag reference and man page from the parser"
 	@echo "make dark     render from cache in the dark theme"
 	@echo "make clean    remove out/ and caches"
 
@@ -33,6 +33,7 @@ check: $(VENV)
 
 docs: $(VENV)
 	$(PY) scripts/generate_cli_docs.py
+	$(PY) scripts/generate_manpage.py
 
 format: $(VENV)
 	$(PY) -m ruff format .

@@ -129,6 +129,16 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 Requires Python 3.11+. Graphviz is required; `unflatten` is optional but
 improves layout on large networks.
 
+A man page is committed as `unifi-map.1`, so it works straight from a clone
+without installing anything:
+
+```bash
+man ./unifi-map.1
+```
+
+It is generated from the argument parser by `make docs`, and `make check` fails
+if it has gone stale.
+
 ## Credentials
 
 ```bash
@@ -866,9 +876,7 @@ parts you typed in.
 - **An infrastructure view** alongside the topology view: gateway, switches, APs
   and their uplinks presented as a rack/cabling diagram rather than a client
   tree. `--no-clients` is a rough approximation of this today.
-- **A man page**, generated from the same argument parser the flag reference
-  below comes from, so `man unifi-map` works after an install. Planned for 0.5.0. It does not wait on packaging: a man page is useful to anyone
-  who cloned the repository, whether or not this is ever on PyPI.
+
 
 ## Artwork, licensing and attribution
 
@@ -1014,10 +1022,10 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
-| `-f`, `--formats` `svg\|pdf\|png\|dot\|drawio` | Output formats (default: svg drawio) | `svg drawio` |
-| `--icons` `unifi\|builtin` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
+| `-f`, `--formats` `{svg,pdf,png,dot,drawio}` | Output formats (default: svg drawio) | `svg drawio` |
+| `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
-| `--theme` `dark\|light` | Colour theme (default: light) | `light` |
+| `--theme` `{dark,light}` | Colour theme (default: light) | `light` |
 | `--offline` | Never reach the network for artwork; use only what is already cached |  |
 | `--name` | Output filename stem | `network-map` |
 | `--force` | Overwrite output files that unifi-map did not write. Without this, an existing .dot or .drawio it does not recognise is left alone, so a diagram you have edited by hand is not silently replaced. |  |
@@ -1025,7 +1033,7 @@ equivalent. Command options must follow the subcommand.
 | `--obfuscate` | Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared |  |
 | `--title` | Diagram title (default: Network map). Note that --obfuscate cannot clean a title you supply yourself |  |
 | `--no-clients` | Infrastructure only, no clients |  |
-| `--show-offline` `yes\|no` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
+| `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
 | `--per-network` | Also emit one diagram per client network, which keeps a busy map readable |  |
 | `--legend`, `--no-legend` | Show the legend (default: on for --layout tree, off for --layout unifi) |  |
 | `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout tree, off for --layout unifi) |  |

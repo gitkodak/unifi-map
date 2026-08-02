@@ -17,7 +17,6 @@ do not hand-edit it: change the `help=` text in `cli.py` instead.
 
 from __future__ import annotations
 
-import argparse
 import re
 import sys
 from pathlib import Path
@@ -28,16 +27,9 @@ README = ROOT / "README.md"
 BEGIN = "<!-- BEGIN GENERATED FLAGS -->"
 END = "<!-- END GENERATED FLAGS -->"
 
-sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from unifi_map.cli import GLOBAL_DEFAULTS, _bytes_arg, build_parser  # noqa: E402
-
-# Flags whose help text is deliberately hidden from `--help`, and why. Listing
-# them anyway would advertise what the CLI is trying to retire.
-SKIP = {"--support-site"}
-
-# `--help` says nothing a reader of this table does not already know.
-SKIP_ALWAYS = {"--help"}
+from _cli_introspect import build_parser, command_groups, options  # noqa: E402
 
 
 def _cell(text: str) -> str:
@@ -45,53 +37,15 @@ def _cell(text: str) -> str:
     return " ".join(text.split()).replace("|", r"\|")
 
 
-def _rows(parser: argparse.ArgumentParser) -> list[tuple[str, str, str]]:
+def _rows(items) -> list[tuple[str, str, str]]:
     rows = []
-    for action in parser._actions:
-        options = [o for o in action.option_strings if o.startswith("--")]
-        short = [o for o in action.option_strings if not o.startswith("--")]
-        if not options or options[0] in SKIP or options[0] in SKIP_ALWAYS:
-            continue
-        if action.help is argparse.SUPPRESS or not action.help:
-            continue
-        name = ", ".join(f"`{o}`" for o in short + options)
-        if action.metavar:
-            name += f" `{action.metavar}`"
-        elif action.choices:
-            # Escaped: a raw pipe ends the table cell and silently mangles the row.
-            name += " `" + r"\|".join(str(c) for c in action.choices) + "`"
-
-        # Shared options carry SUPPRESS so the subparsers cannot clobber them;
-        # their real defaults live in GLOBAL_DEFAULTS.
-        value = action.default
-        if value is argparse.SUPPRESS:
-            value = GLOBAL_DEFAULTS.get(action.dest)
-        default = _format_default(action, value)
-
-        rows.append((name, _cell(action.help), default))
+    for option in items:
+        name = ", ".join(f"`{n}`" for n in option.names)
+        if option.argument:
+            # Escaped: a raw pipe ends the table cell and mangles the row.
+            name += " `" + option.argument.replace("|", r"\|") + "`"
+        rows.append((name, _cell(option.help), f"`{option.default}`" if option.default else ""))
     return rows
-
-
-def _format_default(action: argparse.Action, value: object) -> str:
-    """A default a human would recognise, or nothing.
-
-    Raw repr is worse than useless here: `67108864` for a size documented
-    everywhere else as 64M, and `['svg', 'drawio']` for what is typed as
-    `svg drawio`.
-    """
-    if value is None or value is argparse.SUPPRESS:
-        return ""
-    if isinstance(value, bool):
-        # A store_true default of False is just "off", and a store_false flag's
-        # True describes the behaviour rather than the flag. Neither helps.
-        return ""
-    if action.type is _bytes_arg and isinstance(value, int):
-        for unit, size in (("G", 1024**3), ("M", 1024**2), ("K", 1024)):
-            if value >= size and value % size == 0:
-                return f"`{value // size}{unit}`"
-    if isinstance(value, (list, tuple)):
-        return "`" + " ".join(str(v) for v in value) + "`"
-    return f"`{value}`"
 
 
 def _table(rows: list[tuple[str, str, str]]) -> str:
@@ -102,9 +56,6 @@ def _table(rows: list[tuple[str, str, str]]) -> str:
 
 def render() -> str:
     parser = build_parser()
-    subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
-    # Shared options appear on every subparser too; list them once.
-    shared = {name for name, _, _ in _rows(parser)}
 
     out = [
         BEGIN,
@@ -126,22 +77,15 @@ def render() -> str:
         "",
         "### Global options",
         "",
-        _table(_rows(parser)),
+        _table(_rows(options(parser))),
     ]
 
-    # `render` and `all` share every option, so listing both produces the same
-    # seventeen rows twice. Group subcommands by the options they actually have.
-    groups: dict[tuple, list[str]] = {}
-    for name, sub in subparsers.choices.items():
-        rows = tuple(row for row in _rows(sub) if row[0] not in shared)
-        groups.setdefault(rows, []).append(name)
-
-    for rows, names in groups.items():
+    for names, unique in command_groups(parser):
         listed = " and ".join(f"`{n}`" for n in names)
-        if not rows:
+        if not unique:
             out += ["", f"{listed} takes only the global options above.", ""]
             continue
-        out += ["", f"### {listed} options", "", _table(list(rows))]
+        out += ["", f"### {listed} options", "", _table(_rows(unique))]
 
     out += ["", END]
     return "\n".join(out)

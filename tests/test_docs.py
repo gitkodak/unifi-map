@@ -9,6 +9,7 @@ the failure this file exists to catch.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 from typing import ClassVar
 
@@ -222,6 +223,54 @@ def test_the_generated_flag_reference_is_current():
     assert text[start : end + len(module.END)] == module.render(), (
         "README.md flag reference is out of date. Run `make docs`."
     )
+
+
+def test_the_generated_man_page_is_current():
+    """`unifi-map.1` is committed, so it can go stale like any other file.
+
+    Same regenerate-then-compare check as the flag reference. The page is
+    committed rather than built on install so a clone has one, which is the
+    whole reason it needs guarding.
+    """
+    import importlib.util
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "generate_manpage", root / "scripts" / "generate_manpage.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    page = root / "unifi-map.1"
+    assert page.is_file(), "unifi-map.1 is missing; run `make docs`"
+    assert page.read_text(encoding="utf-8") == module.render(), (
+        "unifi-map.1 is out of date. Run `make docs`."
+    )
+
+
+def test_the_man_page_documents_every_flag():
+    """A flag absent from the man page is a flag `man` cannot answer about."""
+    import importlib.util
+
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "cli_introspect", root / "scripts" / "_cli_introspect.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    # Registered before executing: the dataclass in there resolves its own
+    # annotations through sys.modules, and fails if its module is not there.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    parser = module.build_parser()
+    expected = {o.names[-1] for o in module.options(parser)}
+    for sub in module.subcommands(parser).values():
+        expected |= {o.names[-1] for o in module.options(sub)}
+
+    page = (root / "unifi-map.1").read_text(encoding="utf-8")
+    # Hyphens are escaped in roff, so compare against the escaped spelling.
+    missing = sorted(f for f in expected if f.replace("-", r"\-") not in page)
+    assert not missing, f"flags absent from unifi-map.1: {missing}"
 
 
 class TestSharedOptionsWorkInEitherPosition:

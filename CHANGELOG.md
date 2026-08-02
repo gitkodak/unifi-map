@@ -31,10 +31,14 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.5.0 - 2026-08-02
+
 ### Deprecated
 
 - `--layout sane` is renamed to `--layout tree`, and **`sane` will be removed in
-  0.5.0**. It still works and still selects the same layout, but it is hidden
+  0.6.0**. It still works and still selects the same layout, but it is hidden
   from `--help` and warns once, naming the replacement and the version.
 
   The old name implied the other layout was not sane, and borrowed a clinical
@@ -43,7 +47,10 @@ Refactors, docs and tests alone do not need a release at all.
 
   A version is promised here, unlike the open-ended `UDM_*` deprecation, because
   this is one flag value that anyone using it can change in seconds, and an
-  indefinite alias would keep the word in `--help` indefinitely.
+  indefinite alias would keep the word in `--help` indefinitely. The target is
+  0.6.0 rather than 0.5.0 because 0.5.0 is the release that introduces `tree`;
+  removing the old name in the same version it is deprecated would leave nobody
+  a release to migrate in.
 
 ### Fixed
 
@@ -67,6 +74,11 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Changed
 
+- A man page, `unifi-map.1`, generated from the argument parser and committed
+  so it works from a clone with `man ./unifi-map.1`. `make docs` regenerates it
+  and `make check` fails when it is stale, the same guard the README flag
+  reference has. It carries the sections a parser cannot supply: ENVIRONMENT,
+  FILES, EXAMPLES, exit status, and the warning about support files.
 - Atomic writes live in one module, `fsio.py`. Three copies had grown apart:
   two called `fsync` before the rename and one did not, and only two set the
   file mode before putting it in place. None of the differences were intended.
