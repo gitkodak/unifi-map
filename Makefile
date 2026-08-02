@@ -1,4 +1,5 @@
-.PHONY: help check format lint test map fetch render sane offline dark demo demo-snapshot clean
+.PHONY: help check format lint test map fetch render sane offline dark demo \
+        demo-overrides demo-images demo-snapshot clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -15,6 +16,7 @@ help:
 	@echo "make offline  render with builtin icons, no network access"
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
+	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
 	@echo "make dark     render from cache in the dark theme"
 	@echo "make clean    remove out/ and caches"
 
@@ -63,6 +65,21 @@ demo-overrides: $(VENV)
 	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
+
+# The three demo images committed under docs/images/, regenerated from the
+# demo dataset so the README cannot drift from what the tool actually draws.
+# Not run by `make check`: they are large binaries, and a rendering change
+# should update them deliberately rather than dirty the tree on every build.
+# example-obfuscated-dark.png is not here; it comes from a real network.
+demo-images: $(VENV)
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir docs/images \
+		render -f png --theme dark --name example-unifi-dark
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir docs/images \
+		render -f png --theme dark --layout sane --name example-sane-dark \
+		--title "Demo network"
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir docs/images \
+		render -f png --theme dark --overrides examples/demo/overrides.toml \
+		--name example-overrides-dark --title "Demo network, with overrides"
 
 demo-snapshot:
 	python3 scripts/make_demo_snapshot.py

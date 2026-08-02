@@ -797,6 +797,17 @@ that matches nothing, or several nodes, stops the run rather than being ignored.
 Anything you assert is drawn **dotted**, and the legend says so, so a claim of
 yours is never mistaken for something the controller reported.
 
+![The demo network with the example overrides applied](docs/images/example-overrides-dark.png)
+
+*The shipped demo with `examples/demo/overrides.toml` applied, which
+`make demo-overrides` renders and `make demo-images` regenerates. Around the
+Rack Switch: the dotted-outlined **Bench switch** is declared by
+`[[device]]` and no source reports it, **reverse-proxy** hangs off a dotted
+asserted link rather than the placeholder it lands on without one,
+**build-runner** is nested inside **hypervisor**, and **Label printer** was
+renamed from the fingerprint's guess. A guest phone is hidden, so this map has
+one client fewer than the ones above.*
+
 Only leaf nodes can be hidden. Hiding a switch would orphan everything behind it,
 and there is no honest answer to what should happen to the children, so it is
 refused with an error naming them.

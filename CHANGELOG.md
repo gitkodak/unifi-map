@@ -40,6 +40,10 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
+- The README shows the demo with the example overrides applied, so what an
+  asserted device and an asserted link actually look like is visible without
+  running anything. `make demo-images` regenerates the committed demo PNGs from
+  the demo dataset, which is what keeps them from drifting.
 - `--site NAME` selects the site from the command line, for a live fetch as
   well as a support file. It overrides `UNIFI_SITE`, so a script can loop over
   sites without re-exporting a variable per invocation. `--support-site` still
