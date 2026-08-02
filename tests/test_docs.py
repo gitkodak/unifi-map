@@ -248,6 +248,23 @@ def test_the_generated_man_page_is_current():
     )
 
 
+def test_the_man_page_header_carries_a_date():
+    """`.TH` must have a real date, which the staleness check cannot see.
+
+    The date comes from the changelog entry for the current version, so bumping
+    `__version__` before dating that section yields an empty one. The
+    regenerate-and-compare test cannot catch it: both sides would be generated
+    the same wrong way and agree. This is what makes the release order in
+    `RELEASING.md` load-bearing rather than a preference.
+    """
+    page = (Path(__file__).resolve().parents[1] / "unifi-map.1").read_text(encoding="utf-8")
+    header = page.splitlines()[0]
+    assert re.search(r'"\d{4}-\d{2}-\d{2}"', header), (
+        f"man page has no date; date the CHANGELOG section for this version, then `make docs`. "
+        f"Header was: {header}"
+    )
+
+
 def test_the_man_page_documents_every_flag():
     """A flag absent from the man page is a flag `man` cannot answer about."""
     import importlib.util

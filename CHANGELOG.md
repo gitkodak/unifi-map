@@ -31,7 +31,21 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- `RELEASING.md` describes the process as it now is, and no longer counts how
+  many times anything has happened. Two of those counts were simply wrong (the
+  files carrying a version promise, and how far the demo screenshots had
+  drifted), and none of them told a reader anything the sentence did not.
+- `RELEASING.md` corrections. Three things in it were wrong: it said to rename `## Unreleased` away at release, which would delete
+  the section `CONTRIBUTING.md` tells contributors to use; it never mentioned
+  `make docs`, which is now mandatory because the man page carries the version;
+  and it implied CI could be verified from here, which it cannot, because `gh`
+  is not installed.
+- A test asserts the man page header carries a real date. The date comes from
+  the changelog entry for the current version, so bumping `__version__` before
+  dating that section produced an empty one, and the regenerate-and-compare
+  check could not see it because both sides were generated the same wrong way.
 
 ## 0.5.0 - 2026-08-02
 
