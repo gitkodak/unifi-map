@@ -29,6 +29,18 @@ a major one later.
 
 Refactors, docs and tests alone do not need a release at all.
 
+### One change, one entry
+
+An entry describes a change, not the commits that made it. Work spread over a
+day arrives as several commits and belongs in the changelog once, written from
+where it ended up rather than in the order it was fixed. Four overlapping
+entries about one restructure is a commit log, and a reader has to assemble the
+story themselves.
+
+Say what it means for somebody else, not only what was done. A restructure that
+moves every anchor needs the table of old address to new far more than it needs
+the reasoning, however good the reasoning was.
+
 ### What counts as a fix
 
 `### Fixed` is for something a user could have hit. A defect found and corrected
@@ -46,45 +58,49 @@ told something untrue and may have acted on it.
 
 ### Changed
 
-- The artwork page lists user-supplied artwork among the sources. An `icon` in
+- **The documentation is split into `docs/`, and links into the README have
+  moved.** It had reached 1233 lines, which is past the point anybody reads,
+  and is now 220: what the tool is, what it produces, how to install it, and
+  how to see a map without touching your network. Everything else is a page of
+  its own, indexed from the README.
+
+  **If you linked to a README anchor, it has moved.** Every `#section` that is
+  now a page is a different address:
+
+  | Was | Now |
+  | --- | --- |
+  | `README.md#usage`, `#reading-the-diagram`, `#flag-reference` | `docs/usage.md` |
+  | `README.md#credentials`, `#unifi_api_key` | `docs/credentials.md` |
+  | `README.md#mapping-from-a-support-file` | `docs/support-files.md` |
+  | `README.md#json-for-programs`, `#mermaid-for-documentation` | `docs/output.md` |
+  | `README.md#sharing-a-map---obfuscate` | `docs/sharing.md` |
+  | `README.md#artwork-licensing-and-attribution` | `docs/artwork.md` |
+  | `README.md#how-it-works`, `#caveats` | `docs/verification.md` |
+  | `README.md#manual-overrides` | `docs/overrides.md`, which already existed |
+
+  Pages are organised by why somebody opens them rather than by what they are
+  about, and each was then checked against what its own opening sentence
+  promises. That found the artwork page describing where pictures come from with
+  the answer two files away, the output page covering two formats of seven, and
+  three pages repeating their own title as their first section. All were the
+  same artefact: splitting on top-level headings moves text correctly and lands
+  it by accident.
+
+  The README's `## Manual overrides` and `## Also planned` sections are gone
+  rather than moved, because `docs/overrides.md` and `TODO.md` already held the
+  same material and the README was carrying second copies to drift against.
+
+  The guards were widened before the split rather than after. Every link used to
+  be a same-file `#anchor`; most are now `docs/artwork.md#something`, which can
+  fail two ways a browser renders happily: the file may be missing, or present
+  without the heading. The link check now resolves cross-file targets, the flag
+  and command checks read every document rather than the README alone, and the
+  generated flag reference lives in `docs/usage.md`. It caught fourteen links
+  the split broke silently.
+
+- The artwork page lists user-supplied artwork among its sources. An `icon` in
   an overrides file is where a picture comes from when none of Ubiquiti's
-  catalogues has one, and the table describing where artwork comes from did not
-  mention it.
-- Each documentation page delivers what its opening sentence promises, checked
-  page by page rather than only that the links resolve. The artwork page
-  promised "what happens when there are none" while the glyph fallback sat on
-  the support-file page; three pages repeated their own title as their first
-  section; and the usage page promised commands and flags while also explaining
-  how to read a diagram.
-- The artwork page explains where artwork comes from, which its own opening
-  sentence had been promising while the answer sat two files away. The output
-  page lists every format rather than the two that needed prose. Both were the
-  same artefact of splitting by top-level heading: a `###` subsection went
-  wherever its parent `##` lived, and a page assembled from the sections that
-  happened to need explanation inherits their gaps rather than its own title's
-  promise.
-
-  What remained of `docs/internals.md` once the artwork left was not internals,
-  so it is `docs/verification.md` and says what it holds: what was checked, what
-  was not, and the caveats.
-- The README is split. It had reached 1233 lines, which is past the point where
-  anybody reads it, and is now 220: what the tool is, what it produces, how to
-  install it, and how to see a map without touching your network. Everything
-  else is a page under `docs/`, indexed from the README and organised by why
-  somebody would open it rather than by what it is about.
-
-  The `## Manual overrides` section is gone rather than moved: `docs/overrides.md`
-  already explained the same feature at greater length, so the README was
-  carrying a second copy to drift against.
-
-  The documentation guards were widened before the split, not after. Every link
-  in the README used to be a same-file `#anchor`; most are now
-  `docs/artwork.md#something`, which can fail two new ways that a browser
-  renders happily. The link check resolves cross-file targets and verifies the
-  heading exists in the file it names, the flag and command checks read every
-  document rather than the README alone, and the generated flag reference now
-  lives in `docs/usage.md`. Splitting first would have traded one long file for
-  eight with less checking than before.
+  catalogues has one, and it is the only source that works under `--offline`.
 
 ## 0.7.2 - 2026-08-02
 
