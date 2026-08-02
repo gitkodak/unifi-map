@@ -257,6 +257,32 @@ Restored after being deleted by accident in 9b18a1a, where a section replacement
 spanned two headings and took this with it. If you replace a range between
 headings, check what was in between.
 
+### Blocked on data nobody here has
+
+A category worth naming separately, because it does not look like a blocker in
+a backlog. These are not waiting on effort or a decision. They are waiting on a
+network, an archive or a controller that this project has never seen, and until
+one turns up any work on them is guessing dressed as engineering.
+
+Jira label: `needs-real-world-data`.
+
+- **Multi-site anything** (KAN-125). One controller, one site, ever. Every
+  multi-site code path here is inference from the shape of a payload.
+- **Performance at scale.** Never profiled on a large network. The joins are
+  dictionary-based and probably fine, and `sysid_for_name()` scans the catalogue
+  per candidate, which is the one that would show up first.
+- **The support-file caps.** All four defaults come from a single 154 MiB
+  archive, and `support.py` says outright there is no honest basis for a tighter
+  archive-walk number. A second real archive would be worth more than any amount
+  of reasoning about the first.
+- **Controller versions.** Everything is verified against UniFi OS 5.1.26 with
+  Network 10.5.67. `unwrap()` is written to thin a diagram rather than raise
+  when a schema moves, which is a guess about how it will move.
+
+The useful response is not to speculate harder, it is to ask. `CONTRIBUTING.md`
+now says what data would help and what to send, so somebody who has a network we
+do not can offer it without having to guess what is useful.
+
 ### Tracked in Jira as well
 
 All of the below is also **epic KAN-114** in the `bhomelan` project, with a

@@ -108,6 +108,39 @@ controller, `model.py` normalises into a `Topology`, `assets.py` fetches artwork
 `CLAUDE.md` documents the traps in detail, including several that cost real time
 to find. It is worth skimming before a non-trivial change.
 
+## What would help most, if you have a network we do not
+
+Some of this project is stuck on evidence rather than on effort. It has only
+ever been run against **one controller with one site** — UniFi Network 10.5.67
+on a UDM Pro Max — so several things are written from a single sample and say so
+where they are documented. More reasoning will not improve them. Only a second
+data point will.
+
+If any of these describe you, an issue saying so is genuinely more useful than a
+patch:
+
+- **A console with more than one site.** Multi-site handling exists and is
+  untested. `--all-sites` is designed but deliberately unbuilt, because building
+  it against an assumed API response is how it would end up subtly wrong.
+- **A large network**, a few hundred clients or more. Nothing here has been
+  profiled at scale, and the first thing likely to hurt is a per-candidate scan
+  of the hardware catalogue.
+- **A different controller version**, older or newer. Endpoint shapes are
+  absorbed rather than asserted, on the assumption they will thin gracefully. It
+  would be good to know whether that assumption survives contact.
+- **A support file from a big site.** The four size and walk limits are set from
+  one 154 MiB archive; the archive-walk default in particular has no measured
+  basis, only a number that is obviously absurd to exceed.
+
+**Do not send the data itself.** A snapshot is a full MAC, hostname and IP
+inventory, and a support file is that plus SSIDs, subnets, WAN addresses and
+client activity logs. Neither belongs in an issue.
+
+What helps instead: run the command, and paste what the tool says about itself.
+Counts, warnings, an error, the output of `-v`, or the shape of a payload with
+the values removed. If something can only be answered by real data, say so and
+we will work out how to get the answer without you handing over your network.
+
 ## Pull requests
 
 Small and focused beats large and sweeping. Say what changed and why. If it fixes
