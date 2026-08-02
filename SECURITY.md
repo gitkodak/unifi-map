@@ -269,9 +269,10 @@ Stated plainly, since it bears on how much you should trust this: most of the
 code was written by an AI assistant under the maintainer's direction and testing.
 `AI_DISCLOSURE.md` covers that in full.
 
-**Two independent security reviews have been performed**, each by a different AI
-system working from the source, neither of them the assistant that wrote the
-code. One raised eleven findings and the other seven, overlapping heavily.
+**Six independent reviews have been performed**, by three AI systems working
+from the source, none of them the assistant that wrote the code: two security
+audits, two documentation reviews, a code review and an architectural review.
+They raised around forty-five findings between them, overlapping heavily.
 Everything raised is fixed except one item declined with its reason recorded
 in `CLAUDE.md`: no hashed dependency lock file, on the grounds that it is real
 ongoing maintenance for a dev-only benefit while Dependabot and the advisory
@@ -282,10 +283,14 @@ anyway, by making the caps adjustable and lowering the defaults.
 The serious findings were reproduced before being fixed and re-tested
 afterwards.
 
-The second review found three things the first had not, including a real
-vulnerability in support-file parsing. That is the argument for more than one
-reviewer, and against reading any single review, including these, as
-exhaustive.
+Every review found something all the previous ones had missed, and not
+marginally. The second found a real vulnerability in support-file parsing. The
+fifth found that a support archive could force unbounded decompression, and that
+an existing output directory was being silently tightened to mode 0700. The
+sixth still found four things.
+
+That is the argument for more than one reviewer, and against reading any single
+review, including these, as exhaustive.
 
 **There has been no line-by-line human security review, and no penetration
 test.** Those reviews were thorough and useful; they are not the same thing.

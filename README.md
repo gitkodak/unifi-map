@@ -93,8 +93,9 @@ from my direction, review, and testing against my own network. I decided what it
 should do and what "good" looked like; it wrote nearly every line.
 
 It works well for me. It has tests, the design decisions have reasons behind
-them, and it has been through two independent security reviews by other AI
-systems, whose findings are fixed or recorded. It has not been audited line by
+them, and it has been through six independent reviews by other AI systems —
+security, documentation, code and architecture — whose findings are fixed or
+recorded. It has not been audited line by
 line by a human, and I am not going to pretend otherwise.
 
 It only ever reads from your controller, and there is no code path here that

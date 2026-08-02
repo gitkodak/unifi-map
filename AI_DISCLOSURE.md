@@ -38,20 +38,34 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
   listed below, was exercised against
   a live UniFi console and, where relevant, a real support file. Claims in the
   documentation that carry numbers were measured rather than estimated.
-- **Two independent security reviews**, each performed by a different AI system
-  working from the source, neither of them the assistant that wrote it. One
-  raised eleven findings and the other seven, overlapping heavily. Everything
-  raised is fixed except one item declined with its reason recorded in
-  `CLAUDE.md`: no hashed dependency lock file. A second was declined at the
-  time and then done anyway, by making the support-file caps adjustable.
+- **Six independent reviews**, by three AI systems, none of them the assistant
+  that wrote the code:
 
-  The second review is the more informative result. Most of what it found the
-  first had already found, but three items were new, including a real
-  vulnerability: a crafted support file could substitute its own topology data,
-  because archive members were matched on a trailing path fragment. It was
-  reproduced, fixed, and re-tested. One competent reviewer was not enough to
-  catch it, which is worth knowing when weighing any single review, this
-  document included.
+  | Review | Findings |
+  | --- | --- |
+  | Security audit | 11 |
+  | Security audit, different system | 7 |
+  | Documentation review | 2 |
+  | Documentation review, different system | 13 |
+  | Code review | 8 |
+  | Code and architecture review | 4 |
+
+  Around forty-five findings. Everything raised is fixed except one item
+  declined with its reason recorded in `CLAUDE.md`: no hashed dependency lock
+  file. Two others were declined at the time and then done anyway, once the
+  reasoning behind the refusal turned out to be weaker than it sounded.
+
+  **The pattern across them is the useful result, not any single review.** Each
+  one found something every previous reviewer had missed, and they were not
+  minor: a crafted support file could substitute its own topology data, because
+  archive members were matched on a trailing path fragment. A support archive
+  could force unbounded decompression, because a skipped member still costs its
+  uncompressed size and no cap measured it. An existing output directory was
+  silently tightened to 0700, locking out anyone else, in code whose own comment
+  said it must not do that.
+
+  Six competent passes, and the sixth still found four things. That is worth
+  weighing against any single review, including the ones above and this document.
 
 ## What has not been verified
 

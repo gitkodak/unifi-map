@@ -254,6 +254,58 @@ identifying information. That was the right call for privacy and it cost the
 record. Worth knowing before squashing a history again: the messages are
 evidence, not just labels.
 
+## A second day of it
+
+The above was written near the end of one long session. A later one added
+enough to be worth recording rather than folding in, because the shape of his
+input changed: less "you missed something" and more "that reasoning is wrong".
+
+**Words, and why they were wrong.** He rejected "dumb switch" for "unmanaged",
+then rejected his own replacement: a switch the controller cannot see might be
+perfectly well managed, just not by UniFi. There is no short adjective for the
+real condition, and he said so rather than settling. That is what made me notice
+the name field was the wrong place for the explanation at all.
+
+He also caught `--layout sane`, which I had never questioned in months of
+writing about it. Renamed to `tree`, with a removal version promised, and his
+reason for promising one where `UDM_*` deliberately has none was that this is a
+single flag value anyone can change in seconds.
+
+**Tone is tiered, and the tiering is his.** `SECURITY.md` takes none of the
+loose register; the README is allowed a voice but less than this file and
+`AI_DISCLOSURE.md` get. I had let "super-secret naughty server" leak into
+`docs/` and `examples/`, which are reference material.
+
+**"Why are we making a decision for the user?"** A support file holding several
+sites was mapped by picking whichever had the most devices, with a warning. He
+saw that in one line of documentation. It was the only place in the tool that
+guessed, and the worst possible place to do it: the result is a complete,
+entirely ordinary looking map of the wrong network.
+
+**"I think there are some things that are incorrect."** On `RELEASING.md`, after
+I had patched it by targeted search rather than reading it. Two of the three
+counts in it were wrong. His instruction was to drop the metrics rather than
+correct them, which is right: a number that has to be maintained is a number
+that will be wrong later.
+
+**"What is the reasoning for not doing NetBox?"** I had declined it on three
+grounds. One did not survive being asked about, and checking the other exposed a
+blocker I had invented for a service that had been running for a week. Being
+asked to justify a decision found two errors that reviewing my own work had not.
+
+**"Otherwise we're just guessing blindly."** On multi-site work needing someone
+who has multiple sites. He named a category I had been filing as ordinary
+backlog: work blocked not on effort but on evidence nobody involved has. Four
+things sit there. It is now a labelled category, and an actual request in
+`CONTRIBUTING.md`, because a contributor cannot volunteer what they do not know
+is wanted.
+
+**And an admission that belongs in the section above.** Asked whether these two
+files were still accurate, he added: "I really need to get better at telling you
+when I've stopped you." That confirms from his side what this record already
+guessed — the interruptions are the largest part of his input and the part that
+leaves no trace. He knows it, and it still cannot be recovered.
+
 ## Standing instructions
 
 - Push only when asked.
@@ -265,5 +317,6 @@ evidence, not just labels.
 - Drawn device icons replace Graphviz primitives in `--icons builtin` **and**
   become the fallback in `--icons unifi` when a device is absent from
   Ubiquiti's catalogue.
-- A man page generated from the argument parser rather than written twice.
-  (The release process, listed here with it, was built: see `RELEASING.md`.)
+- (Both other entries once listed here are built: the release process is
+  `RELEASING.md`, and the man page shipped in 0.5.0 as `unifi-map.1`, generated
+  from the parser exactly as he specified.)
