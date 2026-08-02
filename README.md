@@ -15,20 +15,26 @@ console; this pulls the same data and renders it properly.
 
 ![Example output: the demo network in the default UniFi layout, dark theme](docs/images/example-unifi-dark.png)
 
-*The defaults, `--layout unifi --theme dark`, approximate what the console
+*The default layout, `--layout unifi`, which approximates what the console
 itself shows: left to right from the Internet, orthogonal links, and no title or
 legend because the UniFi UI has neither. Note what a demo can and cannot show
 here. The UniFi hardware carries its real artwork, because the dataset holds real
 hardware ids, but most of the **clients** are invented and have no fingerprint, so
 they fall back to plain shapes. Against a live network, expect nearly all of them
-to resolve as well.*
+to resolve as well.
+
+Screenshots here use `--theme dark` because they read better against this page.
+**The tool defaults to `--theme light`**, and a
+[light version of this map](docs/images/example-unifi-light.png) is committed
+alongside every other one, so you can see what an unmodified run produces.*
 
 ![The same network in the readable tree layout](docs/images/example-tree-dark.png)
 
 *The same data with `--layout tree`: top down, leaf nodes staggered to keep the
 aspect ratio reasonable, port numbers on the links, and a title block and legend. On a
-busy network this is usually the one worth handing to somebody else. Run
-`make demo` to reproduce both, then point it at your own controller.*
+busy network this is usually the one worth handing to somebody else.
+([Light version](docs/images/example-tree-light.png).) Run `make demo` to
+reproduce both, then point it at your own controller.*
 
 ## Features
 
@@ -839,7 +845,7 @@ that matches nothing, or several nodes, stops the run rather than being ignored.
 Anything you assert is drawn **dotted**, and the legend says so, so a claim of
 yours is never mistaken for something the controller reported.
 
-![A detail of the demo map showing asserted devices and links drawn dotted](docs/images/example-overrides-detail.png)
+![A detail of the demo map showing asserted devices and links drawn dotted](docs/images/example-overrides-detail-dark.png)
 
 *A detail of the demo map with `examples/demo/overrides.toml` applied. **Bench
 switch** is declared by `[[device]]` and no source reports it, so it gets a
@@ -851,9 +857,11 @@ uplink are solid, because the controller reported those. The
 renamed from the fingerprint's guess, and is one client shorter than the maps
 above because a guest phone is hidden.*
 
-Both images come from `make demo-images`, and the crop is computed from the
-layout rather than fixed pixel coordinates, so it follows the overrides if the
-demo changes.
+Both images come from `make demo-images`, which writes every demo screenshot in
+both themes ([light detail](docs/images/example-overrides-detail-light.png),
+[light full map](docs/images/example-overrides-light.png)). The crop is computed
+from the layout rather than from fixed pixel coordinates, so it follows the
+overrides if the demo changes.
 
 Only leaf nodes can be hidden. Hiding a switch would orphan everything behind it,
 and there is no honest answer to what should happen to the children, so it is

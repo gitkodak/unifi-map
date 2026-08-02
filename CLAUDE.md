@@ -185,7 +185,22 @@ controller JSON.
 ## Defaults reproduce the UniFi web view
 
 `--icons unifi --layout unifi --theme light` is chosen so the tool matches what
-the console shows out of the box. Don't change a default to something "better
+the console shows out of the box.
+
+**`--theme light` was questioned and confirmed, 2026-08-02.** Jason started the
+project wanting dark and was surprised to find light documented as the default,
+which is fair: nothing recorded it as his decision, and the only justification
+on file was the sentence above, written while documenting rather than while
+deciding. Kept anyway, on his own criterion of unsurprising over stylish. Light
+is the norm for tools that render diagrams to files rather than to a screen,
+Graphviz included, and `pdf` is a printing format where dark costs real ink.
+Note that neither theme is safe to embed: both set `bgcolor`, so an SVG is an
+opaque block against the opposite-mode page.
+
+The screenshots stay dark because they read better on the README's own page,
+and every one is now committed in both themes so a reader can see what the
+default actually produces rather than inferring it from a caption. A caption
+had in fact been calling `--theme dark` a default outright. Don't change a default to something "better
 looking" without a reason; the point is fidelity first, with `tree` available
 for readability.
 
@@ -282,6 +297,14 @@ Jira label: `needs-real-world-data`.
 The useful response is not to speculate harder, it is to ask. `CONTRIBUTING.md`
 now says what data would help and what to send, so somebody who has a network we
 do not can offer it without having to guess what is useful.
+
+- **Rendering preferences in the environment** (KAN-130), so somebody whose
+  taste differs from the defaults need not retype them. Deliberately marked
+  *consider*: the objection is that it makes a run non-reproducible between two
+  machines, against a project that has worked at determinism. The mitigation
+  already half exists, in that every render logs its effective `Style` before
+  drawing. A config file is the alternative and shipping both would be worse
+  than either.
 
 ### Tracked in Jira as well
 

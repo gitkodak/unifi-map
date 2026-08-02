@@ -48,10 +48,14 @@ IMAGES = ROOT / "docs" / "images"
 # under the lowest node are not sheared off.
 CROP_PADDING = 38.0
 
+# Dark first: it is what the README shows. `light` is the tool's default and is
+# generated so the docs can show both rather than describe one.
+THEMES = ("dark", "light")
+
 sys.path.insert(0, str(ROOT / "src"))
 
 
-def _render(name: str, *extra: str, formats: str = "png") -> None:
+def _render(name: str, theme: str, *extra: str, formats: str = "png") -> None:
     """Render one image through the CLI, so this uses the documented path."""
     command = [
         sys.executable,
@@ -66,7 +70,7 @@ def _render(name: str, *extra: str, formats: str = "png") -> None:
         "-f",
         *formats.split(),
         "--theme",
-        "dark",
+        theme,
         "--name",
         name,
         *extra,
@@ -121,26 +125,34 @@ def _crop_box(dot_path: Path, image: Image.Image) -> tuple[int, int, int, int]:
 def main() -> int:
     IMAGES.mkdir(parents=True, exist_ok=True)
 
-    _render("example-unifi-dark")
-    _render("example-tree-dark", "--layout", "tree", "--title", "Demo network")
-    _render(
-        "example-overrides-dark",
-        "--overrides",
-        str(OVERRIDES),
-        "--title",
-        "Demo network, with overrides",
-        formats="png dot",
-    )
+    # Both themes, every image. The README shows the dark ones because they
+    # read better against its own page, but `--theme light` is the default, so
+    # a reader running the tool unmodified should be able to see what they will
+    # actually get rather than inferring it.
+    for theme in THEMES:
+        _render(f"example-unifi-{theme}", theme)
+        _render(f"example-tree-{theme}", theme, "--layout", "tree", "--title", "Demo network")
+        _render(
+            f"example-overrides-{theme}",
+            theme,
+            "--overrides",
+            str(OVERRIDES),
+            "--title",
+            "Demo network, with overrides",
+            formats="png dot",
+        )
 
-    dot_path = IMAGES / "example-overrides-dark.dot"
-    full = IMAGES / "example-overrides-dark.png"
-    with Image.open(full) as image:
-        box = _crop_box(dot_path, image)
-        detail = IMAGES / "example-overrides-detail.png"
-        image.crop(box).save(detail)
-    # The .dot was only a means of getting coordinates; committing it would be
-    # a second copy of the map that nothing reads.
-    dot_path.unlink()
+        # Cropped from this theme's own render rather than one of them: the
+        # layout is identical between themes, but reusing one theme's crop box
+        # would silently depend on that staying true.
+        dot_path = IMAGES / f"example-overrides-{theme}.dot"
+        full = IMAGES / f"example-overrides-{theme}.png"
+        with Image.open(full) as image:
+            box = _crop_box(dot_path, image)
+            image.crop(box).save(IMAGES / f"example-overrides-detail-{theme}.png")
+        # The .dot was only a means of getting coordinates; committing it would
+        # be a second copy of the map that nothing reads.
+        dot_path.unlink()
 
     for path in sorted(IMAGES.glob("example-*.png")):
         with Image.open(path) as image:
