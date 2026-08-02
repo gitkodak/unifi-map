@@ -33,6 +33,11 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Changed
 
+- `--site`'s help text no longer reads as though multi-site support files are
+  refused outright. They are refused only when you do not say which site you
+  want, which the sentence did say, twenty words earlier, in a table cell. It
+  now states the requirement rather than the refusal. The README prose leads
+  with the same.
 - Dependabot auto-merge holds anything whose update type it cannot identify,
   rather than merging it. The condition asked "is this not a major bump", which
   treats an empty or unrecognised value as safe, so anything leaving
@@ -41,15 +46,14 @@ Refactors, docs and tests alone do not need a release at all.
   requests until v3.1.0, and Python dependencies are what this repository
   tracks. It now asks "is this a minor or patch bump", so an unknown value
   merges nothing.
-- `RELEASING.md` describes the process as it now is, and no longer counts how
-  many times anything has happened. Two of those counts were simply wrong (the
-  files carrying a version promise, and how far the demo screenshots had
-  drifted), and none of them told a reader anything the sentence did not.
-- `RELEASING.md` corrections. Three things in it were wrong: it said to rename `## Unreleased` away at release, which would delete
+- `RELEASING.md` describes the process as it now is. Three things in it were
+  wrong: it said to rename `## Unreleased` away at release, which would delete
   the section `CONTRIBUTING.md` tells contributors to use; it never mentioned
-  `make docs`, which is now mandatory because the man page carries the version;
-  and it implied CI could be verified from here, which it cannot, because `gh`
-  is not installed.
+  `make docs`, which is mandatory now that the man page carries the version; and
+  it said CI could not be checked from here, which stopped being true when `gh`
+  was installed. It also no longer counts how many times anything has happened,
+  since two of those counts were wrong and none of them told a reader anything
+  the sentence did not.
 - A test asserts the man page header carries a real date. The date comes from
   the changelog entry for the current version, so bumping `__version__` before
   dating that section produced an empty one, and the regenerate-and-compare

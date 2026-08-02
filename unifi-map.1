@@ -64,7 +64,7 @@ Where downloaded artwork is cached (default: cache/assets). Kept separate from \
 Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add \-\-offline to stop that too.
 .TP
 \fB\-\-site\fR \fINAME\fR
-Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi\-site support file. Without it, a live fetch uses UNIFI_SITE or `default`; a support file holding more than one site is refused rather than chosen between.
+Which site to read. For a live fetch this overrides UNIFI_SITE, which otherwise falls back to `default`. For a support file it picks one of the sites inside, and is required when the file holds more than one: the run stops and lists them rather than choosing for you.
 .TP
 \fB\-\-support\-max\-member\fR \fISIZE\fR
 Largest single file to decode from a support archive (default 64M). Accepts a plain number or a K/M/G suffix. Raise it if a large site is refused.

@@ -370,6 +370,25 @@ listed twice, and ordered by fit rather than by arrival.
   Still untested against a real multi-site console, which is where this should
   start.
 
+  **Three pieces of wording have to change on the day this ships**, and they are
+  easy to miss because none of them is in the code that changes. `--site`'s help
+  text in `cli.py` says the flag is *required* for a multi-site support file,
+  which propagates verbatim into the README flag table and `unifi-map.1`. The
+  README prose says the same at greater length. And `_pick_site()`'s error, which
+  currently tells the reader to pass `--site`, should offer `--all-sites` as the
+  other way to answer it.
+
+  There is no single phrase common to all three, which is the trap: the help
+  text and the README say "more than one", the error says "holds N sites". Check
+  the four files rather than trusting one grep:
+
+  ```bash
+  grep -rn "sites" README.md unifi-map.1 src/unifi_map/cli.py src/unifi_map/support.py
+  ```
+
+  `unifi-map.1` and the README table are generated, so fixing `cli.py` and
+  running `make docs` covers two of the four.
+
 - **Historical clients**, opt-in and visibly dated. Codex's caveat is the right
   one and matches the rules here: an old association is not evidence of where
   something is now, so a stale client must never be drawn as a current link. If
