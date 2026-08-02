@@ -977,3 +977,39 @@ class TestTransparentBackground:
         style = Style(theme=LIGHT, icons="builtin", layout="unifi", transparent=True)
         svg = run_dot(render_dot(build_topology(snapshot), "t", style), "svg").decode()
         assert LIGHT.card.lower() in svg.lower(), "transparency ate the node shapes too"
+
+
+class TestTheEnvironmentCanAskForAFlourish:
+    """A cosmetic addition, off unless the environment asks.
+
+    Deliberately not described in the README or in `--help`. What matters for
+    correctness is only that it changes nothing else: it is emitted into the DOT
+    directly rather than added to the topology, so it cannot reach counts,
+    filtering, obfuscation or the report.
+    """
+
+    def test_it_is_off_by_default(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.delenv("HOOPY_FROOD", raising=False)
+        assert "PANIC" not in render_dot(build_topology(snapshot), "t", UNIFI)
+
+    def test_an_unrecognised_value_does_nothing(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.setenv("HOOPY_FROOD", "yes")
+        assert "PANIC" not in render_dot(build_topology(snapshot), "t", UNIFI)
+
+    def test_the_expected_value_adds_it(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.setenv("HOOPY_FROOD", "map")
+        assert "PANIC" in render_dot(build_topology(snapshot), "t", UNIFI)
+
+    def test_it_changes_nothing_that_is_counted(self, snapshot: Snapshot, monkeypatch):
+        # The load-bearing assertion. Decoration must stay decoration.
+        topo = build_topology(snapshot)
+        before = (len(topo.nodes), len(topo.edges), topo.counts())
+        monkeypatch.setenv("HOOPY_FROOD", "map")
+        render_dot(topo, "t", UNIFI)
+        assert (len(topo.nodes), len(topo.edges), topo.counts()) == before
+
+    @needs_graphviz
+    def test_the_svg_still_renders(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.setenv("HOOPY_FROOD", "map")
+        svg = run_dot(render_dot(build_topology(snapshot), "t", UNIFI), "svg").decode()
+        assert "<svg" in svg

@@ -31,7 +31,33 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- `unifi-map report`, which prints a short plain-text description of the shape
+  of a network: counts, fan-out, which field names the controller returns, and
+  versions. Meant for a bug report or for the features that are stuck waiting on
+  a network nobody here has.
+
+  Built from an allowlist rather than by redacting: every line is a counted
+  integer, a boolean, or a field name from a list written in advance. A filter
+  that strips identifying values can be incomplete, and UniFi's own does exactly
+  that and was observed leaving unredacted tokens in a real support file. A list
+  that only ever adds cannot leak by omission.
+
+  It asks before producing anything, printing what it does and does not collect,
+  and `--yes` skips that once read. A non-interactive run without `--yes`
+  refuses rather than assuming: a cron job has nobody to consent on behalf of.
+
+  Two tests hold the promise up. One renders a snapshot built entirely of
+  identifying values and searches the output for every one. The other is
+  stronger and matches the design: it asserts the report's whole vocabulary is
+  closed, so a value arriving by a route nobody predicted fails even though no
+  test knew to look for it.
+- A small rendering flourish, off unless an environment variable asks for it.
+  Not in `--help`, not in the README, and not described further here. It is
+  emitted straight into the DOT rather than added to the topology, so it cannot
+  reach counts, filtering, obfuscation or the report; a test holds that. Harmless
+  and cosmetic, and findable by anyone who already knows to look.
 
 ## 0.6.0 - 2026-08-02
 

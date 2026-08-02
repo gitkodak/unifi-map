@@ -88,6 +88,24 @@ class Style:
         return self.layout == "tree"
 
 
+def _flourish(theme: Theme) -> list[str]:
+    """An unconnected node, when the environment asks for one.
+
+    Emitted straight into the DOT rather than added to the `Topology`, so it
+    cannot reach counts, per-network filtering, obfuscation or the report. It is
+    decoration and stays decoration.
+    """
+    from .config import flourish
+
+    if flourish() != "map":
+        return []
+    # Large friendly letters, as specified.
+    return [
+        f'  "_f" [shape=none, margin=0, fontsize=34, fontname="{FONT}", '
+        f'fontcolor="{theme.accents.get(Kind.AP, theme.text)}", label="DON\'T PANIC"];'
+    ]
+
+
 def _escape(text: str) -> str:
     """Escape for a plain DOT quoted string."""
     return text.replace("\\", "\\\\").replace('"', '\\"')
@@ -184,6 +202,7 @@ def _graph_attrs(style: Style) -> list[str]:
         "  compound=true;",
         # Graphviz spells it "transparent" and honours it for svg, png and pdf.
         f'  bgcolor="{"transparent" if style.transparent else theme.background}";',
+        *_flourish(theme),
     ]
 
 

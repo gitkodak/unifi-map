@@ -43,6 +43,7 @@ from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
+from .report import CONSENT, Extras, build_report
 from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
 from .support import MAX_MEMBER_BYTES as SUPPORT_MAX_MEMBER
@@ -713,6 +714,56 @@ def _subtitle(tally: dict[str, int]) -> str:
     return f"{devices} UniFi devices · {clients} clients · generated {stamp}"
 
 
+def _controller_version(snapshot: Snapshot) -> str | None:
+    """The controller version, from whichever device reports one.
+
+    Not identifying, and the single most useful line in the report: every
+    endpoint shape in this tool is verified against exactly one version.
+    """
+    payload = snapshot.get("device") or []
+    records = payload.get("data", []) if isinstance(payload, dict) else payload
+    for record in records:
+        if isinstance(record, dict) and isinstance(record.get("version"), str):
+            return record["version"]
+    return None
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    """Print a shareable description of the network's shape.
+
+    Consent is asked at the point of collection rather than left to the docs,
+    because this is the moment somebody decides whether to send it. `--yes`
+    skips the prompt. A non-interactive run without it refuses rather than
+    proceeding: assuming yes on somebody else's behalf is the one answer this
+    must never give, and a cron job has nobody to ask.
+    """
+    if not args.yes:
+        print(CONSENT, file=sys.stderr)
+        if not sys.stdin.isatty():
+            log.error(
+                "Not running interactively, so there is nobody to ask. Re-run with "
+                "--yes if you have read the above and want the report."
+            )
+            return 2
+        try:
+            answer = input("Produce this report? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print(file=sys.stderr)
+            return 2
+        if answer not in ("y", "yes"):
+            log.info("Nothing produced.")
+            return 2
+
+    snapshot = Snapshot.read(args.cache_dir)
+    topo = build_topology(snapshot, include_offline=True)
+    extras = Extras(
+        source="support file" if args.support_file else "cached snapshot",
+        controller_version=_controller_version(snapshot),
+    )
+    print(build_report(topo, snapshot.payloads, extras))
+    return 0
+
+
 def cmd_all(args: argparse.Namespace) -> int:
     result = cmd_fetch(args)
     return result if result != 0 else cmd_render(args)
@@ -993,6 +1044,18 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("all", parents=[shared, render_flags], help="Fetch then render").set_defaults(
         func=cmd_all
     )
+    report = sub.add_parser(
+        "report",
+        parents=[shared],
+        help="Describe the network's shape, for sharing in an issue",
+    )
+    report.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the consent prompt. Read what the report contains first; "
+        "`unifi-map report` on its own prints that and asks.",
+    )
+    report.set_defaults(func=cmd_report)
 
     return parser
 

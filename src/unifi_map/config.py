@@ -160,6 +160,17 @@ def read_dotenv(path: Path) -> dict[str, str]:
     return values
 
 
+# Not every variable this module reads is about reaching a controller. This one
+# changes nothing about the data and is off unless deliberately set.
+_FLOURISH_VAR = "HOOPY_FROOD"
+
+
+def flourish() -> str | None:
+    """A rendering nicety, or None. Read here because this module owns the
+    environment; see the note at the top of `cli.py` about why that matters."""
+    return os.environ.get(_FLOURISH_VAR) or None
+
+
 def load_config(env_file: Path | None = None, site: str | None = None) -> ExporterConfig:
     """Build config from *env_file*, or the first file in the default search path.
 

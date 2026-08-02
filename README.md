@@ -496,6 +496,36 @@ going; with `--no-progress`, or piped to a file, walking a much larger archive
 produces no output at all until it finishes, so a slow run and a hung one look
 identical.
 
+## Helping: `unifi-map report`
+
+Several things this tool cannot do are stuck on evidence rather than effort.
+Multi-site handling has only ever seen one site. Nothing has been profiled at
+scale. The four support-file limits come from a single archive. Every endpoint
+shape is verified against exactly one controller version.
+
+None of that is fixable by thinking harder, and the one thing you should never
+be asked for is your data. So:
+
+```bash
+unifi-map report          # prints what it collects, then asks
+unifi-map report --yes    # skip the prompt, once you have read it
+```
+
+It prints a short plain-text description of the *shape* of your network: counts,
+how many things hang off the busiest device, which field **names** your
+controller returns, and version numbers. It is built from a list written in
+advance rather than by stripping identifying values out, because a filter that
+strips can be incomplete and a list that only ever adds cannot.
+
+No addresses, MACs, hostnames, SSIDs, site names or network names appear in it,
+and no value from any field, only whether that field exists. It is short enough
+to read in full before you send it, and nothing is transmitted by the tool: the
+report goes to your terminal and what happens next is your decision.
+
+The most useful part is the schema section, which says which fields your
+controller returns and which it does not. That is the question we cannot answer
+from here and cannot guess.
+
 ## Putting a map on a page: `--transparent`
 
 ```bash
@@ -1077,5 +1107,11 @@ equivalent. Command options must follow the subcommand.
 | `--legend`, `--no-legend` | Show the legend (default: on for --layout tree, off for --layout unifi) |  |
 | `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout tree, off for --layout unifi) |  |
 | `--stagger` `N` | With --layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12) | `12` |
+
+### `report` options
+
+| Flag | What it does | Default |
+| --- | --- | --- |
+| `--yes` | Skip the consent prompt. Read what the report contains first; `unifi-map report` on its own prints that and asks. |  |
 
 <!-- END GENERATED FLAGS -->
