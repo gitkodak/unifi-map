@@ -29,6 +29,19 @@ a major one later.
 
 Refactors, docs and tests alone do not need a release at all.
 
+### What counts as a fix
+
+`### Fixed` is for something a user could have hit. A defect found and corrected
+before its feature ever shipped was never a bug from outside, so it belongs in
+the `### Added` entry for that feature rather than listed separately: somebody
+scanning to see whether their problem is solved should not have to read about
+problems that never reached them.
+
+Corrections to `CLAUDE.md`, `TODO.md` or the Jira tickets are not changelog
+entries either. They are working notes. Corrections to `README.md`,
+`SECURITY.md`, `CONTRIBUTING.md` or `RELEASING.md` are, because somebody was
+told something untrue and may have acted on it.
+
 ## Unreleased
 
 Nothing yet.
