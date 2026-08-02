@@ -496,7 +496,7 @@ going; with `--no-progress`, or piped to a file, walking a much larger archive
 produces no output at all until it finishes, so a slow run and a hung one look
 identical.
 
-## Helping: `unifi-map report`
+## Helping: `unifi-map shape`
 
 Several things this tool cannot do are stuck on evidence rather than effort.
 Multi-site handling has only ever seen one site. Nothing has been profiled at
@@ -507,9 +507,9 @@ None of that is fixable by thinking harder, and the one thing you should never
 be asked for is your data. So:
 
 ```bash
-unifi-map report                              # from a cached snapshot
-unifi-map report --support-file support.tgz    # or straight from an archive
-unifi-map report --yes                         # skip the prompt, once read
+unifi-map shape                              # from a cached snapshot
+unifi-map shape --support-file support.tgz    # or straight from an archive
+unifi-map shape --yes                         # skip the prompt, once read
 ```
 
 It prints a short plain-text description of the *shape* of your network: counts,
@@ -1113,10 +1113,10 @@ equivalent. Command options must follow the subcommand.
 | `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout tree, off for --layout unifi) |  |
 | `--stagger` `N` | With --layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12) | `12` |
 
-### `report` options
+### `shape` options
 
 | Flag | What it does | Default |
 | --- | --- | --- |
-| `--yes` | Skip the consent prompt. Read what the report contains first; `unifi-map report` on its own prints that and asks. |  |
+| `--yes` | Skip the consent prompt. Read what the report contains first; `unifi-map shape` on its own prints that and asks. |  |
 
 <!-- END GENERATED FLAGS -->

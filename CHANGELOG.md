@@ -33,7 +33,7 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
-- `unifi-map report`, which prints a short plain-text description of the shape
+- `unifi-map shape`, which prints a short plain-text description of the shape
   of a network: counts, fan-out, which field names the controller returns, and
   versions. Meant for a bug report or for the features that are stuck waiting on
   a network nobody here has.
@@ -56,6 +56,12 @@ Refactors, docs and tests alone do not need a release at all.
 
   `CONTRIBUTING.md` asked people to gather this sort of thing by hand and now
   points at the command instead.
+
+  Named `shape` rather than `report` because a diagnostic `--report` is planned
+  and does the opposite job: it describes *your* map for *your* benefit and may
+  freely name your devices, since it never leaves your terminal. This one
+  describes a network for somebody else and is constrained so it can be shared.
+  One name for both would have guaranteed the constraint eventually leaked.
 
   Two tests hold the promise up. One renders a snapshot built entirely of
   identifying values and searches the output for every one. The other is

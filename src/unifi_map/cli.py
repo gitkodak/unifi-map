@@ -728,7 +728,7 @@ def _controller_version(snapshot: Snapshot) -> str | None:
     return None
 
 
-def cmd_report(args: argparse.Namespace) -> int:
+def cmd_shape(args: argparse.Namespace) -> int:
     """Print a shareable description of the network's shape.
 
     Consent is asked at the point of collection rather than left to the docs,
@@ -1067,18 +1067,18 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("all", parents=[shared, render_flags], help="Fetch then render").set_defaults(
         func=cmd_all
     )
-    report = sub.add_parser(
-        "report",
+    shape = sub.add_parser(
+        "shape",
         parents=[shared],
         help="Describe the network's shape, for sharing in an issue",
     )
-    report.add_argument(
+    shape.add_argument(
         "--yes",
         action="store_true",
         help="Skip the consent prompt. Read what the report contains first; "
-        "`unifi-map report` on its own prints that and asks.",
+        "`unifi-map shape` on its own prints that and asks.",
     )
-    report.set_defaults(func=cmd_report)
+    shape.set_defaults(func=cmd_shape)
 
     return parser
 

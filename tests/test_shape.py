@@ -145,41 +145,41 @@ class TestConsent:
         A cron job or a piped run has no human to consent, and consenting on
         somebody else's behalf is the one answer this must never give.
         """
-        from unifi_map.cli import build_parser, cmd_report
+        from unifi_map.cli import build_parser, cmd_shape
 
         monkeypatch.setattr("sys.stdin.isatty", lambda: False)
-        args = build_parser().parse_args(["--cache-dir", "examples/demo", "report"])
-        assert cmd_report(args) == 2
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "shape"])
+        assert cmd_shape(args) == 2
         assert "counts" in capsys.readouterr().err
 
     def test_declining_produces_nothing(self, monkeypatch, capsys):
-        from unifi_map.cli import build_parser, cmd_report
+        from unifi_map.cli import build_parser, cmd_shape
 
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
         monkeypatch.setattr("builtins.input", lambda *_: "n")
-        args = build_parser().parse_args(["--cache-dir", "examples/demo", "report"])
-        assert cmd_report(args) == 2
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "shape"])
+        assert cmd_shape(args) == 2
         assert "SCALE" not in capsys.readouterr().out
 
     @pytest.mark.parametrize("answer", ["y", "yes", "Y", "  YES  "])
     def test_accepting_produces_the_report(self, monkeypatch, capsys, answer):
-        from unifi_map.cli import build_parser, cmd_report
+        from unifi_map.cli import build_parser, cmd_shape
 
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
         monkeypatch.setattr("builtins.input", lambda *_: answer)
-        args = build_parser().parse_args(["--cache-dir", "examples/demo", "report"])
-        assert cmd_report(args) == 0
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "shape"])
+        assert cmd_shape(args) == 0
         assert "SCALE" in capsys.readouterr().out
 
     def test_yes_skips_the_prompt_entirely(self, monkeypatch, capsys):
-        from unifi_map.cli import build_parser, cmd_report
+        from unifi_map.cli import build_parser, cmd_shape
 
         def refuse(*_):
             raise AssertionError("--yes should not prompt")
 
         monkeypatch.setattr("builtins.input", refuse)
-        args = build_parser().parse_args(["--cache-dir", "examples/demo", "report", "--yes"])
-        assert cmd_report(args) == 0
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "shape", "--yes"])
+        assert cmd_shape(args) == 0
         assert "SCALE" in capsys.readouterr().out
 
 

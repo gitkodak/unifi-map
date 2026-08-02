@@ -26,6 +26,13 @@ drawn from a thin one look equally authoritative.
   placed and why, artwork matches refused as ambiguous, networks a client
   references that the controller does not list. Most of this is already decided
   at runtime and thrown away as log lines.
+
+  **Not the same thing as `unifi-map shape`**, which ships already. That
+  describes a network for somebody else's benefit and is built from an
+  allowlist so it can be shared. This one describes *your* map for *your*
+  benefit and may freely name your devices, because it is never leaving your
+  terminal. Both were briefly called "report", which is why the shipped one
+  is not.
 - **Provenance on the diagram itself.** An override-asserted link is drawn
   dotted; nothing else distinguishes observed from inferred. A client placed
   from the topology graph, one placed from `stat/sta`, and one whose fingerprint
@@ -138,7 +145,9 @@ help and what not to send.
   10.5.67.
 - **Wireless signal overlays** (KAN-124). Band, channel width and RSSI, if they
   are in a live `stat/sta`. The demo dataset lacks them, but it is synthetic and
-  proves nothing either way.
+  proves nothing either way. `unifi-map shape` now answers this the moment
+  anybody runs it against a real controller: the schema section lists `rssi`,
+  `signal`, `channel` and `radio` as present or absent.
 
 ## Undecided, rather than unstarted
 
