@@ -88,16 +88,17 @@ Two things carry risk and are worth reading first: an API key is
 ## How this was built
 
 Essentially all of the code here was written by an AI assistant (Claude), working
-from my direction, review, and testing against my own network. 100% vibe-coded.
-I decided what it should do and what "good" looked like; it wrote nearly every
-line.
+from my direction, review, and testing against my own network. I decided what it
+should do and what "good" looked like; it wrote nearly every line.
 
 It works well for me. It has tests, the design decisions have reasons behind
 them, and it has been through two independent security reviews by other AI
 systems, whose findings are fixed or recorded. It has not been audited line by
-line by a human, and I'm not going to pretend otherwise. It only ever reads from your controller (there is no code
-path here that changes anything on it), but it does want admin credentials, so
-read `client.py` if that matters to you. It's short.
+line by a human, and I am not going to pretend otherwise.
+
+It only ever reads from your controller, and there is no code path here that
+changes anything on it. It does want admin credentials, so read `client.py` if
+that matters to you. It is short.
 
 [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) is the full version of this: what was
 verified, what was not, and how the AI actually failed here, since that is the
@@ -105,7 +106,7 @@ part worth knowing. [`HUMAN_INPUT.md`](HUMAN_INPUT.md) records what "my
 direction" amounted to, including the times I was wrong. A disclaimer like this
 one is worth more when it can be checked.
 
-Use it or don't, your call.
+Judge it on that basis.
 
 ## Output
 

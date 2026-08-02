@@ -114,7 +114,7 @@ note = "UniFi is convinced this is a smart toothbrush"
 [[node]]
 match = "10.0.20.99"
 hide = true
-note = "super-secret naughty server, not for the group chat"
+note = "internal service, not for a diagram I am sharing"
 ```
 
 Two reasons you might want this. One is noise: "online" and "actually

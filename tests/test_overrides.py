@@ -364,9 +364,11 @@ class TestHideOverride:
 
     def test_the_shipped_example_documents_hiding(self):
         hidden = [n for n in load(EXAMPLE).nodes if n.hide]
-        # Both reasons to hide are worth showing: discretion and noise.
+        # Both reasons to hide are worth showing: discretion and noise. Asserted
+        # on the note existing rather than on its wording, which was previously
+        # pinned to one specific phrase and broke when the example was reworded.
         assert len(hidden) >= 2, "examples/overrides.toml should show hide entries"
-        assert any("naughty" in (n.note or "") for n in hidden)
+        assert all(n.note for n in hidden), "each hide example should say why"
         assert any(n.match == "Garage" for n in hidden)
 
 

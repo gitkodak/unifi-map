@@ -67,8 +67,8 @@ name = "Garage freezer"
 # --- Hiding things ------------------------------------------------------------
 # Two reasons to hide something. Either it is noise (an access point whose radios
 # you disabled on purpose is still "online" to the controller, so
-# --show-offline no will not remove it), or you simply do not want it on a map you
-# are about to hand to somebody else, such as your super-secret naughty server.
+# --show-offline no will not remove it), or it is something you would rather not
+# put on a map you are about to hand to somebody else.
 #
 # Only leaf nodes can be hidden. Hiding a switch or an access point would orphan
 # everything behind it, so that is refused rather than guessed at.
@@ -76,7 +76,7 @@ name = "Garage freezer"
 [[node]]
 match = "10.0.20.99"
 hide = true
-note = "super-secret naughty server, not for the group chat"
+note = "internal service, not for a diagram I am sharing"
 
 [[node]]
 match = "Garage"

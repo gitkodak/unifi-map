@@ -679,6 +679,32 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   `continue-on-error`, so requiring it would mean nothing, and if it ever gates
   properly a new CVE upstream would block every unrelated pull request.
 
+## Tone is tiered, deliberately
+
+An external review flagged the register as inconsistent, alternating between
+formal security language and phrases like "vibe-coded" and "meat bag". The
+inconsistency is intended, but it is not uniform, and it has a shape:
+
+| Register | Files |
+| --- | --- |
+| Loosest, personal, first person | `AI_DISCLOSURE.md`, `HUMAN_INPUT.md` |
+| Relaxed but restrained | `README.md` |
+| Plain and formal | `SECURITY.md`, and everything else: `CONTRIBUTING.md`, `CHANGELOG.md`, `RELEASING.md`, `docs/`, `examples/`, issue templates, code comments |
+
+`SECURITY.md` in particular takes none of it. Someone reading it is deciding
+whether to point this at their network, and a joke in the middle of a threat
+description reads as not having taken the threat seriously.
+
+The README sits in between on purpose: it is allowed a voice, since a personal
+project pretending to be a product is its own kind of dishonest, but it is the
+first thing a stranger sees and should be more restrained than the two documents
+that exist specifically to be personal.
+
+This was applied once already: `examples/overrides.toml` and `docs/overrides.md`
+used "super-secret naughty server" as a hide example and now do not, and a test
+that asserted on that exact phrase now asserts on the note existing instead.
+Pinning a test to a joke is how a wording change becomes a test failure.
+
 ## Data hygiene
 
 `cache/` and `out/` are gitignored; snapshots are written `0600`. A snapshot is a
