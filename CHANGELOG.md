@@ -46,6 +46,17 @@ told something untrue and may have acted on it.
 
 ### Changed
 
+- The artwork page explains where artwork comes from, which its own opening
+  sentence had been promising while the answer sat two files away. The output
+  page lists every format rather than the two that needed prose. Both were the
+  same artefact of splitting by top-level heading: a `###` subsection went
+  wherever its parent `##` lived, and a page assembled from the sections that
+  happened to need explanation inherits their gaps rather than its own title's
+  promise.
+
+  What remained of `docs/internals.md` once the artwork left was not internals,
+  so it is `docs/verification.md` and says what it holds: what was checked, what
+  was not, and the caveats.
 - The README is split. It had reached 1233 lines, which is past the point where
   anybody reads it, and is now 220: what the tool is, what it produces, how to
   install it, and how to see a map without touching your network. Everything

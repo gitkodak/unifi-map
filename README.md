@@ -195,9 +195,9 @@ getting a first map out of it. Everything else is a page of its own.
 | [Support files](docs/support-files.md) | Mapping without credentials, and why the file is a secret. |
 | [Output formats](docs/output.md) | JSON, Mermaid, `--transparent`, and turning the spinner off. |
 | [Overrides](docs/overrides.md) | Stating what the controller cannot see: unreported links, nesting, corrections. |
-| [Artwork](docs/artwork.md) | Where the pictures come from, and the licensing position. |
+| [Artwork](docs/artwork.md) | Where the pictures come from, how they are matched, and the licensing position. |
 | [Sharing a map](docs/sharing.md) | `--obfuscate`, and the report meant for a bug report. |
-| [How it works](docs/internals.md) | The pipeline, what has been verified, and the caveats. |
+| [What has been checked](docs/verification.md) | What was verified directly, what was not, and the caveats. |
 | [Security](SECURITY.md) | The credential model, what reaches Ubiquiti's CDN, support-file risk. |
 | [Contributing](CONTRIBUTING.md) | Including which data would genuinely help. |
 | [Planned work](TODO.md) | What is coming, what is blocked and on what. |
