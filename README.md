@@ -63,9 +63,10 @@ busy network this is usually the one worth handing to somebody else. Run
   as a claim rather than an observation, so a reader can tell the difference.
   `make demo-overrides` renders the shipped example.
 - **Read-only, always.** `session.get` is the only HTTP verb in the source.
-- **Scriptable by default.** The progress spinner turns itself off whenever
-  output is not a terminal, so piping or redirecting produces clean text with
-  no escape sequences and no `--no-progress` to remember.
+- **Scriptable by default.** The [progress spinner](#progress-and-turning-it-off)
+  turns itself off whenever output is not a terminal, so piping or redirecting
+  produces clean text with no escape sequences and no `--no-progress` to
+  remember.
 
 Quickest look, no credentials and no controller:
 
@@ -427,7 +428,7 @@ does not follow the bytes decoded.
 | --- | --- | --- |
 | `--support-max-member` | 64M | one huge member decompressed on trust |
 | `--support-max-total` | 128M | many members that are individually fine |
-| `--support-max-entries` | 100000 | an archive that is cheap to decompress and enormous to iterate |
+| `--support-max-entries` | 100,000 | an archive that is cheap to decompress and enormous to iterate |
 
 ```bash
 unifi-map all --support-file support-XXXX.tgz \

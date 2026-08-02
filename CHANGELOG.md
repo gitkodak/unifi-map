@@ -29,7 +29,7 @@ a major one later.
 
 Refactors, docs and tests alone do not need a release at all.
 
-## Unreleased
+## 0.4.0 - 2026-08-01
 
 ### Deprecated
 
@@ -45,13 +45,13 @@ Refactors, docs and tests alone do not need a release at all.
   itself off whenever output is not a terminal, so piping, redirecting and CI
   are unaffected and need no flag; `--no-progress` covers an interactive
   terminal whose output something else is reading.
-- Raising `--support-max-entries` above the default warns that the run may take
-  a while, since walking a larger archive prints nothing until it finishes and
-  is otherwise indistinguishable from a hang.
 - `--support-max-entries` caps how much of a support archive is walked. It was
   already capped at 100,000; what is new is being able to change it. The two
   size caps guard memory and this one guards time, since entry count does not
   follow the bytes decoded, and all three now behave the same way.
+- Raising `--support-max-entries` above the default warns that the run may take
+  a while, since walking a larger archive prints nothing until it finishes and
+  is otherwise indistinguishable from a hang.
 - `RELEASING.md` documents how a version actually goes out, written after doing
   it by hand twice rather than invented in advance. Two tests enforce the parts
   that have gone wrong: the changelog must have a section for the version the
