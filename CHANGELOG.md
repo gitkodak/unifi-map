@@ -44,6 +44,10 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.7.1 - 2026-08-02
+
 ### Fixed
 
 - The README's `## Output` table lists `mermaid` and `json`. It had not, since
