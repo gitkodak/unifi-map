@@ -115,8 +115,40 @@ MAX_MEMBER_BYTES = 64 * 1024 * 1024
 MAX_TOTAL_BYTES = 128 * 1024 * 1024
 
 # An archive with millions of entries costs time to walk even though nothing is
-# decoded. Real ones run to a few thousand.
+# decoded, so neither size cap above stops one: entry count is unrelated to the
+# bytes decoded.
+#
+# Tunable for the same reason the size caps are, and not because a hit is
+# expected. The one archive measured held about 2,500 entries, but one sample of
+# one small site says nothing about whether that number grows with the site, and
+# the archive does carry per-client material. Rather than assume it does not
+# scale, this is raisable like the others. Refusing to guess costs one flag.
 MAX_ARCHIVE_ENTRIES = 100_000
+
+# The cap the three above do not provide: total uncompressed bytes the archive
+# is allowed to make us walk, wanted or not.
+#
+# Streaming tar has to read through a member's data to reach the next header, so
+# a member we skip still costs its full decompressed size. Nothing above notices:
+# the size caps only measure members we decode, and the entry cap counts headers.
+# A 2 MiB archive holding one 2 GiB run of zeros passes all three and costs 21
+# seconds of CPU, measured. Scaled up it is an afternoon.
+#
+# The default bounds the amplification rather than removing it: 4 GiB of zeros
+# still costs about 40 seconds, from an archive a few MiB on disk. It is set
+# against the compressed size of the one real support file seen (154 MiB),
+# because that file is gone and its *uncompressed* size was never measured, so
+# there is no honest basis for a tighter number. Treat 4 GiB as "obviously
+# absurd" rather than as a measured ceiling, and tune it if you have data.
+MAX_ARCHIVE_BYTES = 4 * 1024**3
+
+
+def _human(size: int) -> str:
+    """Byte count as a person would write it, for error messages."""
+    for unit, scale in (("GiB", 1024**3), ("MiB", 1024**2), ("KiB", 1024)):
+        if size >= scale:
+            return f"{size / scale:.6g} {unit}"
+    return f"{size} bytes"
 
 
 class SupportFileError(RuntimeError):
@@ -127,6 +159,8 @@ def _read_members(
     path: Path,
     max_member: int = MAX_MEMBER_BYTES,
     max_total: int = MAX_TOTAL_BYTES,
+    max_entries: int = MAX_ARCHIVE_ENTRIES,
+    max_archive: int = MAX_ARCHIVE_BYTES,
 ) -> dict[str, bytes]:
     """Pull the wanted members out of the archive in a single streaming pass.
 
@@ -139,17 +173,42 @@ def _read_members(
     would be worse than the exhaustion the caps exist to prevent, so they are
     raisable from the command line and the error says which flag to use.
     """
+    if max_entries > MAX_ARCHIVE_ENTRIES:
+        # Raising this is a deliberate act, but the consequence is invisible:
+        # the archive is walked entry by entry with nothing printed, so a run
+        # that now takes minutes looks identical to one that has hung.
+        log.warning(
+            "Walking up to %s archive entries (the default is %s). This can take "
+            "a while on a large archive, and produces no output until it finishes "
+            "if the spinner is disabled.",
+            f"{max_entries:,}",
+            f"{MAX_ARCHIVE_ENTRIES:,}",
+        )
+
     found: dict[str, bytes] = {}
     total = 0
     entries = 0
+    walked = 0
     try:
         with tarfile.open(path, "r|gz") as archive:
             for member in archive:
                 entries += 1
-                if entries > MAX_ARCHIVE_ENTRIES:
+                if entries > max_entries:
                     raise SupportFileError(
-                        f"{path} holds more than {MAX_ARCHIVE_ENTRIES} entries. A real "
-                        "support file has a few thousand; refusing to keep walking it."
+                        f"{path} holds more than {max_entries} entries; refusing to "
+                        "keep walking it. The one archive measured held about 2,500. "
+                        "Raise it with --support-max-entries if yours is legitimately "
+                        "larger, and please open an issue saying so."
+                    )
+                # Counted for every member, including the ones skipped below,
+                # because reaching the next header decompresses this one either
+                # way. This is the only cap that sees a compression bomb.
+                walked += max(0, member.size)
+                if walked > max_archive:
+                    raise SupportFileError(
+                        f"{path} expands to more than {_human(max_archive)}. That is "
+                        "far larger than any real support file, and reading further "
+                        "would cost time without reading anything useful."
                     )
                 if len(found) == len(MEMBERS):
                     break
@@ -241,16 +300,21 @@ def _pick_site(devices: Any, requested: str | None) -> tuple[str, list[dict[str,
         return requested, real[requested]
 
     if len(real) > 1:
-        # Picking silently would quietly map the wrong network, so say so.
-        chosen = max(real, key=lambda name: len(real[name]))
-        log.warning(
-            "Support file holds %d sites (%s); mapping %r, which has the most "
-            "devices. Use --support-site to choose another.",
-            len(real),
-            ", ".join(sorted(real)),
-            chosen,
+        # Refused rather than guessed. This used to map whichever site had the
+        # most devices and warn, which is the one thing the rest of this tool
+        # never does: `resolve()` calls an ambiguous selector a loud error,
+        # `sysid_for_name()` returns nothing rather than pick a favourite, and
+        # an unreported uplink gets a placeholder rather than a plausible
+        # parent. "Most devices" is a guess with no claim to being the one you
+        # meant, and its failure mode is the worst kind: a complete, ordinary
+        # looking map of the wrong network, off a warning nobody reads when
+        # stderr is redirected.
+        available = ", ".join(sorted(real))
+        raise SupportFileError(
+            f"This support file holds {len(real)} sites ({available}). Pass "
+            "--site NAME to say which one to map; there is no sensible way to "
+            "choose for you."
         )
-        return chosen, real[chosen]
 
     name = next(iter(real))
     return name, real[name]
@@ -337,7 +401,13 @@ def _parse_neighbours(raw: bytes | None) -> dict[str, str]:
         if fields[-1] in {"FAILED", "INCOMPLETE"}:
             continue
         address = fields[0]
-        mac = fields[fields.index("lladdr") + 1].lower()
+        # A line ending in `lladdr` has no MAC after it. Truncated log lines are
+        # ordinary, and this file comes out of an attacker-supplied archive, so
+        # the index is checked rather than assumed.
+        index = fields.index("lladdr") + 1
+        if index >= len(fields):
+            continue
+        mac = fields[index].lower()
         if not _is_address(address) or mac in neighbours:
             continue
         neighbours[mac] = address
@@ -565,6 +635,8 @@ def load_support_file(
     fingerprint_db: Any = None,
     max_member: int = MAX_MEMBER_BYTES,
     max_total: int = MAX_TOTAL_BYTES,
+    max_entries: int = MAX_ARCHIVE_ENTRIES,
+    max_archive: int = MAX_ARCHIVE_BYTES,
 ) -> Snapshot:
     """Read *path* and return a Snapshot equivalent to a live fetch.
 
@@ -573,13 +645,15 @@ def load_support_file(
     it clients still draw, without product artwork. `AssetStore.fingerprint_db()`
     obtains it from Ubiquiti's published copy, so no controller is involved.
 
-    *max_member* and *max_total* cap what is decoded into memory. They are
-    arguments because the right value depends on the site; see the constants.
+    *max_member* and *max_total* cap what is decoded into memory; *max_entries*
+    caps how much of the archive is walked, which is a separate concern because
+    entry count does not follow the bytes decoded. All three are arguments
+    because the right value depends on the site; see the constants.
 
     Raises `SupportFileError` if the archive is unreadable or does not carry
     the device and topology data a map needs.
     """
-    members = _read_members(path, max_member, max_total)
+    members = _read_members(path, max_member, max_total, max_entries, max_archive)
     missing = [MEMBERS[name] for name in ("devices", "topology") if name not in members]
     if missing:
         raise SupportFileError(

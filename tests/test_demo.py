@@ -75,7 +75,7 @@ def test_demo_devices_carry_real_sysids_so_artwork_can_resolve(demo_topology):
 @needs_graphviz
 def test_demo_renders_without_network_access(demo_topology):
     # icons="builtin" must need nothing external at all.
-    style = Style(theme=LIGHT, icons="builtin", layout="sane")
+    style = Style(theme=LIGHT, icons="builtin", layout="tree")
     dot_source = render_dot(demo_topology, "Demo network", style)
     assert "digraph unifi {" in dot_source
     assert "Core Switch" in dot_source

@@ -17,7 +17,9 @@ than hours.
 It reads an API key from the environment or from a credential file, sends it in
 an `X-API-KEY` header, and makes GET requests. That is the whole of it.
 
-- `src/unifi_map/config.py` is the only module that reads the environment.
+- `src/unifi_map/config.py` is the only module that reads configuration from
+  the environment. (`layout.py` enumerates `os.environ` for one purpose: to
+  build a child environment with the credential variables removed.)
 - `src/unifi_map/client.py` is the only module that talks to your controller.
 
 Both are short. If you are evaluating whether to trust this, those two files are
@@ -68,8 +70,8 @@ is exactly what this tool needs. So the permission model can express it.
 
 **But scoping only exists for admins.** There is no way to give a plain user
 limited application permissions; you get there by making them an admin and then
-restricting the admin. That is an awkward arrangement, and it is the reason the answer
-to "why not just use a normal account" is not "you should".
+restricting the admin. It is an awkward arrangement, and it is why the answer to
+"why not just use a normal account" is not simply "you should".
 
 **A key can only be created by the account that will own it.** This is enforced
 by the platform, not merely hidden in the interface. A super admin can *read*
@@ -270,9 +272,15 @@ code was written by an AI assistant under the maintainer's direction and testing
 **Two independent security reviews have been performed**, each by a different AI
 system working from the source, neither of them the assistant that wrote the
 code. One raised eleven findings and the other seven, overlapping heavily.
-Everything raised is fixed except two items declined with reasons recorded in
-`CLAUDE.md`, and the serious ones were reproduced before being fixed and
-re-tested afterwards.
+Everything raised is fixed except one item declined with its reason recorded
+in `CLAUDE.md`: no hashed dependency lock file, on the grounds that it is real
+ongoing maintenance for a dev-only benefit while Dependabot and the advisory
+job cover staying current. A second item was declined at the time (tightening
+the support-file size caps without data from a large site) and was then done
+anyway, by making the caps adjustable and lowering the defaults.
+
+The serious findings were reproduced before being fixed and re-tested
+afterwards.
 
 The second review found three things the first had not, including a real
 vulnerability in support-file parsing. That is the argument for more than one

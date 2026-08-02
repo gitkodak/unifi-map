@@ -1,0 +1,225 @@
+.TH UNIFI\-MAP 1 "2026-08-02" "unifi\-map 0.5.0" "User Commands"
+.SH NAME
+unifi\-map \- export a UniFi network topology as vector diagrams
+.SH SYNOPSIS
+.B unifi\-map
+[\fIglobal options\fR]
+\fBfetch\fR|\fBrender\fR|\fBall\fR
+[\fIcommand options\fR]
+.SH DESCRIPTION
+The UniFi Network web interface has no topology export, and a screenshot
+cannot substitute for one: the topology view is a fixed viewport wrapping a
+pan and zoom canvas, so a full\-page capture returns only the visible region,
+and zooming out far enough to fit the network is what makes the labels
+unreadable.
+.PP
+\fBunifi\-map\fR reads the same JSON endpoints the interface draws from and
+renders them properly: SVG and PDF that stay sharp at any zoom, PNG, Graphviz
+source, and draw.io files whose shapes are already positioned.
+.PP
+It only ever reads. Every request is a GET, and there is no code path that
+changes anything on the controller.
+.SS Two stages
+\fBfetch\fR caches the controller's JSON; \fBrender\fR turns that cache into
+diagrams; \fBall\fR does both. They are separable so a map can be restyled
+repeatedly without touching the controller again, and so each cached snapshot
+is a record of the network at one moment.
+.SS Without a controller
+\fB\-\-support\-file\fR reads a console support file instead, which needs no
+credentials and contacts no controller. Rendering afterwards still fetches
+artwork unless \fB\-\-offline\fR or \fB\-\-icons builtin\fR is given.
+.PP
+A support file is not safe to pass around. It is a complete inventory of the
+network: every MAC, hostname, address and lease, the SSIDs and subnets, the
+WAN addresses, and logs of client activity. UniFi redacts some credential
+fields by name and that pass is demonstrably incomplete. Treat one as a
+secret and delete it when finished.
+.SH COMMANDS
+.TP
+\fBfetch\fR
+Read the controller (or \fB\-\-support\-file\fR) and cache the result.
+Never consults the cache first, so it always replaces the snapshot.
+.TP
+\fBrender\fR
+Draw diagrams from the cached snapshot, however old it is. Contacts no
+controller.
+.TP
+\fBall\fR
+\fBfetch\fR followed by \fBrender\fR.
+.SH GLOBAL OPTIONS
+Accepted before or after the subcommand, so
+\fBunifi\-map all \-\-support\-file\fR \fIF\fR and
+\fBunifi\-map \-\-support\-file\fR \fIF\fR \fBall\fR are equivalent.
+.TP
+\fB\-\-env\-file\fR
+Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi\-map/env)
+.TP
+\fB\-\-cache\-dir\fR
+Where controller snapshots are read/written (default: cache)
+.TP
+\fB\-\-asset\-cache\fR
+Where downloaded artwork is cached (default: cache/assets). Kept separate from \-\-cache\-dir so a read\-only snapshot directory stays clean.
+.TP
+\fB\-\-support\-file\fR \fIPATH\fR
+Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add \-\-offline to stop that too.
+.TP
+\fB\-\-site\fR \fINAME\fR
+Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi\-site support file. Without it, a live fetch uses UNIFI_SITE or `default`; a support file holding more than one site is refused rather than chosen between.
+.TP
+\fB\-\-support\-max\-member\fR \fISIZE\fR
+Largest single file to decode from a support archive (default 64M). Accepts a plain number or a K/M/G suffix. Raise it if a large site is refused.
+.TP
+\fB\-\-support\-max\-total\fR \fISIZE\fR
+Total to decode from a support archive across all files (default 128M).
+.TP
+\fB\-\-support\-max\-entries\fR \fIN\fR
+How many archive entries to walk before giving up (default 100000). Separate from the size caps because entry count does not follow the bytes decoded.
+.TP
+\fB\-\-fetch\-fingerprints\fR
+Allow downloading Ubiquiti's client fingerprint database, which is what gives clients real product artwork when reading a support file. Off by default: reading a support file otherwise contacts nothing.
+.TP
+\fB\-\-fetch\-icon\-font\fR
+With \-\-support\-file, also fetch the generic client glyph font from a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because Ubiquiti publish no copy of that font. Off by default.
+.TP
+\fB\-\-icon\-font\fR \fIDIR\fR
+Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See the README.
+.TP
+\fB\-\-support\-max\-archive\fR \fISIZE\fR
+Total uncompressed bytes to walk in a support archive, counting files that are skipped (default 4G). This is what stops a small archive that expands enormously; the other caps only measure what is decoded.
+.TP
+\fB\-\-no\-progress\fR
+Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading.
+.TP
+\fB\-\-out\-dir\fR
+Where diagrams are written (default: out)
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Log every artwork lookup, including the ones that found nothing, and name nodes that \-\-obfuscate would otherwise hide.
+.TP
+\fB\-\-version\fR
+show program's version number and exit
+.SH FETCH OPTIONS
+\fBfetch\fR takes only the global options above.
+.SH RENDER and ALL OPTIONS
+.TP
+\fB\-f\fR, \fB\-\-formats\fR \fI{svg,pdf,png,dot,drawio}\fR
+Output formats (default: svg drawio)
+.TP
+\fB\-\-icons\fR \fI{unifi,builtin}\fR
+unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi)
+.TP
+\fB\-\-layout\fR \fI{tree,unifi}\fR
+unifi: left\-to\-right like the UniFi UI, no port labels. tree: top\-down and leaf\-staggered, with port labels, built to be readable on a busy network (default: unifi)
+.TP
+\fB\-\-theme\fR \fI{dark,light}\fR
+Colour theme (default: light)
+.TP
+\fB\-\-offline\fR
+Never reach the network for artwork; use only what is already cached
+.TP
+\fB\-\-name\fR
+Output filename stem
+Default: \fBnetwork\-map\fR.
+.TP
+\fB\-\-force\fR
+Overwrite output files that unifi\-map did not write. Without this, an existing .dot or .drawio it does not recognise is left alone, so a diagram you have edited by hand is not silently replaced.
+.TP
+\fB\-\-overrides\fR
+Manual corrections: links the controller cannot see, nesting, renames, your own artwork, and hiding. Defaults to overrides.toml when that file exists
+.TP
+\fB\-\-obfuscate\fR
+Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared
+.TP
+\fB\-\-title\fR
+Diagram title (default: Network map). Note that \-\-obfuscate cannot clean a title you supply yourself
+.TP
+\fB\-\-no\-clients\fR
+Infrastructure only, no clients
+.TP
+\fB\-\-show\-offline\fR \fI{yes,no}\fR
+Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
+.TP
+\fB\-\-per\-network\fR
+Also emit one diagram per client network, which keeps a busy map readable
+.TP
+\fB\-\-legend\fR, \fB\-\-no\-legend\fR
+Show the legend (default: on for \-\-layout tree, off for \-\-layout unifi)
+.TP
+\fB\-\-title\-block\fR, \fB\-\-no\-title\-block\fR
+Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for \-\-layout tree, off for \-\-layout unifi)
+.TP
+\fB\-\-stagger\fR \fIN\fR
+With \-\-layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12)
+.SH ENVIRONMENT
+.TP
+\fBUNIFI_HOST\fR
+Hostname or address of the console. Required for a live fetch.
+.TP
+\fBUNIFI_API_KEY\fR
+An API key. Required for a live fetch. A key carries the permissions of the
+account that created it; UniFi offers no way to issue a read\-only one.
+.TP
+\fBUNIFI_SITE\fR
+Which site to read. Overridden by \fB\-\-site\fR. Defaults to
+\fBdefault\fR.
+.TP
+\fBUNIFI_VERIFY_TLS\fR
+\fBtrue\fR, \fBfalse\fR, or a path to a CA bundle.
+.TP
+\fBUNIFI_MAP_ENV\fR
+Path to a credential file, tried before the default locations.
+.PP
+The \fBUDM_\fR\fI*\fR spellings of these are deprecated and warn once per
+run. A key is never written into the environment, and is removed from the
+environment Graphviz is run with.
+.SH FILES
+.TP
+\fB.env\fR, \fB~/.config/unifi\-map/env\fR
+Credential files, searched in that order after \fB\-\-env\-file\fR and
+\fBUNIFI_MAP_ENV\fR. Create with \fBinstall \-m 600\fR: a plain copy
+inherits the umask and usually leaves an API key world\-readable.
+\fBunifi\-map\fR warns when it reads one others can see.
+.TP
+\fBcache/\fR
+Cached snapshots. A full inventory of MACs, hostnames and addresses.
+Written mode 0600. Do not commit one or attach it to an issue.
+.TP
+\fBcache/assets/\fR
+Downloaded artwork, kept apart from snapshots so a read\-only snapshot
+directory stays clean.
+.TP
+\fBoverrides.toml\fR
+Manual corrections, read automatically when present in the working
+directory. See \fB\-\-overrides\fR.
+.SH EXAMPLES
+.TP
+Fetch and render with the defaults:
+\fBunifi\-map all\fR
+.TP
+Restyle without touching the controller again:
+\fBunifi\-map render \-\-layout tree \-\-theme dark\fR
+.TP
+Map from a support file, contacting nothing at all:
+\fBunifi\-map \-\-support\-file\fR \fIsupport.tgz\fR
+\fBall \-\-offline\fR
+.TP
+Produce a diagram safe to publish:
+\fBunifi\-map render \-\-obfuscate\fR
+.TP
+One diagram per client network:
+\fBunifi\-map render \-\-per\-network\fR
+.SH EXIT STATUS
+.TP
+\fB0\fR
+Success.
+.TP
+\fB1\fR
+The controller, a support file, Graphviz or an output path failed.
+.TP
+\fB2\fR
+Configuration or command line error.
+.SH SEE ALSO
+\fBdot\fR(1), \fBunflatten\fR(1)
+.PP
+Full documentation, including the overrides format and the security notes
+summarised here: \fIhttps://github.com/gitkodak/unifi\-map\fR

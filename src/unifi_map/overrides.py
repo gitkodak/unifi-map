@@ -331,6 +331,39 @@ def resolve(selector: str, topo: Topology) -> str:
     )
 
 
+def _refuse_cycles(topo: Topology) -> None:
+    """Refuse a graph where something is its own ancestor.
+
+    Not because the renderer breaks: DOT is a digraph, cycles are legal in it,
+    and Graphviz draws one without complaining. Checked because it is not a
+    network. A switch cannot be plugged into something plugged into itself, so
+    a cycle means the overrides describe hardware that cannot exist, and this
+    tool's whole position is that it does not draw claims it cannot stand
+    behind. Drawn silently, the map looks authoritative and is wrong.
+
+    Only reachable through overrides. A controller cannot report one, so this
+    runs at the end of `apply()` rather than in `model.py`.
+    """
+    parents: dict[str, str] = {}
+    for edge in topo.edges:
+        # Edges are stored child to parent. A node with several parents is not a
+        # cycle and is left alone; the first is enough to walk.
+        parents.setdefault(edge.src, edge.dst)
+
+    for start in parents:
+        seen = [start]
+        node = start
+        while (node := parents.get(node)) is not None:
+            if node in seen:
+                loop = [*seen[seen.index(node) :], node]
+                labels = " -> ".join(topo.nodes[n].label if n in topo.nodes else n for n in loop)
+                raise OverrideError(
+                    f"These overrides make a loop: {labels}. Something is its own "
+                    "uplink, which is not a network a cable can make."
+                )
+            seen.append(node)
+
+
 def _children(topo: Topology, node_id: str) -> list[str]:
     """Nodes hanging off *node_id*. Edges are stored child to parent."""
     return [e.src for e in topo.edges if e.dst == node_id]
@@ -380,18 +413,25 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
         result.devices_added += 1
         if device.icon is not None:
             result.icons[device.node_id] = local_icon(device.icon)
-        if device.parent:
-            # Resolved after every declared device exists, so one asserted
-            # device can hang off another.
-            parent_id = resolve(device.parent, working)
-            working.edges.append(
-                Edge(
-                    src=device.node_id,
-                    dst=parent_id,
-                    label=f"port {device.port}" if device.port else None,
-                    asserted=True,
-                )
+
+    # Second pass, and it has to be one. The comment here used to claim parents
+    # were "resolved after every declared device exists" while resolving them
+    # inside the loop above, so a device could only hang off one declared
+    # earlier in the file. Reversing two blocks turned a working file into
+    # "'Parent' matches nothing on the map", which reads as a typo rather than
+    # as ordering.
+    for device in overrides.devices:
+        if not device.parent:
+            continue
+        parent_id = resolve(device.parent, working)
+        working.edges.append(
+            Edge(
+                src=device.node_id,
+                dst=parent_id,
+                label=f"port {device.port}" if device.port else None,
+                asserted=True,
             )
+        )
 
     for link in overrides.links:
         source = resolve(link.source, working)
@@ -444,4 +484,5 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
             result.icons[node_id] = local_icon(node.icon)
 
     _prune_placeholder(working)
+    _refuse_cycles(working)
     return result

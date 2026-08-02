@@ -42,13 +42,45 @@ def default_env_files() -> list[Path]:
     return candidates
 
 
-def _first(keys: tuple[str, ...], values: dict[str, str]) -> str | None:
-    """First non-empty value among *keys*, so either naming scheme works."""
-    for key in keys:
+def _first(
+    keys: tuple[str, ...], values: dict[str, str], used: list[str] | None = None
+) -> str | None:
+    """First non-empty value among *keys*, so either naming scheme works.
+
+    The first name in each tuple is the current one. Anything after it is a
+    legacy spelling, and resolving from one appends it to *used* so the caller
+    can say so once rather than per variable.
+    """
+    for index, key in enumerate(keys):
         value = values.get(key)
         if value:
+            if index > 0 and used is not None:
+                used.append(key)
             return value
     return None
+
+
+def _warn_deprecated(used: list[str]) -> None:
+    """Name the legacy variables in one line, with what to use instead.
+
+    One message rather than one per variable: a credential file written before
+    the rename uses the old spelling for everything, and four warnings for a
+    single decision is noise rather than information.
+
+    No removal date is promised, deliberately. Everything about this interface
+    is unstable before 1.0, and committing to a version here would be a promise
+    made for the sake of sounding organised.
+    """
+    if not used:
+        return
+    current = {legacy: keys[0] for keys in _ALIASES.values() for legacy in keys[1:]}
+    pairs = ", ".join(f"{name} -> {current[name]}" for name in used)
+    log.warning(
+        "Using deprecated environment variable names (%s). They still work, and "
+        "will be removed in a future version. The UNIFI_ spelling is the "
+        "supported one.",
+        pairs,
+    )
 
 
 @dataclass(frozen=True)
@@ -128,7 +160,7 @@ def read_dotenv(path: Path) -> dict[str, str]:
     return values
 
 
-def load_config(env_file: Path | None = None) -> ExporterConfig:
+def load_config(env_file: Path | None = None, site: str | None = None) -> ExporterConfig:
     """Build config from *env_file*, or the first file in the default search path.
 
     Real environment variables always win over file contents, so a one-off run
@@ -151,8 +183,9 @@ def load_config(env_file: Path | None = None) -> ExporterConfig:
     # pushed into os.environ, so the key never becomes inheritable.
     values = {**from_file, **{k: v for k, v in os.environ.items() if v}}
 
-    host = _first(_ALIASES["host"], values)
-    api_key = _first(_ALIASES["api_key"], values)
+    legacy: list[str] = []
+    host = _first(_ALIASES["host"], values, legacy)
+    api_key = _first(_ALIASES["api_key"], values, legacy)
 
     locations = ", ".join(str(p) for p in searched)
     missing = [
@@ -169,6 +202,8 @@ def load_config(env_file: Path | None = None) -> ExporterConfig:
             f"{ENV_FILE_VAR} to a credential file."
         )
 
+    _warn_deprecated(legacy)
+
     assert host and api_key  # narrowed above
     if api_key == "CHANGE_ME":
         raise ConfigError("UNIFI_API_KEY is still the placeholder value CHANGE_ME.")
@@ -176,6 +211,9 @@ def load_config(env_file: Path | None = None) -> ExporterConfig:
     return ExporterConfig(
         host=host,
         api_key=api_key,
-        site=_first(_ALIASES["site"], values) or "default",
-        verify_tls=_parse_verify(_first(_ALIASES["verify"], values) or "true"),
+        # An explicit --site beats the environment, which beats the default.
+        # Resolved here rather than in the CLI so precedence lives in one
+        # place alongside the environment lookup it is competing with.
+        site=site or _first(_ALIASES["site"], values, legacy) or "default",
+        verify_tls=_parse_verify(_first(_ALIASES["verify"], values, legacy) or "true"),
     )

@@ -53,7 +53,7 @@ body:
     attributes:
       label: Command you ran
       render: shell
-      placeholder: unifi-map render --theme dark --layout sane
+      placeholder: unifi-map render --theme dark --layout tree
     validations:
       required: true
 

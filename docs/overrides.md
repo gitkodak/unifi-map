@@ -10,6 +10,8 @@ are invisible to it:
 **Links it isn't in the path of.** A NAS connected to a switch over a 10G SFP+
 DAC often has no `sw_mac` in `stat/sta`. The renderer has nothing to attach it
 to, so it lands under the "Uplink not reported by controller" placeholder.
+[`[[link]]`](#link) is the fix, and the placeholder disappears once nothing is
+left under it.
 
 **Nesting.** A VM or container appears as an ordinary client with its own MAC and
 IP. Nothing in the data says it lives inside a particular hypervisor, so it is
@@ -36,6 +38,35 @@ TOML, because Python 3.11+ reads it from the standard library (`tomllib`), it
 takes comments, and it's pleasant to hand-edit. No new dependency.
 
 See [`examples/overrides.toml`](../examples/overrides.toml) for a working file.
+
+### `[[device]]`
+
+Declares a device the controller cannot see. A controller only reports what it
+manages, so this covers an unmanaged switch with no management plane, a fully
+managed third-party switch, and UniFi gear that was powered off when you ran the
+fetch, all for the same reason. Everything else here
+corrects a node that exists; this one creates it.
+
+| Key | Required | Meaning |
+| --- | --- | --- |
+| `name` | yes | Label on the map, and what other blocks select it by |
+| `kind` | yes | `gateway`, `switch`, `ap`, `bridge`, `wired_client`, `wireless_client` or `unknown` |
+| `ip` | no | Address, shown under the name |
+| `model` | no | Model string, shown under the address |
+| `parent` | no | Selector for what it hangs off. Without one it floats. |
+| `port` | no | Port on the parent, for the edge label. Needs a `parent`. |
+| `icon` | no | Path to artwork you supply |
+| `note` | no | Free text |
+
+Declared devices are added before every other override, so a `[[link]]`, a
+`[[hosted]]` or a `[[node]]` can reference one, and one declared device can hang
+off another. Their ids are prefixed `asserted-`, which stops a device named
+after a MAC from shadowing a real node.
+
+They render with a **dotted outline**, the same reason asserted links render
+dotted: a map must never present something you typed in as though a controller
+had reported it. Offline devices use dashes and asserted ones use dots, so the
+two stay distinguishable without relying on colour.
 
 ### `[[link]]`
 
@@ -85,7 +116,7 @@ note = "UniFi is convinced this is a smart toothbrush"
 [[node]]
 match = "10.0.20.99"
 hide = true
-note = "super-secret naughty server, not for the group chat"
+note = "internal service, not for a diagram I am sharing"
 ```
 
 Two reasons you might want this. One is noise: "online" and "actually
@@ -147,8 +178,8 @@ is, so the output stays a single portable file and no local path appears in it.
 
 ### Selectors
 
-`from`, `to`, `guest` and `host` accept a MAC, an IP, or a hostname/device name
-as displayed on the map. Names rather than ids keep the file readable and mean a
+`from`, `to`, `guest`, `host`, `parent` and `match` all accept a MAC, an IP, or
+a hostname/device name as displayed on the map. Names rather than ids keep the file readable and mean a
 device renamed in the controller only has to be corrected in one place.
 
 ## How selectors are matched

@@ -29,6 +29,180 @@ a major one later.
 
 Refactors, docs and tests alone do not need a release at all.
 
+## Unreleased
+
+Nothing yet.
+
+## 0.5.0 - 2026-08-02
+
+### Deprecated
+
+- `--layout sane` is renamed to `--layout tree`, and **`sane` will be removed in
+  0.6.0**. It still works and still selects the same layout, but it is hidden
+  from `--help` and warns once, naming the replacement and the version.
+
+  The old name implied the other layout was not sane, and borrowed a clinical
+  word as a judgement. `tree` describes what the layout is: top down, leaf
+  staggered, with port numbers on the links.
+
+  A version is promised here, unlike the open-ended `UDM_*` deprecation, because
+  this is one flag value that anyone using it can change in seconds, and an
+  indefinite alias would keep the word in `--help` indefinitely. The target is
+  0.6.0 rather than 0.5.0 because 0.5.0 is the release that introduces `tree`;
+  removing the old name in the same version it is deprecated would leave nobody
+  a release to migrate in.
+
+### Fixed
+
+- A support file holding more than one site is refused until `--site` says
+  which, instead of mapping whichever site had the most devices and warning.
+  The old behaviour was the only place this tool guessed: an ambiguous override
+  selector is a loud error, an ambiguous product name resolves to nothing, and
+  an unreported uplink gets a placeholder rather than a plausible parent. It was
+  also the worst place to guess, because the result is a complete and entirely
+  ordinary looking map, and nothing about the diagram says it is the wrong
+  network. A single-site archive still needs no flag.
+- Every directory this tool creates is restricted, not only the last one.
+  `--out-dir out/private/maps` created three directories and locked down one,
+  leaving the other two at the umask. Output filenames come from network names,
+  so a listable parent disclosed the network layout even though the files
+  themselves are `0600`. An existing directory is still left exactly as it is.
+- Overrides that make a loop are refused, naming the loop. Nothing crashed:
+  Graphviz draws a cycle without complaint, since DOT is a digraph. It is
+  refused because a switch cannot be its own uplink, so such a map asserts
+  hardware that cannot exist while looking as authoritative as any other.
+
+### Changed
+
+- A man page, `unifi-map.1`, generated from the argument parser and committed
+  so it works from a clone with `man ./unifi-map.1`. `make docs` regenerates it
+  and `make check` fails when it is stale, the same guard the README flag
+  reference has. It carries the sections a parser cannot supply: ENVIRONMENT,
+  FILES, EXAMPLES, exit status, and the warning about support files.
+- Atomic writes live in one module, `fsio.py`. Three copies had grown apart:
+  two called `fsync` before the rename and one did not, and only two set the
+  file mode before putting it in place. None of the differences were intended.
+- `_fetch` returns a small `Fetched` object rather than a `requests.Response`
+  with two private attributes assigned by hand. The body is streamed through a
+  size cap rather than read by `requests`, which is why the response had to be
+  doctored; callers only ever used three fields.
+- The example unmanaged switch is described as "unmanaged" rather than "dumb",
+  in `examples/overrides.toml` and the README. "Unmanaged" is also the accurate
+  term: it names the absent management plane, which is why such a device has to
+  be declared by hand in the first place.
+- `make sane` is now `make tree`, and `docs/images/example-sane-dark.png` is now
+  `example-tree-dark.png`. The old make target still works and says it is going.
+
+## 0.4.1 - 2026-08-01
+
+A code review by an external AI system, distinct from the two security audits
+and the two documentation reviews. Eight findings, all reproduced and fixed.
+
+### Fixed
+
+- An existing output directory is no longer tightened to `0700`. `--out-dir`
+  pointed at a shared directory silently took it from `0775` to `0700` and
+  locked out everyone else, despite the code saying in its own comment that it
+  must only restrict directories it created.
+- `--per-network` no longer overwrites one diagram with another. Network names
+  differing only in punctuation ("IoT A", "IoT-A", "IoT/A") produced the same
+  filename, and the overwrite guard passed it because the file it replaced was
+  this tool's own. Colliding names now get a short digest of the name, which is
+  stable whatever order the networks arrive in.
+- A support archive can no longer force unbounded decompression. Streaming tar
+  reads through a member to reach the next header, so a member this tool skips
+  still costs its full uncompressed size, and neither size cap measured it: a
+  2 MiB archive holding 2 GiB of zeros cost 21 seconds of CPU. `--support-max-archive`
+  caps total uncompressed bytes walked, skipped members included.
+- A declared `[[device]]` can name a parent declared later in the file. Parents
+  were resolved while devices were still being created, so it worked in one
+  order only and failed as "matches nothing on the map", which reads as a typo.
+- Artwork downloads are streamed and stop at the size cap rather than being
+  measured after arrival, so an oversized body is never fully resident. The
+  client fingerprint database had no size cap at all and now has one.
+- Artwork and catalogue caches are written to a temporary file and renamed, as
+  snapshots and rendered output already were, so an interrupted or concurrent
+  run cannot leave a truncated file. An unreadable cached icon is now discarded
+  and refetched rather than returned broken forever.
+- Malformed input produces an error rather than a traceback: an unreadable
+  cached snapshot, a neighbour line ending in `lladdr`, and a glyph map whose
+  values are not numbers.
+- The provenance check reads 4 KiB rather than reading the whole file and
+  slicing 4 KiB off it.
+
+## 0.4.0 - 2026-08-01
+
+### Deprecated
+
+- The `UDM_*` environment variable names. `UNIFI_*` is the supported spelling;
+  the old one still works and now prints a warning naming its replacement, once
+  per run rather than once per variable. No removal version is promised, since
+  anything here may change before 1.0.
+
+### Added
+
+- The README shows the demo with the example overrides applied, so what an
+  asserted device and an asserted link actually look like is visible without
+  running anything. `make demo-images` regenerates every committed demo PNG,
+  including a detail crop whose bounds are computed from the layout rather than
+  fixed pixel coordinates, so it follows the overrides instead of silently
+  framing the wrong part of the map. The two existing screenshots are refreshed
+  by the same run; both predated the ISP mark on the Internet node and were
+  visibly the wrong shape.
+- `docs/overrides.md` and `examples/overrides.toml` document `[[device]]`,
+  which they had both missed entirely despite it being implemented, tested and
+  described everywhere else. Tests now tie every block the loader accepts to a
+  section in the reference and an example in the template, and check that the
+  template still parses.
+- A flag reference at the bottom of the README, generated from the argument
+  parser rather than written, so it cannot drift from `--help`. The flags are
+  still explained in context where they are relevant; this is for looking one
+  up. `make docs` regenerates it and a test fails if it is stale.
+- `--out-dir` and `-v` have help text. They had none, so they were missing from
+  `--help` output as well as from every reference.
+- Clients with no reported uplink are now counted in the output, with a pointer
+  to overrides as the way to place them. The "Uplink not reported by controller"
+  placeholder said what had happened but never that it was fixable, so the tool
+  refusing to guess looked the same as the tool failing. The README section says
+  so too.
+- `--site NAME` selects the site from the command line, for a live fetch as
+  well as a support file. It overrides `UNIFI_SITE`, so a script can loop over
+  sites without re-exporting a variable per invocation. `--support-site` still
+  works and now warns; it only ever covered support files.
+- A progress spinner on the three steps slow enough to look like a hang:
+  reading a support archive, resolving artwork, and running Graphviz. It turns
+  itself off whenever output is not a terminal, so piping, redirecting and CI
+  are unaffected and need no flag; `--no-progress` covers an interactive
+  terminal whose output something else is reading.
+- `--support-max-entries` caps how much of a support archive is walked. It was
+  already capped at 100,000; what is new is being able to change it. The two
+  size caps guard memory and this one guards time, since entry count does not
+  follow the bytes decoded, and all three now behave the same way.
+- Raising `--support-max-entries` above the default warns that the run may take
+  a while, since walking a larger archive prints nothing until it finishes when
+  the spinner is disabled, and is then indistinguishable from a hang.
+- `RELEASING.md` documents how a version actually goes out, written after doing
+  it by hand twice rather than invented in advance. Two tests enforce the parts
+  that have gone wrong: the changelog must have a section for the version the
+  package reports, and no version may repeat a `### Added` style heading.
+
+### Fixed
+
+- Documentation corrections from an external review. Support-file mode was
+  described as touching nothing, when `all` goes on to render and rendering
+  fetches artwork; the README said read-only API keys were sufficient while
+  `SECURITY.md` explains UniFi will not issue one; the rendering issue template
+  still said overrides were unimplemented; and `--per-network` was described as
+  per-VLAN when it iterates client networks, which need not have a VLAN.
+- The informal register is confined to `README.md`, `AI_DISCLOSURE.md` and
+  `HUMAN_INPUT.md`, and kept out of `SECURITY.md`, `docs/` and `examples/`,
+  which had picked some up. The tiering is written down in `CLAUDE.md`.
+- Global options are accepted after the subcommand as well as before it, so
+  `unifi-map all --support-file X.tgz` works. It did not: those options were
+  attached only to the top-level parser, which made every `--support-file`
+  example in the README unrunnable as printed. Both forms are now supported,
+  and a test parses every command the README prints.
+
 ## 0.3.0 - 2026-08-01
 
 ### Added
@@ -124,7 +298,9 @@ Refactors, docs and tests alone do not need a release at all.
 
 - `--support-file` reads the topology from a UniFi support file archive instead
   of a controller. It needs no credentials and no network access, which makes it
-  a safe way to share a real topology when reporting a bug. Add `--support-site`
+  a safe way to share a real topology when reporting a bug. **That claim was
+  wrong and is corrected in later releases: a support file is highly
+  sensitive and must not be shared. See `SECURITY.md`.** Add `--support-site`
   to pick a site from a multi-site archive.
 
   Against a live fetch of the same network it produced identical infrastructure

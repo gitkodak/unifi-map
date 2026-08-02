@@ -14,7 +14,7 @@ like a plausible generic network, not like anyone's actual one.
 ```bash
 make check     # ruff format --check, ruff check, pytest (run before committing)
 make map       # fetch + render against the live controller
-make sane      # render in the readable (non-UniFi) layout
+make tree      # render in the readable (non-UniFi) layout
 make offline   # builtin icons, no network access
 make demo      # render the shipped demo dataset, no controller needed
 make test      # pytest only
@@ -131,7 +131,7 @@ controller JSON.
 
 ## Rendering constraints
 
-- **Don't switch `--layout sane` edges to `splines=ortho`.** It looks tidier but
+- **Don't switch `--layout tree` edges to `splines=ortho`.** It looks tidier but
   Graphviz cannot place edge labels on orthogonal routes, so port numbers drift
   far from their link and float beside unrelated nodes. `--layout unifi` *does*
   use ortho, and deliberately suppresses port labels for exactly this reason.
@@ -186,7 +186,7 @@ controller JSON.
 
 `--icons unifi --layout unifi --theme light` is chosen so the tool matches what
 the console shows out of the box. Don't change a default to something "better
-looking" without a reason; the point is fidelity first, with `sane` available
+looking" without a reason; the point is fidelity first, with `tree` available
 for readability.
 
 The single deliberate exception is `--show-offline no`: the UI offers no way to
@@ -203,12 +203,12 @@ real KeyError.
 It is deliberately not claimed to be pixel-identical to the controller UI:
 Graphviz owns the layout, so sibling order and spacing are its decisions, link
 routing differs in its corners and channels, typography and label content are
-ours, clients fall back to shapes because the client fingerprint icon database
-is not reachable, and the output is static. The README has a section spelling
+ours, clients without a usable fingerprint fall back to shapes or a generic
+glyph rather than the console's own icon, and the output is static. The README has a section spelling
 this out. Keep improving fidelity if you like, but do not let the documentation
 start implying an exactness that is not there.
 
-## Whether `unifi` layout is narrower than `sane` is data-dependent
+## Whether `unifi` layout is narrower than `tree` is data-dependent
 
 It is on a real network with many sibling clients (1305pt vs 4648pt observed),
 and inverts on a small fixture where tree depth dominates. Don't assert it.
@@ -237,7 +237,8 @@ Implemented end to end: schema, loader, `resolve()` and `apply()`. Notes:
   honest answer to what should happen to them.
 - Asserted edges carry `Edge.asserted` and render dotted in both backends. Keep
   them visually distinct from observed links.
-- **`[[device]]` declares a node nothing reports**, for an unmanaged switch or
+- **`[[device]]` declares a node the controller cannot see**, for a switch it
+  does not manage (managed or not, in itself) or
   gear that was off during the fetch. Those carry `Node.asserted` and render
   with a dotted outline, for the same reason edges do: the map must never
   present something typed in as though a controller had reported it. Offline
@@ -281,6 +282,12 @@ headings, check what was in between.
 - **No dependency lock file.** Deliberate for now: hashed constraints are real
   ongoing maintenance for a dev-only benefit, and Dependabot plus the advisory
   job cover staying current. Revisit if this ever ships releases people install.
+
+  **This is the declined security-review finding** that `SECURITY.md` and
+  `AI_DISCLOSURE.md` both point here for, so keep the reasoning legible if it
+  moves. It is the only one left: the other decline, against tightening the
+  support-file size caps without data from a large site, stopped being a
+  decline when the caps became adjustable and the defaults dropped to 64M/128M.
 
 - **Draw our own device icons instead of falling back to Graphviz shapes.**
   `KIND_SHAPE` currently maps each role to a primitive: `doubleoctagon` for a
@@ -359,59 +366,53 @@ headings, check what was in between.
   notion of (head and tail labels are the closest), and whether this becomes a
   third `--layout` or a separate output.
 
-- **Decide what "making a release" actually means here.** Today it is: edit
-  `__version__`, write the CHANGELOG entry, tag, push, mirror. That is a version
-  bump, not a release, and the gap is worth closing deliberately rather than by
-  accident. Questions to answer, roughly in order of how much they change:
+- **Decide whether a release should produce an artifact.** `RELEASING.md` now
+  documents the process that exists, which is a tag plus a changelog entry, and
+  says plainly that there is no published package. The open question is whether
+  `pip install unifi-map` should work. That means owning a PyPI name and never
+  breaking a published artifact, so it is a commitment rather than a chore. The
+  entry point and build backend already exist; CI would need a `tags:` trigger.
 
-  - **Is installation meant to be `pip install unifi-map`?** Right now the only
-    documented install is a git clone plus `pip install -e .`. Publishing to
-    PyPI is the single biggest decision, because it implies owning a name,
-    keeping metadata honest, and never breaking a published artifact. If the
-    answer is no, say so in the README so people stop wondering.
-  - **Should the tag build anything?** `[project.scripts]` already declares a
-    `unifi-map` entry point and the backend is plain setuptools, so `sdist` and
-    `wheel` need no new machinery. A tag-triggered workflow could attach both to
-    a GitHub Release. CI currently only runs on push to `main`, so it would need
-    a `tags:` trigger.
-  - **Are release notes duplicated?** A GitHub Release body and the CHANGELOG
-    entry say the same thing. Generate one from the other rather than writing
-    both by hand and letting them drift.
-  - **What is checked before a tag?** At minimum `make check`, that
-    `__version__` matches the CHANGELOG's newest heading, and that the heading
-    is not still `Unreleased`. A version bumped without a CHANGELOG entry is the
-    likely mistake and is cheap to catch.
-  - **Reproducibility.** Graphviz is a system dependency, so the wheel is not
-    self-contained. Decide whether that is documented (it is, in Install) or
-    whether a container image is wanted.
+- **Remove the `sane` layout alias in 0.5.0.** Renamed to `tree`; `sane` is
+  accepted, hidden from `--help` by `metavar`, and warns naming the version.
+  Delete `DEPRECATED_LAYOUTS` in `render_dot.py`, the warning in `cmd_render`,
+  the `choices` widening, and the `sane` Makefile target.
 
-  Write the outcome down as a short `RELEASING.md` rather than leaving it in a
-  maintainer's head; that is the actual deliverable.
+  **Unlike `UDM_*`, this one has a promised version.** It is a single flag
+  value, trivially changed by anyone using it, so an open-ended deprecation
+  would just keep the word in `--help` forever.
 
-- **A man page, generated from the source rather than written twice.**
-  `build_parser()` in `cli.py` is already the single source of truth for every
-  flag and its help text, so the man page should come from it. Hand-writing one
-  guarantees it goes stale, which is worse than not having one.
+- **Finish retiring the `UDM_*` environment aliases.** The warning is in:
+  `config.py` collects legacy names as it resolves them and emits one line
+  naming each replacement, and the README section is marked deprecated. What
+  remains is deleting them.
 
-  Likely approach: `argparse-manpage`, which imports a parser and emits roff,
-  and can be wired to `build_parser` directly. `help2man` is the lower-effort
-  alternative but shells out to `--help` and produces a flatter result.
+  **No removal version is promised, on purpose.** Naming 1.0 would be a promise
+  made to sound organised, and the versioning policy already says anything may
+  change before then. Drop them whenever it suits.
 
-  Two things matter more than the tool choice:
+  Before deleting: Jason's own credential file under `~/Development/envfiles/`
+  uses `UDM_*` exclusively, so it has to be renamed first rather than have the
+  breakage discovered by a failing fetch. It also still carries `UDM_USER` and
+  `UDM_PASS`, dead since password auth was removed and read by nothing.
 
-  - **Generate it in `make` and fail if it is stale.** The pattern to copy is
-    the sibling `cyberpower-prometheus-exporter` repo, whose `make check`
-    regenerates its docs then runs `git diff --exit-code`. Without that the
-    generated file drifts exactly like a hand-written one would.
-  - **Decide whether the page is committed.** Committing it makes it visible and
-    reviewable in diffs, which is the reason to prefer it; generating at build
-    time keeps the tree clean but means nobody notices when help text becomes
-    unreadable as a man page.
+**The man page is done**, as `unifi-map.1`, generated by
+`scripts/generate_manpage.py` and checked for staleness like the flag
+reference. Two things about it worth not relitigating:
 
-  Note that argparse help strings are currently written to read well in a
-  terminal. Some will want rephrasing once they appear as a formatted page, and
-  the long explanations in the README (support files, the glyph font, the three
-  artwork routes) belong in a `DESCRIPTION` section rather than as flag help.
+- **`argparse-manpage` was tried and dropped.** It works, but its API is
+  `Manpage(parser)` and little else. Every global option is attached to every
+  subparser via `parents=`, so it printed all fifteen three times over, and
+  there is no hook for ENVIRONMENT, FILES, EXAMPLES or the support-file
+  warning. Those are not derivable from a parser and are the reason to open
+  `man` rather than `--help`. Post-processing its roff would have been worse
+  than emitting our own.
+- **The header date comes from the changelog entry for the current version**,
+  not from the clock. Today's date would rewrite the file on any day it was
+  regenerated and fail the staleness check for no reason.
+
+`scripts/_cli_introspect.py` is shared by both generators, so the flag table and
+the man page cannot disagree about what the parser contains.
 
 Done since this list was last accurate: overrides are applied rather than only
 parsed, CI exists, obfuscation exists, `SECURITY.md` and `CONTRIBUTING.md` and
@@ -672,6 +673,32 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
 - `Dependency advisories` is deliberately **not** required. It is
   `continue-on-error`, so requiring it would mean nothing, and if it ever gates
   properly a new CVE upstream would block every unrelated pull request.
+
+## Tone is tiered, deliberately
+
+An external review flagged the register as inconsistent, alternating between
+formal security language and phrases like "vibe-coded" and "meat bag". The
+inconsistency is intended, but it is not uniform, and it has a shape:
+
+| Register | Files |
+| --- | --- |
+| Loosest, personal, first person | `AI_DISCLOSURE.md`, `HUMAN_INPUT.md` |
+| Relaxed but restrained | `README.md` |
+| Plain and formal | `SECURITY.md`, and everything else: `CONTRIBUTING.md`, `CHANGELOG.md`, `RELEASING.md`, `docs/`, `examples/`, issue templates, code comments |
+
+`SECURITY.md` in particular takes none of it. Someone reading it is deciding
+whether to point this at their network, and a joke in the middle of a threat
+description reads as not having taken the threat seriously.
+
+The README sits in between on purpose: it is allowed a voice, since a personal
+project pretending to be a product is its own kind of dishonest, but it is the
+first thing a stranger sees and should be more restrained than the two documents
+that exist specifically to be personal.
+
+This was applied once already: `examples/overrides.toml` and `docs/overrides.md`
+used "super-secret naughty server" as a hide example and now do not, and a test
+that asserted on that exact phrase now asserts on the note existing instead.
+Pinning a test to a joke is how a wording change becomes a test failure.
 
 ## Data hygiene
 

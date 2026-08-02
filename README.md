@@ -15,7 +15,7 @@ console; this pulls the same data and renders it properly.
 
 ![Example output: the demo network in the default UniFi layout, dark theme](docs/images/example-unifi-dark.png)
 
-*The defaults, `--layout unifi --theme dark`, which approximate what the console
+*The defaults, `--layout unifi --theme dark`, approximate what the console
 itself shows: left to right from the Internet, orthogonal links, and no title or
 legend because the UniFi UI has neither. Note what a demo can and cannot show
 here. The UniFi hardware carries its real artwork, because the dataset holds real
@@ -23,16 +23,16 @@ hardware ids, but most of the **clients** are invented and have no fingerprint, 
 they fall back to plain shapes. Against a live network, expect nearly all of them
 to resolve as well.*
 
-![The same network in the readable sane layout](docs/images/example-sane-dark.png)
+![The same network in the readable tree layout](docs/images/example-tree-dark.png)
 
-*The same data with `--layout sane`: top down, leaf nodes staggered to keep the
-aspect ratio sane, port numbers on the links, and a title block and legend. On a
+*The same data with `--layout tree`: top down, leaf nodes staggered to keep the
+aspect ratio reasonable, port numbers on the links, and a title block and legend. On a
 busy network this is usually the one worth handing to somebody else. Run
 `make demo` to reproduce both, then point it at your own controller.*
 
 ## Features
 
-- **Maps every client, not just infrastructure.** Gateways, switches, APs and
+- **Maps every active client, not just infrastructure.** Gateways, switches, APs and
   everything hanging off them, including clients behind a non-UniFi device.
 - **Real Ubiquiti product artwork**, for your hardware *and* your clients, plus
   your ISP's brand mark on the Internet node. [Fetched at runtime and cached,
@@ -43,7 +43,7 @@ busy network this is usually the one worth handing to somebody else. Run
 - **Editable draw.io files**, with real shapes already positioned by Graphviz,
   so you can rearrange the map rather than just look at it.
 - **Two layouts.** [`unifi`](#how-close-is---layout-unifi) approximates the
-  console's own view; `sane` is top down and actually readable on a busy
+  console's own view; `tree` is top down and actually readable on a busy
   network. Light and dark themes, colourblind-safe palette.
 - **Works with no credentials at all**, from a
   [support file](#mapping-from-a-support-file) instead of a controller. Useful
@@ -52,17 +52,22 @@ busy network this is usually the one worth handing to somebody else. Run
 - **Safe to publish.** [`--obfuscate`](#sharing-a-map---obfuscate) replaces
   hostnames, addresses, MACs, SSIDs, VLAN names and your ISP, keeping the shape
   of the network intact.
-- **One diagram per VLAN**, optionally, each keeping the full gateway and
-  switch skeleton so they read as slices of one map.
+- **One diagram per client network**, optionally, each keeping the full gateway
+  and switch skeleton so they read as slices of one map.
 - **Hides decommissioned hardware** by default, which the console itself offers
   no way to do.
 - **[Manual overrides](#manual-overrides), which the console has no equivalent
-  of.** Declare a device nothing reports, such as an unmanaged switch; assert a
+  of.** Declare a device the controller cannot see, such as a switch it does
+  not manage; assert a
   link the controller is not in the path of; say that a VM lives on a
   particular host; correct a wrong fingerprint; hide something. All of it drawn
   as a claim rather than an observation, so a reader can tell the difference.
   `make demo-overrides` renders the shipped example.
 - **Read-only, always.** `session.get` is the only HTTP verb in the source.
+- **Scriptable by default.** The [progress spinner](#progress-and-turning-it-off)
+  turns itself off whenever output is not a terminal, so piping or redirecting
+  produces clean text with no escape sequences and no `--no-progress` to
+  remember.
 
 Quickest look, no credentials and no controller:
 
@@ -84,16 +89,17 @@ Two things carry risk and are worth reading first: an API key is
 ## How this was built
 
 Essentially all of the code here was written by an AI assistant (Claude), working
-from my direction, review, and testing against my own network. 100% vibe-coded.
-I decided what it should do and what "good" looked like; it wrote nearly every
-line.
+from my direction, review, and testing against my own network. I decided what it
+should do and what "good" looked like; it wrote nearly every line.
 
 It works well for me. It has tests, the design decisions have reasons behind
 them, and it has been through two independent security reviews by other AI
 systems, whose findings are fixed or recorded. It has not been audited line by
-line by a human, and I'm not going to pretend otherwise. It only ever reads from your controller (there is no code
-path here that changes anything on it), but it does want admin credentials, so
-read `client.py` if that matters to you. It's short.
+line by a human, and I am not going to pretend otherwise.
+
+It only ever reads from your controller, and there is no code path here that
+changes anything on it. It does want admin credentials, so read `client.py` if
+that matters to you. It is short.
 
 [`AI_DISCLOSURE.md`](AI_DISCLOSURE.md) is the full version of this: what was
 verified, what was not, and how the AI actually failed here, since that is the
@@ -101,7 +107,7 @@ part worth knowing. [`HUMAN_INPUT.md`](HUMAN_INPUT.md) records what "my
 direction" amounted to, including the times I was wrong. A disclaimer like this
 one is worth more when it can be checked.
 
-Use it or don't, your call.
+Judge it on that basis.
 
 ## Output
 
@@ -122,6 +128,16 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 
 Requires Python 3.11+. Graphviz is required; `unflatten` is optional but
 improves layout on large networks.
+
+A man page is committed as `unifi-map.1`, so it works straight from a clone
+without installing anything:
+
+```bash
+man ./unifi-map.1
+```
+
+It is generated from the argument parser by `make docs`, and `make check` fails
+if it has gone stale.
 
 ## Credentials
 
@@ -149,14 +165,16 @@ UNIFI_VERIFY_TLS=true
 | --- | --- | --- | --- |
 | `UNIFI_HOST` | yes | | Hostname or IP of the console or controller |
 | `UNIFI_API_KEY` | yes | | An API key (see below) |
-| `UNIFI_SITE` | no | `default` | Which site to read (see below) |
+| `UNIFI_SITE` | no | `default` | Which site to read; `--site` overrides it (see below) |
 | `UNIFI_VERIFY_TLS` | no | `true` | `true`, `false`, or a path to a CA bundle |
 
 ### `UNIFI_API_KEY`
 
 Create a key in the UniFi OS settings, under the integrations section (the exact
 wording moves between versions). This tool only ever reads, so read-only
-permission is enough.
+permission would be enough; on the version tested, UniFi offers no way to issue
+a key that restricted. See [`SECURITY.md`](SECURITY.md) on what a key can do before
+deciding how much that matters to you.
 
 A key is the only supported credential. There is no login and no session, so
 nothing has to be kept alive or refreshed.
@@ -176,6 +194,16 @@ assumed, so `unifi.example.com` and `https://unifi.example.com` are equivalent.
 A UniFi controller can manage several *sites* (separate networks under one
 controller). If you have never created a second one, yours is `default` and you
 can ignore this.
+
+`--site NAME` does the same thing and takes precedence, which is the one to
+reach for when scripting: it saves re-exporting a variable per invocation, and
+it works for support files too.
+
+```bash
+for site in default branch-office warehouse; do
+  unifi-map --site "$site" all --name "map-$site"
+done
+```
 
 The catch is that this wants the site's **internal name**, which is not the
 label shown in the UI. They are separate fields: on a single-site console the
@@ -208,11 +236,17 @@ UNIFI_HOST=192.168.1.1
 UNIFI_VERIFY_TLS=false
 ```
 
-### Alternative variable names
+### Legacy variable names, deprecated
 
-Every variable also answers to a `UDM_*` spelling, so an existing credential file
-does not need renaming: `UDM_HOST`, `UDM_API_KEY`, `UDM_SITE`, `UDM_VERIFY_TLS`.
-If both spellings are set, the `UNIFI_*` one wins.
+Every variable also answers to a `UDM_*` spelling: `UDM_HOST`, `UDM_API_KEY`,
+`UDM_SITE`, `UDM_VERIFY_TLS`. If both are set, the `UNIFI_*` one wins.
+
+These exist only because that is what the author had called things before this
+tool did. **They still work and will be removed in a future version**, so rename
+them when convenient. Using one prints a warning naming the replacement.
+
+No removal version is promised. Everything about this interface may change
+before 1.0.
 
 `UNIFI_MAP_ENV` is not read from the credential file itself; it is the
 environment variable that says *where* the credential file is.
@@ -257,8 +291,8 @@ Regenerate the dataset with `make demo-snapshot` (see
 ## Mapping from a support file
 
 If you would rather not hand this tool an API key, or you want to map a network
-you cannot reach, point it at a console support file instead. There are no
-credentials involved and nothing touches the network:
+you cannot reach, point it at a console support file instead. No credentials are
+involved and no controller is contacted:
 
 ```bash
 unifi-map all --support-file support-XXXX-1234567890.tgz
@@ -403,24 +437,72 @@ Two smaller caveats:
 - Only the LAN networks appear. The controller's live network list also includes
   WAN and VPN entries, which no client belongs to and which nothing draws.
 
-For a console with more than one site, the largest is mapped and a warning says
-so; pass `--support-site NAME` to choose another.
+A support file from a console with more than one site is **refused** until you
+say which one you want, and the error lists them. Mapping the largest and
+warning was tried first and was wrong: the result is a complete, entirely
+ordinary looking map, and if it is the wrong site nothing about the diagram
+says so. Pass `--site NAME`. (`--support-site` was the original spelling and
+still works, but `--site` covers both inputs and is preferred.)
 
 Only seven files are ever read out of the archive, as a stream. It is never
 unpacked, which matters because a support file also contains extensive logs.
 
-Those seven are size-capped, since the whole point is that somebody else can
-send you one. The defaults are 64M for any single file and 128M in total, sized
-against a real archive whose largest relevant member was 400K. A very large site
-could legitimately exceed them, so they are adjustable rather than fixed:
+Reading one is capped four ways, since the whole point is that somebody else can
+send you one. Two cap what is decoded into memory; the others cap how much of
+the archive is walked, in entries and in uncompressed bytes, because neither
+follows from the bytes decoded.
+
+The last one is the only defence against a compression bomb. Streaming tar has
+to read through a member to reach the next header, so a file this tool skips
+still costs its full decompressed size, and the size caps never see it.
+
+| Flag | Default | Guards against |
+| --- | --- | --- |
+| `--support-max-member` | 64M | one huge member decompressed on trust |
+| `--support-max-total` | 128M | many members that are individually fine |
+| `--support-max-entries` | 100,000 | an archive that is cheap to decompress and enormous to iterate |
+| `--support-max-archive` | 4G | a small archive that expands enormously |
 
 ```bash
 unifi-map all --support-file support-XXXX.tgz \
   --support-max-member 256M --support-max-total 512M
 ```
 
-Both accept a plain byte count or a `K`, `M` or `G` suffix, and the error you
-get when a limit is hit names the flag to raise.
+The sizes accept a plain byte count or a `K`, `M` or `G` suffix, and every one
+of the three errors names the flag to raise.
+
+The defaults come from a single 154M archive off a UDM Pro Max, whose largest
+relevant member was 400K and which held about 2,500 entries. That is one sample
+of one small network, so treat the headroom as a guess rather than a measured
+safety margin: it says nothing about how any of these numbers grow with site
+size. All three are therefore adjustable. If you hit one legitimately, please
+open an issue saying so, because a second data point would be worth more than
+the reasoning that picked these.
+
+Raising `--support-max-entries` prints a warning first, because the cost is
+easy to miss. With the spinner running you can at least see the step is still
+going; with `--no-progress`, or piped to a file, walking a much larger archive
+produces no output at all until it finishes, so a slow run and a hung one look
+identical.
+
+## Progress, and turning it off
+
+Reading an archive, fetching artwork on a cold cache and running Graphviz on a
+large network can each take long enough that a silent terminal looks like a
+hang, so a spinner says which step is running.
+
+**It disables itself whenever output is not a terminal.** Piping, redirecting to
+a file or running under cron or CI all produce clean text with no escape
+sequences, without passing anything. `--no-progress` covers the case that check
+cannot see: an interactive terminal whose output something else is reading.
+
+```bash
+unifi-map --no-progress all          # never spin
+unifi-map all > map.log 2>&1         # already silent, no flag needed
+```
+
+Nothing is ever written to stdout, and log output goes to stderr with or without
+the spinner, so neither choice changes what a script sees.
 
 ## Usage
 
@@ -429,7 +511,7 @@ unifi-map all                              # fetch + render
 unifi-map fetch                            # snapshot the controller into cache/
 unifi-map fetch --support-file FILE.tgz     # or read a support file instead
 unifi-map render                           # render from the cached snapshot
-unifi-map render --per-network              # one diagram per VLAN as well
+unifi-map render --per-network              # one diagram per client network
 unifi-map render --no-clients               # infrastructure only
 unifi-map render -f svg pdf drawio dot      # pick formats
 ```
@@ -445,9 +527,13 @@ differently:
 
 | Command | Controller | Artwork |
 | --- | --- | --- |
-| `fetch` | Always. Never checks the cache first, so it always overwrites the snapshot with current state. | Fetches the icon font if it is missing |
+| `fetch` | Unless `--support-file` is given. Never checks the cache first, so it always overwrites the snapshot with current state. | Fetches the icon font if it is missing |
 | `render` | Never. Reads whatever snapshot is in `--cache-dir`, however old. | Downloads any artwork not already cached, unless `--offline` |
-| `all` | Always, because it is `fetch` then `render` | Same as `render` |
+| `all` | Same as `fetch`, because it is `fetch` then `render` | Same as `render` |
+
+Reading a support file therefore contacts no controller, but `all` goes on to
+render, and rendering fetches artwork. For a genuinely network-free run add
+`--offline` or `--icons builtin`.
 
 So `unifi-map all` does not skip the fetch when a cache already exists; it
 refreshes unconditionally. If you want to re-render without going near the
@@ -499,7 +585,7 @@ and there is nowhere convenient in them to record that this tool produced it.
 
 ```bash
 --icons unifi|builtin      # default: unifi
---layout unifi|sane        # default: unifi
+--layout unifi|tree        # default: unifi
 --theme light|dark         # default: light
 ```
 
@@ -515,9 +601,9 @@ external assets.
 **`--layout unifi`** approximates the UniFi UI: left-to-right tree, orthogonal
 links, no port labels, no title or legend chrome, canvas trimmed to the drawing.
 See below for how close that actually gets.
-**`--layout sane`** is top-down with leaf staggering, port numbers on links, a
+**`--layout tree`** is top-down with leaf staggering, port numbers on links, a
 title block and a legend, built to actually be readable on a busy network. Try
-both; on a network with many clients `sane` is usually the one you want to hand
+both; on a network with many clients `tree` is usually the one you want to hand
 to someone else.
 
 ### How close is `--layout unifi`?
@@ -535,7 +621,7 @@ Concretely, what differs:
 - **Fingerprints are sometimes wrong.** Client artwork comes from Ubiquiti's
   fingerprint database, and it misidentifies things (a phone shown as an
   appliance, that sort of thing). That is upstream data, not a rendering bug;
-  correcting it is what the planned overrides are for.
+  correcting it is what [overrides](#manual-overrides) are for.
 - **Typography and label content differ.** This uses Helvetica/Arial and shows
   name, address and product name; the UI has its own font and its own idea of
   what belongs on a node.
@@ -551,7 +637,7 @@ remembering hardware long after it's been pulled from the rack, and the UI gives
 you no way to hide it. Use `yes` to see everything yours still thinks exists.
 
 Further knobs: `--legend` / `--no-legend`, `--title-block` / `--no-title-block`,
-`--stagger N` (aspect-ratio control for `sane`), `--offline` (never touch the
+`--stagger N` (aspect-ratio control for `tree`), `--offline` (never touch the
 network for artwork), `--title`, `--name`, `--out-dir`, `--cache-dir`,
 `--asset-cache` (artwork cache, kept separate from snapshots).
 
@@ -573,7 +659,7 @@ shape, or line style, so the diagram survives greyscale printing.
 | Wireless link | Dashed line |
 | Offline device | Dashed border, `OFFLINE` in the label |
 
-With `--layout sane`, edge labels are switch port numbers (`port 12`) or the
+With `--layout tree`, edge labels are switch port numbers (`port 12`) or the
 radio for wireless clients.
 
 The legend only lists what a given render actually encodes. A node drawn as
@@ -589,13 +675,21 @@ controller genuinely does not know where something is attached.
 
 `stat/sta` only reports a client's uplink when that uplink is a UniFi device, so
 anything behind a non-UniFi box (VMs and containers behind a NAS, or a client on
-an unmanaged switch) comes back with no `sw_mac` at all. Those are resolved
+a switch the controller does not manage) comes back with no `sw_mac` at all. Those are resolved
 against the controller's own topology graph, where a client can be another
 client's uplink, which is how the console draws them correctly.
 
 Anything still unresolved after that is anchored to an explicit placeholder,
 rather than left floating (which looks like a bug) or attached to a guessed
 parent (which would invent a connection that does not exist).
+
+**You can place them yourself.** The tool refuses to guess, but you know where
+the cable goes, and [manual overrides](#manual-overrides) are how you say so. A
+`[[link]]` attaches the client to its real parent, and if that parent is an
+switch the controller cannot see either, `[[device]]` declares the switch first
+and the link hangs off it. Both are drawn dotted, so the map still distinguishes
+what you asserted from what the controller reported. The placeholder disappears
+once nothing is left under it.
 
 ## Sharing a map: `--obfuscate`
 
@@ -689,11 +783,12 @@ Things a controller cannot tell you, which you can state in an
 `overrides.toml` (picked up automatically when it exists, or pass `--overrides`):
 
 ```toml
-# A device nothing reports: an unmanaged switch, a non-UniFi access point, or
+# A device the controller cannot see: a switch it does not manage, a non-UniFi
+# access point, or
 # something that was powered off when you ran the fetch. `parent` and `port`
 # are optional; without them it floats.
 [[device]]
-name = "Basement dumb switch"
+name = "Basement switch"
 kind = "switch"            # gateway, switch, ap, bridge, wired_client,
                            # wireless_client or unknown
 ip = "10.0.0.9"            # optional
@@ -739,6 +834,22 @@ that matches nothing, or several nodes, stops the run rather than being ignored.
 Anything you assert is drawn **dotted**, and the legend says so, so a claim of
 yours is never mistaken for something the controller reported.
 
+![A detail of the demo map showing asserted devices and links drawn dotted](docs/images/example-overrides-detail.png)
+
+*A detail of the demo map with `examples/demo/overrides.toml` applied. **Bench
+switch** is declared by `[[device]]` and no source reports it, so it gets a
+dotted outline. **reverse-proxy** hangs off a dotted asserted link rather than
+the "uplink not reported" placeholder it lands on without one, and
+**build-runner** is nested inside **hypervisor**. The Rack Switch and its own
+uplink are solid, because the controller reported those. The
+[full map](docs/images/example-overrides-dark.png) also shows **Label printer**,
+renamed from the fingerprint's guess, and is one client shorter than the maps
+above because a guest phone is hidden.*
+
+Both images come from `make demo-images`, and the crop is computed from the
+layout rather than fixed pixel coordinates, so it follows the overrides if the
+demo changes.
+
 Only leaf nodes can be hidden. Hiding a switch would orphan everything behind it,
 and there is no honest answer to what should happen to the children, so it is
 refused with an error naming them.
@@ -765,6 +876,7 @@ parts you typed in.
 - **An infrastructure view** alongside the topology view: gateway, switches, APs
   and their uplinks presented as a rack/cabling diagram rather than a client
   tree. `--no-clients` is a rough approximation of this today.
+
 
 ## Artwork, licensing and attribution
 
@@ -864,3 +976,67 @@ a known limitation.
 - `cache/` holds a MAC, hostname and IP inventory of every device on your
   network. It's gitignored and written `0600`. Don't commit it or paste it into
   an issue.
+
+<!-- BEGIN GENERATED FLAGS -->
+
+## Flag reference
+
+Generated from the argument parser by `scripts/generate_cli_docs.py`, so it
+cannot drift from `--help`. Each flag is explained in context further up;
+this is for looking one up. Run `unifi-map --help` for the same thing in a
+terminal.
+
+```
+unifi-map [global options] {fetch,render,all} [command options]
+```
+
+Global options are accepted on either side of the subcommand, so
+`unifi-map all --support-file X` and `unifi-map --support-file X all` are
+equivalent. Command options must follow the subcommand.
+
+### Global options
+
+| Flag | What it does | Default |
+| --- | --- | --- |
+| `--env-file` | Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi-map/env) |  |
+| `--cache-dir` | Where controller snapshots are read/written (default: cache) | `cache` |
+| `--asset-cache` | Where downloaded artwork is cached (default: cache/assets). Kept separate from --cache-dir so a read-only snapshot directory stays clean. | `cache/assets` |
+| `--support-file` `PATH` | Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add --offline to stop that too. |  |
+| `--site` `NAME` | Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi-site support file. Without it, a live fetch uses UNIFI_SITE or `default`; a support file holding more than one site is refused rather than chosen between. |  |
+| `--support-max-member` `SIZE` | Largest single file to decode from a support archive (default 64M). Accepts a plain number or a K/M/G suffix. Raise it if a large site is refused. | `64M` |
+| `--support-max-total` `SIZE` | Total to decode from a support archive across all files (default 128M). | `128M` |
+| `--support-max-entries` `N` | How many archive entries to walk before giving up (default 100000). Separate from the size caps because entry count does not follow the bytes decoded. | `100000` |
+| `--fetch-fingerprints` | Allow downloading Ubiquiti's client fingerprint database, which is what gives clients real product artwork when reading a support file. Off by default: reading a support file otherwise contacts nothing. |  |
+| `--fetch-icon-font` | With --support-file, also fetch the generic client glyph font from a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because Ubiquiti publish no copy of that font. Off by default. |  |
+| `--icon-font` `DIR` | Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See the README. |  |
+| `--support-max-archive` `SIZE` | Total uncompressed bytes to walk in a support archive, counting files that are skipped (default 4G). This is what stops a small archive that expands enormously; the other caps only measure what is decoded. | `4G` |
+| `--no-progress` | Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading. |  |
+| `--out-dir` | Where diagrams are written (default: out) | `out` |
+| `-v`, `--verbose` | Log every artwork lookup, including the ones that found nothing, and name nodes that --obfuscate would otherwise hide. |  |
+| `--version` | show program's version number and exit |  |
+
+`fetch` takes only the global options above.
+
+
+### `render` and `all` options
+
+| Flag | What it does | Default |
+| --- | --- | --- |
+| `-f`, `--formats` `{svg,pdf,png,dot,drawio}` | Output formats (default: svg drawio) | `svg drawio` |
+| `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
+| `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
+| `--theme` `{dark,light}` | Colour theme (default: light) | `light` |
+| `--offline` | Never reach the network for artwork; use only what is already cached |  |
+| `--name` | Output filename stem | `network-map` |
+| `--force` | Overwrite output files that unifi-map did not write. Without this, an existing .dot or .drawio it does not recognise is left alone, so a diagram you have edited by hand is not silently replaced. |  |
+| `--overrides` | Manual corrections: links the controller cannot see, nesting, renames, your own artwork, and hiding. Defaults to overrides.toml when that file exists |  |
+| `--obfuscate` | Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared |  |
+| `--title` | Diagram title (default: Network map). Note that --obfuscate cannot clean a title you supply yourself |  |
+| `--no-clients` | Infrastructure only, no clients |  |
+| `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
+| `--per-network` | Also emit one diagram per client network, which keeps a busy map readable |  |
+| `--legend`, `--no-legend` | Show the legend (default: on for --layout tree, off for --layout unifi) |  |
+| `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout tree, off for --layout unifi) |  |
+| `--stagger` `N` | With --layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12) | `12` |
+
+<!-- END GENERATED FLAGS -->

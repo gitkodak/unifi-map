@@ -28,20 +28,22 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
 
 ## What has actually been verified
 
-- **309 automated tests**, none of which touch the network. They cover the
+- **402 automated tests**, none of which touch the network. They cover the
   parsing, the model, obfuscation, override handling, support-file reading, the
   renderers and several security properties directly.
 - **Continuous integration** on every push and pull request, plus a repository
   hygiene job that fails if a snapshot, render or vendored font is ever
   committed.
-- **Behaviour against a real network.** Every feature here was exercised against
+- **Behaviour against a real network.** Every feature here, except the gaps
+  listed below, was exercised against
   a live UniFi console and, where relevant, a real support file. Claims in the
   documentation that carry numbers were measured rather than estimated.
 - **Two independent security reviews**, each performed by a different AI system
   working from the source, neither of them the assistant that wrote it. One
   raised eleven findings and the other seven, overlapping heavily. Everything
-  raised is fixed except two items declined with reasons recorded in
-  `CLAUDE.md`.
+  raised is fixed except one item declined with its reason recorded in
+  `CLAUDE.md`: no hashed dependency lock file. A second was declined at the
+  time and then done anyway, by making the support-file caps adjustable.
 
   The second review is the more informative result. Most of what it found the
   first had already found, but three items were new, including a real

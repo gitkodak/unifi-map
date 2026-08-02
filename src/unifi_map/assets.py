@@ -34,7 +34,39 @@ from typing import Any
 
 import requests
 
+from .fsio import atomic_write
+
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Fetched:
+    """The parts of a response callers here actually use.
+
+    `_fetch` used to hand back a `requests.Response` with `_content` and
+    `_content_consumed` assigned by hand, because the body is streamed and read
+    through a cap rather than by `requests` itself. That worked, and depended on
+    two private attributes of somebody else's library staying where they are.
+
+    Callers only ever touch `status_code`, `content` and `raise_for_status`, so
+    those are all this carries.
+    """
+
+    status_code: int
+    content: bytes
+    url: str
+
+    def raise_for_status(self) -> None:
+        """Match `requests` closely enough that existing handlers still catch it."""
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} for {self.url}")
+
+
+def _cache_write(path: Path, data: bytes) -> None:
+    """Atomic, but without the fsync: artwork is refetchable, so paying for
+    durability on every icon would be a cost with nothing behind it."""
+    atomic_write(path, data, mode=0o644, fsync=False)
+
 
 CATALOG_URL = "https://static.ui.com/fingerprint/ui/public.json"
 
@@ -142,6 +174,36 @@ ICON_PX = 256
 # a hostile CDN response or a user pointing --icons at the wrong file.
 MAX_ASSET_BYTES = 16 * 1024 * 1024
 
+# The published client fingerprint database is about 1 MB. This is generous
+# enough not to break on growth and small enough that a hostile or wrong
+# response cannot be read into memory unbounded, which it previously could:
+# this download had no cap at all.
+MAX_CATALOG_BYTES = 64 * 1024 * 1024
+
+
+def _read_capped(response: requests.Response, limit: int) -> bytes | None:
+    """Body bytes, or None once *limit* is passed.
+
+    Reads in chunks and stops at the cap rather than measuring afterwards, so an
+    oversized or endless response is abandoned instead of buffered whole.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > limit:
+                response.close()
+                return None
+            chunks.append(chunk)
+    except requests.RequestException:
+        response.close()
+        return None
+    return b"".join(chunks)
+
+
 # Pillow's own decompression-bomb threshold is deliberately generous, because it
 # has to serve people processing real photographs. Ours only ever opens icons,
 # so a far tighter ceiling costs nothing and turns a memory-exhaustion image
@@ -245,7 +307,7 @@ class AssetStore:
     # hanging. One failure is enough to know the rest will fail too.
     _unreachable: bool = False
 
-    def _fetch(self, url: str, *, allow_redirects: bool = True) -> requests.Response | None:
+    def _fetch(self, url: str, *, allow_redirects: bool = True) -> Fetched | None:
         """GET *url*, or None if artwork is unavailable for any reason.
 
         Transport failures trip `_unreachable` so the rest of the run stops
@@ -255,15 +317,23 @@ class AssetStore:
         if self.offline or self._unreachable:
             return None
         try:
-            response = requests.get(url, timeout=self.timeout, allow_redirects=allow_redirects)
+            # Streamed, so an oversized body is never fully resident. Checking
+            # `response.content` after a plain get() is a cap that only reports
+            # what already happened: the bytes are in memory by the time it runs,
+            # and Content-Length is supplied by the server and may simply lie.
+            response = requests.get(
+                url, timeout=self.timeout, allow_redirects=allow_redirects, stream=True
+            )
             declared = response.headers.get("Content-Length")
             if declared and declared.isdigit() and int(declared) > MAX_ASSET_BYTES:
                 log.warning("%s claims %s bytes; refusing to read it as artwork.", url, declared)
+                response.close()
                 return None
-            if len(response.content) > MAX_ASSET_BYTES:
+            body = _read_capped(response, MAX_ASSET_BYTES)
+            if body is None:
                 log.warning("%s is larger than %d bytes; not artwork.", url, MAX_ASSET_BYTES)
                 return None
-            return response
+            return Fetched(status_code=response.status_code, content=body, url=url)
         except requests.RequestException as exc:
             self._unreachable = True
             log.warning(
@@ -298,8 +368,8 @@ class AssetStore:
     def save_icon_font(self, font: bytes, codepoints: dict[str, int]) -> None:
         """Cache the controller's icon font. Never vendored into the repo."""
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.font_path.write_bytes(font)
-        self.font_map_path.write_text(json.dumps(codepoints, indent=2), encoding="utf-8")
+        _cache_write(self.font_path, font)
+        _cache_write(self.font_map_path, json.dumps(codepoints, indent=2).encode("utf-8"))
 
     def save_fingerprint_db(self, payload: Any) -> None:
         """Cache the controller's client fingerprint database.
@@ -313,7 +383,7 @@ class AssetStore:
         if not isinstance(payload, dict) or not payload.get("dev_ids"):
             return
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.fingerprint_db_path.write_text(json.dumps(payload), encoding="utf-8")
+        _cache_write(self.fingerprint_db_path, json.dumps(payload).encode("utf-8"))
 
     def _cached_fingerprint_db(self) -> dict[str, Any] | None:
         if not self.fingerprint_db_path.is_file():
@@ -343,9 +413,17 @@ class AssetStore:
             return cached
 
         try:
-            response = requests.get(CLIENT_CATALOG_URL, timeout=self.timeout)
+            response = requests.get(CLIENT_CATALOG_URL, timeout=self.timeout, stream=True)
             response.raise_for_status()
-            payload = response.json()
+            body = _read_capped(response, MAX_CATALOG_BYTES)
+            if body is None:
+                log.warning(
+                    "The client fingerprint database is larger than %d bytes; "
+                    "refusing it and disabling client artwork.",
+                    MAX_CATALOG_BYTES,
+                )
+                return None
+            payload = json.loads(body)
         except (requests.RequestException, ValueError) as exc:
             log.warning(
                 "Could not fetch the client fingerprint database (%s); client artwork disabled.",
@@ -365,7 +443,15 @@ class AssetStore:
             raw = json.loads(self.font_map_path.read_text(encoding="utf-8"))
         except ValueError:
             return {}
-        return {str(k): int(v) for k, v in raw.items() if isinstance(v, int | str)}
+        # A cached map is just a file on disk and may be corrupt or hand-edited,
+        # so a non-numeric value drops that glyph rather than raising ValueError
+        # from under the CLI.
+        codepoints: dict[str, int] = {}
+        for key, value in raw.items():
+            point = _to_int(value, 10) if not isinstance(value, int) else value
+            if point is not None:
+                codepoints[str(key)] = point
+        return codepoints
 
     def isp_logo(self, asn: int | None) -> IconAsset | None:
         """The upstream provider's brand mark, keyed on its ASN.
@@ -517,7 +603,7 @@ class AssetStore:
             return None
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.catalog_path.write_text(json.dumps(payload), encoding="utf-8")
+        _cache_write(self.catalog_path, json.dumps(payload).encode("utf-8"))
         return payload
 
     def catalog(self) -> dict[int, dict[str, Any]]:
@@ -601,7 +687,14 @@ class AssetStore:
 
         cached = self.icon_dir / f"{sysid:04x}-{variant}-{ICON_PX}.png"
         if cached.is_file():
-            return _measure(cached)
+            measured = _measure(cached)
+            if measured is not None:
+                return measured
+            # Unreadable: from an interrupted write predating atomic caching, or
+            # a truncated file. Drop it so this run refetches rather than
+            # returning a broken asset forever.
+            log.debug("Cached icon %s is unreadable; refetching.", cached)
+            cached.unlink(missing_ok=True)
         if self.offline:
             return None
 
@@ -759,7 +852,12 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
             if bbox:
                 image = image.crop(bbox)
             image.thumbnail((box, box), Image.LANCZOS)
-            image.save(dest, format="PNG", optimize=True)
+            # Written aside and renamed into place: a half-written icon is
+            # indistinguishable from a good one to the `is_file()` check that
+            # decides whether to refetch, so it would be cached corrupt forever.
+            buffer = BytesIO()
+            image.save(buffer, format="PNG", optimize=True)
+            _cache_write(dest, buffer.getvalue())
             return IconAsset(path=dest, width=image.width, height=image.height)
     except (OSError, ValueError) as exc:
         raise AssetError(f"Could not process artwork: {exc}") from exc

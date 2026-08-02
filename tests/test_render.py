@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -17,12 +18,12 @@ needs_graphviz = pytest.mark.skipif(
     shutil.which("dot") is None, reason="graphviz `dot` not installed"
 )
 
-SANE = Style(theme=LIGHT, icons="builtin", layout="sane")
+TREE = Style(theme=LIGHT, icons="builtin", layout="tree")
 UNIFI = Style(theme=LIGHT, icons="builtin", layout="unifi")
 
 
 def test_dot_output_is_syntactically_parseable_by_graphviz(snapshot: Snapshot):
-    dot_source = render_dot(build_topology(snapshot), "test map", SANE)
+    dot_source = render_dot(build_topology(snapshot), "test map", TREE)
     assert dot_source.startswith("digraph unifi {")
     assert dot_source.rstrip().endswith("}")
 
@@ -42,25 +43,25 @@ def test_get_theme_rejects_unknown_name():
 def test_dot_escapes_quotes_in_labels(networkconf: dict, devices: dict):
     devices["data"][0]["name"] = 'Weird "quoted" name'
     topo = build_topology(Snapshot(payloads={"device": devices, "networkconf": networkconf}))
-    dot_source = render_dot(topo, "t", SANE)
+    dot_source = render_dot(topo, "t", TREE)
     # The quote must be escaped, not terminate the DOT string early.
     assert r"Weird \"quoted\" name" in dot_source
 
 
 def test_wireless_edges_are_dashed_for_greyscale_readability(snapshot: Snapshot):
-    dot_source = render_dot(build_topology(snapshot), "t", SANE)
+    dot_source = render_dot(build_topology(snapshot), "t", TREE)
     assert [line for line in dot_source.splitlines() if "style=dashed" in line]
 
 
 def test_mac_colons_are_stripped_from_dot_identifiers(snapshot: Snapshot):
-    dot_source = render_dot(build_topology(snapshot), "t", SANE)
+    dot_source = render_dot(build_topology(snapshot), "t", TREE)
     # A raw colon in an identifier would parse as a DOT port specifier.
     assert '"n_aabbcc000001"' in dot_source
 
 
 class TestLayouts:
-    def test_sane_is_top_down_with_port_labels(self, snapshot: Snapshot):
-        dot_source = render_dot(build_topology(snapshot), "t", SANE)
+    def test_tree_is_top_down_with_port_labels(self, snapshot: Snapshot):
+        dot_source = render_dot(build_topology(snapshot), "t", TREE)
         assert "rankdir=TB;" in dot_source
         assert "port 12" in dot_source
 
@@ -76,8 +77,8 @@ class TestLayouts:
         assert "labelloc=t;" not in dot_source
         assert "cluster_legend" not in dot_source
 
-    def test_sane_includes_title_and_legend(self, snapshot: Snapshot):
-        dot_source = render_dot(build_topology(snapshot), "My Map", SANE, subtitle="sub")
+    def test_tree_includes_title_and_legend(self, snapshot: Snapshot):
+        dot_source = render_dot(build_topology(snapshot), "My Map", TREE, subtitle="sub")
         assert "labelloc=t;" in dot_source
         assert "My Map" in dot_source
         assert "cluster_legend" in dot_source
@@ -89,43 +90,37 @@ class TestLayouts:
         assert "labelloc=t;" in dot_source
 
     def test_unifi_layout_trims_canvas_padding(self, snapshot: Snapshot):
-        # Whether `unifi` ends up narrower than `sane` depends on the shape of
+        # Whether `unifi` ends up narrower than `tree` depends on the shape of
         # the network (it does on a real one with many sibling clients, but not
         # on a small fixture where tree depth dominates), so assert the thing
         # that is actually guaranteed: no framing whitespace.
         topo = build_topology(snapshot)
         assert "pad=0.08;" in render_dot(topo, "t", UNIFI)
-        assert "pad=0.4;" in render_dot(topo, "t", SANE)
+        assert "pad=0.4;" in render_dot(topo, "t", TREE)
 
     @needs_graphviz
     def test_both_layouts_place_every_node(self, snapshot: Snapshot):
+        # Through `compute_layout` rather than run_dot plus parse_plain by hand,
+        # so the wrapper callers actually use is on this path too.
         topo = build_topology(snapshot)
-        for style in (SANE, UNIFI):
-            layout = parse_plain(run_dot(render_dot(topo, "t", style), "plain").decode())
+        for style in (TREE, UNIFI):
+            layout = compute_layout(render_dot(topo, "t", style))
             for node_id in topo.nodes:
                 assert "n_" + node_id.replace(":", "") in layout.nodes
 
 
 @needs_graphviz
 def test_graphviz_renders_svg(snapshot: Snapshot):
-    svg = run_dot(render_dot(build_topology(snapshot), "test map", SANE), "svg").decode()
+    svg = run_dot(render_dot(build_topology(snapshot), "test map", TREE), "svg").decode()
     assert "<svg" in svg
     assert "Core Switch" in svg
 
 
 @needs_graphviz
 def test_svg_scales_without_a_fixed_pixel_ceiling(snapshot: Snapshot):
-    svg = run_dot(render_dot(build_topology(snapshot), "t", SANE), "svg").decode()
+    svg = run_dot(render_dot(build_topology(snapshot), "t", TREE), "svg").decode()
     # viewBox is what lets the SVG zoom to any size with crisp labels.
     assert "viewBox" in svg
-
-
-@needs_graphviz
-def test_layout_positions_every_node(snapshot: Snapshot):
-    topo = build_topology(snapshot)
-    layout = compute_layout(render_dot(topo, "t", SANE))
-    for node_id in topo.nodes:
-        assert "n_" + node_id.replace(":", "") in layout.nodes
 
 
 def test_parse_plain_flips_y_axis_into_screen_space():
@@ -253,6 +248,123 @@ def test_client_sets_the_api_key_header_and_makes_no_request(tmp_path):
     assert not hasattr(client, "logout")
 
 
+class TestUnplacedClientsAreExplained:
+    """The placeholder must say it is fixable, where somebody will see it.
+
+    "Uplink not reported by controller" on a diagram gives no hint that the
+    tool is refusing to guess rather than failing, or that the reader can place
+    it themselves. The README section says so now; this says it at the moment
+    the map is produced, which reaches whoever never read that section.
+    """
+
+    def _topo(self, stranded: int):
+        from unifi_map.model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology
+
+        topo = Topology()
+        topo.add(Node(id="sw", label="switch", kind=Kind.SWITCH))
+        if stranded:
+            topo.add(Node(id=UNKNOWN_UPLINK_ID, label="Uplink not reported", kind=Kind.UNKNOWN))
+            for i in range(stranded):
+                topo.add(Node(id=f"c{i}", label=f"c{i}", kind=Kind.WIRED_CLIENT))
+                topo.edges.append(Edge(src=f"c{i}", dst=UNKNOWN_UPLINK_ID))
+        return topo
+
+    def test_it_counts_them_and_points_at_overrides(self, caplog):
+        from unifi_map.cli import _hint_about_unplaced
+
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(self._topo(3), None)
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "3 client(s)" in message
+        assert "overrides" in message.lower()
+
+    def test_it_says_nothing_when_everything_is_placed(self, caplog):
+        from unifi_map.cli import _hint_about_unplaced
+
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(self._topo(0), None)
+        assert not caplog.records
+
+    def test_with_an_overrides_file_it_reports_what_is_left(self, caplog):
+        # Still counted, because somebody who wrote overrides and has stranded
+        # clients remaining is exactly who benefits from the number. Only the
+        # pointer is dropped, since they have plainly found it.
+        from unifi_map.cli import _hint_about_unplaced
+
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(self._topo(2), Path("overrides.toml"))
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "2 client(s) still" in message
+        assert "README" not in message
+
+    def test_the_count_is_of_stranded_clients_not_all_edges(self, caplog):
+        from unifi_map.cli import _hint_about_unplaced
+        from unifi_map.model import Edge
+
+        topo = self._topo(2)
+        # An unrelated link must not inflate the number.
+        topo.edges.append(Edge(src="c0", dst="sw"))
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(topo, None)
+        assert "2 client(s)" in " ".join(r.getMessage() for r in caplog.records)
+
+
+class TestSiteSelection:
+    """`--site` exists so a script can loop over sites without re-exporting.
+
+    It covers both inputs. `--support-site` did the same job for support files
+    only and predates it; it still works because 0.3.0 shipped it.
+    """
+
+    def test_site_works_in_either_position(self):
+        from unifi_map.cli import build_parser
+
+        assert build_parser().parse_args(["--site", "branch", "all"]).site == "branch"
+        assert build_parser().parse_args(["all", "--site", "branch"]).site == "branch"
+
+    def test_no_site_means_no_opinion(self):
+        # None rather than "default", so the environment still gets a say.
+        from unifi_map.cli import build_parser
+
+        assert build_parser().parse_args(["all"]).site is None
+
+    def test_the_flag_beats_the_environment(self, tmp_path, monkeypatch):
+        from unifi_map.config import load_config
+
+        for name in ("UNIFI_SITE", "UDM_SITE", "UNIFI_HOST", "UNIFI_API_KEY"):
+            monkeypatch.delenv(name, raising=False)
+        env = tmp_path / "creds.env"
+        env.write_text("UNIFI_HOST=h\nUNIFI_API_KEY=k\nUNIFI_SITE=from-env\n")
+        assert load_config(env).site == "from-env"
+        assert load_config(env, site="from-flag").site == "from-flag"
+
+    def test_the_environment_still_wins_over_the_built_in_default(self, tmp_path, monkeypatch):
+        from unifi_map.config import load_config
+
+        for name in ("UNIFI_SITE", "UDM_SITE", "UNIFI_HOST", "UNIFI_API_KEY"):
+            monkeypatch.delenv(name, raising=False)
+        env = tmp_path / "creds.env"
+        env.write_text("UNIFI_HOST=h\nUNIFI_API_KEY=k\n")
+        assert load_config(env).site == "default"
+
+    def test_support_site_still_works_and_says_it_is_deprecated(self, caplog):
+        from unifi_map.cli import _requested_site, build_parser
+
+        args = build_parser().parse_args(["fetch", "--support-site", "old"])
+        with caplog.at_level("WARNING"):
+            assert _requested_site(args) == "old"
+        assert any("deprecated" in r.getMessage() for r in caplog.records)
+
+    def test_site_wins_when_both_are_given(self, caplog):
+        from unifi_map.cli import _requested_site, build_parser
+
+        args = build_parser().parse_args(["fetch", "--site", "new", "--support-site", "old"])
+        with caplog.at_level("WARNING"):
+            assert _requested_site(args) == "new"
+        # No warning: the caller is already using the flag being recommended.
+        assert not any("deprecated" in r.getMessage() for r in caplog.records)
+
+
 class TestLegendHonesty:
     """The legend must describe only what the diagram actually encodes."""
 
@@ -263,7 +375,7 @@ class TestLegendHonesty:
 
     def test_shapes_only_render_lists_every_role(self, snapshot: Snapshot):
         topo = build_topology(snapshot)
-        legend = self._legend_text(topo, SANE)
+        legend = self._legend_text(topo, TREE)
         # Nothing has artwork, so every role really is a coloured shape.
         assert "Switch" in legend
         assert "Gateway" in legend
@@ -271,7 +383,7 @@ class TestLegendHonesty:
 
     def test_roles_drawn_as_artwork_get_no_swatch(self, snapshot: Snapshot, fake_icon):
         topo = build_topology(snapshot)
-        style = Style(theme=LIGHT, icons="unifi", layout="sane")
+        style = Style(theme=LIGHT, icons="unifi", layout="tree")
         # Give every node artwork: no role swatch may remain, because artwork
         # nodes have no border or fill to carry an accent colour.
         icons = dict.fromkeys(topo.nodes, fake_icon)
@@ -283,7 +395,7 @@ class TestLegendHonesty:
 
     def test_mixed_render_separates_the_two(self, snapshot: Snapshot, fake_icon):
         topo = build_topology(snapshot)
-        style = Style(theme=LIGHT, icons="unifi", layout="sane")
+        style = Style(theme=LIGHT, icons="unifi", layout="tree")
         # The access point is the only node of its role in the fixture, so
         # covering it removes that role entirely. The fixture has two switches,
         # one of them offline, which is why picking a switch here would not.
@@ -299,11 +411,11 @@ class TestLegendHonesty:
         self, snapshot: Snapshot, fake_icon
     ):
         topo = build_topology(snapshot)
-        style = Style(theme=LIGHT, icons="unifi", layout="sane")
+        style = Style(theme=LIGHT, icons="unifi", layout="tree")
         icons = dict.fromkeys(topo.nodes, fake_icon)
         # With artwork the VLAN colour is the label text, not a border.
         assert "Client network (label colour)" in self._legend_text(topo, style, icons)
-        assert "Client network (label colour)" not in self._legend_text(topo, SANE)
+        assert "Client network (label colour)" not in self._legend_text(topo, TREE)
 
 
 class TestApiKeyIsNotCarriedAcrossHosts:
@@ -404,10 +516,12 @@ class TestWritesAreAtomic:
         def fail(*args, **kwargs):
             raise OSError("disk full")
 
-        monkeypatch.setattr("unifi_map.cli.os.replace", fail)
+        # Patched in `fsio`, which is where the rename now happens: the three
+        # copies of this logic were merged into one helper.
+        monkeypatch.setattr("unifi_map.fsio.os.replace", fail)
         with pytest.raises(OSError):
             _write_output(path, "half a file", force=False, guard=False)
-        monkeypatch.setattr("unifi_map.cli.os.replace", real)
+        monkeypatch.setattr("unifi_map.fsio.os.replace", real)
 
         # Not truncated, not replaced, and no debris beside it.
         assert path.read_text(encoding="utf-8") == "the good previous render"
@@ -468,6 +582,110 @@ class TestDrawioLabelsAreNotMarkup:
     def test_our_own_markup_is_still_markup(self):
         # Single-escaped, so draw.io renders real bold rather than showing tags.
         assert "&lt;b&gt;switch&lt;/b&gt;" in self._render("switch")
+
+
+class TestDrawioGeometryIsAddressable:
+    """Every `mxGeometry` must carry `as="geometry"` or draw.io ignores it.
+
+    `as` is a Python keyword and cannot be a `SubElement` kwarg, so it is set
+    afterwards by `_geometry()` and is easy to lose in a refactor. Losing it is
+    silent: the XML stays well-formed, every other test still passes, and
+    draw.io piles every shape on top of itself at the origin. Nothing else
+    catches that, so this asserts it on the emitted document.
+    """
+
+    def _render(self):
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.render_drawio import render_drawio
+        from unifi_map.theme import LIGHT
+
+        topo = Topology()
+        topo.add(Node(id="a", label="a", kind=Kind.SWITCH, ip="10.0.0.1"))
+        topo.add(Node(id="b", label="b", kind=Kind.AP))
+        topo.edges.append(Edge(src="b", dst="a", label="1"))
+        layout = Layout(
+            nodes={
+                "a": Placed(x=0.0, y=0.0, width=10.0, height=10.0),
+                "b": Placed(x=0.0, y=20.0, width=10.0, height=10.0),
+            },
+            width=10.0,
+            height=30.0,
+        )
+        return render_drawio(topo, layout, "t", LIGHT)
+
+    def test_every_geometry_element_is_marked_as_geometry(self):
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(self._render())
+        geometries = root.iter("mxGeometry")
+        unmarked = [g for g in geometries if g.get("as") != "geometry"]
+        assert not unmarked, f'{len(unmarked)} mxGeometry element(s) missing as="geometry"'
+
+    def test_the_document_contains_geometry_at_all(self):
+        # Guards the assertion above from passing vacuously if cells stop
+        # carrying geometry entirely.
+        import xml.etree.ElementTree as ET
+
+        assert list(ET.fromstring(self._render()).iter("mxGeometry"))
+
+
+class TestStaggerIsAppliedOnceToBothRenderers:
+    """The SVG and the draw.io coordinates must come from byte-identical DOT.
+
+    `_write_outputs()` staggers up front and feeds the result to both paths. If
+    a change routes unstaggered DOT to one of them, or writes the `.dot` from
+    before the stagger, the diagram still renders and the draw.io shapes land
+    somewhere plausible but no longer where the SVG drew them. Comparing the
+    written `.dot` against the positions in the written `.drawio` catches that
+    without mocking Graphviz: on this fixture the stagger moves nodes by some
+    790pt, so a path that skipped it cannot coincidentally agree.
+
+    It does not prove the stagger is applied only *once*, because `unflatten`
+    turns out to be idempotent here (measured: a second pass moves nothing).
+    Double-staggering is therefore harmless rather than untested.
+    """
+
+    @needs_graphviz
+    def test_drawio_positions_match_the_dot_that_was_written(self, snapshot, tmp_path):
+        import xml.etree.ElementTree as ET
+
+        from unifi_map.cli import _write_outputs
+        from unifi_map.layout import compute_layout
+
+        topo = build_topology(snapshot)
+        _write_outputs(
+            render_dot(topo, "t", TREE),
+            topo,
+            tmp_path,
+            "m",
+            ["dot", "drawio"],
+            TREE,
+            {},
+            stagger_depth=2,
+        )
+
+        # The .dot on disk is the post-stagger source, by contract.
+        expected = compute_layout((tmp_path / "m.dot").read_text(encoding="utf-8"))
+        root = ET.fromstring((tmp_path / "m.drawio").read_text(encoding="utf-8"))
+
+        placed = {
+            cell.get("id"): cell.find("mxGeometry")
+            for cell in root.iter("mxCell")
+            if cell.find("mxGeometry") is not None
+        }
+        # Layout keys are already DOT node ids, which is what the cells use.
+        compared = 0
+        for node_id, want in expected.nodes.items():
+            geometry = placed.get(node_id)
+            if geometry is None or geometry.get("x") is None:
+                continue
+            # Same DOT means the same Graphviz answer, so these agree to the
+            # one decimal place the renderer writes rather than approximately.
+            assert abs(float(geometry.get("x")) - want.x) < 0.5, node_id
+            assert abs(float(geometry.get("y")) - want.y) < 0.5, node_id
+            compared += 1
+        assert compared > 1, "compared too few nodes to prove anything"
 
 
 class TestCredentialFilePermissions:
@@ -548,3 +766,198 @@ class TestCredentialsDoNotReachChildProcesses:
             [sys.executable, str(probe)], capture_output=True, env=_child_env(), check=False
         )
         assert result.stdout == b""
+
+
+class TestLegacyVariableNames:
+    """`UDM_*` still works and now says it is on the way out.
+
+    The alias exists only because that is what the author had called things
+    before the tool did. No removal version is promised anywhere, deliberately:
+    everything here is unstable before 1.0, and naming a version would be a
+    promise made to sound organised.
+    """
+
+    def _load(self, monkeypatch, env):
+        from unifi_map.config import load_config
+
+        for name in (
+            "UNIFI_HOST",
+            "UNIFI_API_KEY",
+            "UNIFI_SITE",
+            "UNIFI_VERIFY_TLS",
+            "UDM_HOST",
+            "UDM_API_KEY",
+            "UDM_SITE",
+            "UDM_VERIFY_TLS",
+        ):
+            monkeypatch.delenv(name, raising=False)
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        return load_config(Path("/dev/null"))
+
+    def test_the_legacy_names_still_work(self, monkeypatch):
+        config = self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        assert config.host == "c.example.com"
+        assert config.api_key == "k"
+
+    def test_using_them_warns_once_naming_the_replacement(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        # One line for the lot: a file written before the rename uses the old
+        # spelling for everything, and four warnings is noise.
+        assert caplog.text.count("deprecated environment variable") == 1
+        assert "UDM_HOST -> UNIFI_HOST" in caplog.text
+        assert "UDM_API_KEY -> UNIFI_API_KEY" in caplog.text
+
+    def test_no_removal_version_is_promised(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        assert "1.0" not in caplog.text
+
+    def test_the_current_spelling_is_silent(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UNIFI_API_KEY": "k"})
+        assert "deprecated" not in caplog.text
+
+    def test_only_the_legacy_names_actually_used_are_named(self, monkeypatch, caplog):
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UDM_API_KEY": "k"})
+        assert "UDM_API_KEY" in caplog.text
+        assert "UDM_HOST" not in caplog.text
+
+    def test_the_current_spelling_still_wins_when_both_are_set(self, monkeypatch):
+        config = self._load(
+            monkeypatch,
+            {
+                "UNIFI_HOST": "right.example.com",
+                "UDM_HOST": "wrong.example.com",
+                "UNIFI_API_KEY": "k",
+            },
+        )
+        assert config.host == "right.example.com"
+
+
+class TestAnExistingOutputDirectoryIsLeftAlone:
+    """Only a directory this tool created may be tightened to 0700.
+
+    `_restrict` said exactly that in its own docstring while the caller ran it
+    unconditionally after `mkdir(exist_ok=True)`. Pointing `--out-dir` at a
+    shared directory silently took it from 0775 to 0700 and locked out everyone
+    else, which is a hard failure to attribute to a diagram tool.
+    """
+
+    def test_a_directory_we_created_is_private(self, tmp_path):
+        from unifi_map.fsio import mkdir_private
+
+        target = tmp_path / "fresh"
+        mkdir_private(target)
+        assert target.is_dir()
+        assert oct(target.stat().st_mode)[-3:] == "700"
+
+    def test_an_existing_directory_keeps_its_mode(self, tmp_path):
+        from unifi_map.fsio import mkdir_private
+
+        target = tmp_path / "shared"
+        target.mkdir()
+        target.chmod(0o775)
+        mkdir_private(target)
+        assert oct(target.stat().st_mode)[-3:] == "775", "somebody else's directory was tightened"
+
+    def test_every_level_we_create_is_private_not_just_the_leaf(self, tmp_path):
+        # `mkdir(parents=True)` creates three directories; restricting only the
+        # last left the other two at the umask. Output filenames are derived
+        # from network names, so a listable parent discloses the network layout
+        # even though the files themselves are 0600.
+        from unifi_map.fsio import mkdir_private
+
+        target = tmp_path / "a" / "b" / "c"
+        mkdir_private(target)
+        assert target.is_dir()
+        for level in (tmp_path / "a", tmp_path / "a" / "b", target):
+            assert oct(level.stat().st_mode)[-3:] == "700", f"{level} left at the umask"
+
+    def test_a_new_child_of_an_existing_directory_is_still_private(self, tmp_path):
+        from unifi_map.fsio import mkdir_private
+
+        parent = tmp_path / "shared"
+        parent.mkdir()
+        parent.chmod(0o775)
+        mkdir_private(parent / "ours")
+        assert oct(parent.stat().st_mode)[-3:] == "775"
+        assert oct((parent / "ours").stat().st_mode)[-3:] == "700"
+
+
+class TestPerNetworkFilenamesAreUnique:
+    """Distinct networks must not land on the same file.
+
+    `_safe_name` maps "IoT A", "IoT-A" and "IoT/A" all to "iot-a". The second
+    diagram overwrote the first, and quietly: the file it replaced carried this
+    tool's own provenance marker, so the overwrite guard let it through.
+    """
+
+    def test_names_differing_only_in_punctuation_get_distinct_stems(self):
+        from unifi_map.cli import _unique_names
+
+        stems = _unique_names(["IoT A", "IoT-A", "IoT/A"])
+        assert len(set(stems.values())) == 3, f"collision remains: {stems}"
+
+    def test_an_uncontested_name_keeps_the_plain_slug(self):
+        from unifi_map.cli import _unique_names
+
+        assert _unique_names(["Servers", "IoT A"])["Servers"] == "servers"
+
+    def test_a_stem_does_not_depend_on_the_order_networks_arrive_in(self):
+        # A counter would renumber diagrams whenever the controller reordered
+        # its networks, so the suffix is derived from the name itself.
+        from unifi_map.cli import _unique_names
+
+        forward = _unique_names(["IoT A", "IoT-A", "Servers"])
+        reverse = _unique_names(["Servers", "IoT-A", "IoT A"])
+        assert forward == reverse
+
+
+class TestTheSaneLayoutAliasIsDeprecated:
+    """`sane` still works, is hidden, and is promised gone in 0.6.0.
+
+    Renamed because the word implies the alternative is not, and borrows a
+    clinical term as a judgement. `tree` says what the layout actually is.
+    """
+
+    def test_the_old_value_still_selects_the_same_layout(self):
+        from unifi_map.render_dot import Style
+
+        assert Style(theme=LIGHT, layout="sane").layout == "tree"
+        assert Style(theme=LIGHT, layout="sane").staggers is True
+
+    def test_the_old_value_still_parses_on_the_command_line(self):
+        from unifi_map.cli import build_parser
+
+        assert build_parser().parse_args(["render", "--layout", "sane"]).layout == "sane"
+
+    def test_usage_does_not_advertise_the_old_value(self):
+        # Accepted via `choices`, hidden via `metavar`. Keeping it out of the
+        # help is the point: nobody should learn it from us now.
+        from unifi_map.cli import build_parser
+
+        text = build_parser().format_help()
+        assert "sane" not in text
+
+    def test_the_supported_set_is_only_the_new_name(self):
+        from unifi_map.render_dot import LAYOUTS
+
+        assert LAYOUTS == ("tree", "unifi")
+
+    def test_an_unknown_layout_is_still_rejected(self):
+        from unifi_map.render_dot import Style
+
+        with pytest.raises(ValueError, match="layout must be one of"):
+            Style(theme=LIGHT, layout="nonsense")
+
+    def test_the_removal_version_is_stated_in_one_place_only(self):
+        # If this fails, the promise was changed in the code and not in the
+        # docs, or vice versa. The date is the whole point of this deprecation.
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        assert "0.6.0" in (root / "src" / "unifi_map" / "render_dot.py").read_text()
+        assert "0.6.0" in (root / "src" / "unifi_map" / "cli.py").read_text()

@@ -17,24 +17,34 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import logging
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 from . import __version__
 from .assets import AssetError, AssetStore, IconAsset, read_icon_font_dir
 from .client import Snapshot, UniFiClient, UniFiError
 from .config import ConfigError, load_config
+from .fsio import atomic_write, mkdir_private
 from .layout import GraphvizError, GraphvizMissing, compute_layout, run_dot, stagger
-from .model import Kind, Topology, build_topology, client_networks, filter_by_network
+from .model import (
+    UNKNOWN_UPLINK_ID,
+    Kind,
+    Topology,
+    build_topology,
+    client_networks,
+    filter_by_network,
+)
 from .obfuscate import id_map, obfuscate
 from .overrides import OverrideError
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
-from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
+from .progress import SpinnerAwareHandler, spinner
+from .render_dot import DEPRECATED_LAYOUTS, ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
+from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
+from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
 from .support import MAX_MEMBER_BYTES as SUPPORT_MAX_MEMBER
 from .support import MAX_TOTAL_BYTES as SUPPORT_MAX_TOTAL
 from .support import SupportFileError, load_support_file
@@ -58,6 +68,53 @@ ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio")
 # Below this many clients a view is not wide enough to need staggering, and
 # unflatten instead chains sibling APs into a pointless diagonal cascade.
 STAGGER_MIN_CLIENTS = 15
+
+
+class _Parser(argparse.ArgumentParser):
+    """An ArgumentParser that fills in the shared options' defaults last.
+
+    They cannot be ordinary argparse defaults. The shared options are attached
+    to both this parser and every subparser via `parents=`, which shares the
+    same action objects rather than copying them, so whichever parser sees the
+    option last would write its default over a value supplied to the other.
+    `argparse.SUPPRESS` prevents that by leaving the attribute unset, and the
+    real value is applied here once parsing is finished.
+
+    `set_defaults()` is not the way to do it: it reassigns `action.default` for
+    every matching dest, and since the action objects are shared that puts the
+    defaults straight back onto the subparsers. That silently broke every
+    invocation that passed an option before the subcommand.
+    """
+
+    def parse_args(self, args=None, namespace=None):  # type: ignore[override]
+        parsed = super().parse_args(args, namespace)
+        for key, value in GLOBAL_DEFAULTS.items():
+            if not hasattr(parsed, key):
+                setattr(parsed, key, value)
+        return parsed
+
+
+# Defaults for the options shared between the top-level parser and every
+# subcommand. They live here rather than on the arguments because those must use
+# `argparse.SUPPRESS`; see `_Parser` above.
+GLOBAL_DEFAULTS = {
+    "env_file": None,
+    "cache_dir": DEFAULT_CACHE,
+    "asset_cache": DEFAULT_ASSET_CACHE,
+    "support_file": None,
+    "site": None,
+    "support_site": None,
+    "support_max_member": SUPPORT_MAX_MEMBER,
+    "support_max_total": SUPPORT_MAX_TOTAL,
+    "support_max_entries": SUPPORT_MAX_ENTRIES,
+    "support_max_archive": SUPPORT_MAX_ARCHIVE,
+    "fetch_fingerprints": False,
+    "fetch_icon_font": False,
+    "icon_font": None,
+    "out_dir": DEFAULT_OUT,
+    "verbose": False,
+    "progress": True,
+}
 
 
 def _bytes_arg(raw: str) -> int:
@@ -87,6 +144,59 @@ def _safe_name(text: str) -> str:
     return "".join(keep).strip("-").lower() or "network"
 
 
+def _unique_names(names: list[str]) -> dict[str, str]:
+    """Map each network name to a filename stem no other network shares.
+
+    `_safe_name` is not injective: "IoT A", "IoT-A" and "IoT/A" all become
+    "iot-a". Written straight out, the second network overwrote the first, and
+    silently, because the file it replaced carried this tool's own provenance
+    marker and so passed the overwrite guard.
+
+    Collisions get a short digest of the original name rather than a counter, so
+    a given network keeps its filename whatever order the networks arrive in.
+    """
+    slugs: dict[str, list[str]] = {}
+    for name in names:
+        slugs.setdefault(_safe_name(name), []).append(name)
+
+    resolved: dict[str, str] = {}
+    for slug, colliding in slugs.items():
+        if len(colliding) == 1:
+            resolved[colliding[0]] = slug
+            continue
+        for name in colliding:
+            digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:6]
+            resolved[name] = f"{slug}-{digest}"
+    return resolved
+
+
+def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
+    """Say that the placeholder node is fixable, at the moment it appears.
+
+    Somebody meeting "Uplink not reported by controller" on a map has no way to
+    know the tool is refusing to guess rather than failing, or that they can
+    place it themselves. Saying so in the README only helps whoever reads that
+    section; this reaches the person looking at the diagram.
+
+    The count is reported either way, because somebody who already wrote an
+    overrides file and still has stranded clients is exactly who benefits from
+    knowing how many are left. Only the pointer to the README is dropped once
+    they have plainly found it.
+    """
+    if UNKNOWN_UPLINK_ID not in topo.nodes:
+        return
+    stranded = sum(1 for edge in topo.edges if edge.dst == UNKNOWN_UPLINK_ID)
+    if overrides_path is not None:
+        log.info("%d client(s) still have no uplink the controller reports.", stranded)
+        return
+    log.info(
+        "%d client(s) have no uplink the controller reports, so they hang off a "
+        "placeholder rather than a guessed parent. An overrides file can place "
+        "them: see Manual overrides in the README.",
+        stranded,
+    )
+
+
 def _stagger_for(topo: Topology, requested: int, style: Style) -> int:
     if requested <= 0 or not style.staggers:
         return 0
@@ -96,14 +206,26 @@ def _stagger_for(topo: Topology, requested: int, style: Style) -> int:
     return requested if clients >= STAGGER_MIN_CLIENTS else 0
 
 
+def _requested_site(args: argparse.Namespace) -> str | None:
+    """The site asked for, from either flag.
+
+    `--support-site` predates `--site` and still works, because 0.3.0 shipped
+    it. `--site` wins if somebody passes both.
+    """
+    if args.support_site and not args.site:
+        log.warning("--support-site is deprecated; use --site, which works for both inputs.")
+    return args.site or args.support_site
+
+
 def cmd_fetch(args: argparse.Namespace) -> int:
     if args.support_file:
         return _fetch_from_support_file(args)
 
-    config = load_config(args.env_file)
+    config = load_config(args.env_file, site=_requested_site(args))
     client = UniFiClient(config)
     log.info("Reading %s (site %s)", config.host, config.site)
-    snapshot = client.snapshot()
+    with spinner(f"Querying {config.host}", args.progress):
+        snapshot = client.snapshot()
 
     store = AssetStore(cache_dir=args.asset_cache)
     # Kept beside the artwork rather than in the snapshot: it describes
@@ -162,32 +284,21 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
 
     _obtain_icon_font(args, store)
 
-    snapshot = load_support_file(
-        args.support_file,
-        args.support_site,
-        fingerprint_db,
-        max_member=args.support_max_member,
-        max_total=args.support_max_total,
-    )
+    with spinner(f"Reading {args.support_file.name}", args.progress):
+        snapshot = load_support_file(
+            args.support_file,
+            _requested_site(args),
+            fingerprint_db,
+            max_member=args.support_max_member,
+            max_total=args.support_max_total,
+            max_entries=args.support_max_entries,
+            max_archive=args.support_max_archive,
+        )
     snapshot.write(args.cache_dir)
     log.info("Wrote snapshot to %s/", args.cache_dir)
     for name, payload in sorted(snapshot.payloads.items()):
         log.info("  %-14s %s", name, _describe(payload))
     return 0
-
-
-def _restrict(directory: Path) -> None:
-    """Make a directory we created private, best effort.
-
-    Only applied to directories this tool creates. Somebody who deliberately
-    points `--out-dir` at a shared location has made a choice, and silently
-    tightening an existing directory would break it.
-    """
-    try:
-        directory.chmod(0o700)
-    except OSError:
-        # A mount without POSIX modes, or somebody else's directory. Not fatal.
-        log.debug("Could not restrict %s", directory, exc_info=True)
 
 
 class OutputExistsError(RuntimeError):
@@ -202,7 +313,9 @@ _PROVENANCE = ("unifi-map", "digraph unifi")
 
 def _is_ours(path: Path) -> bool:
     try:
-        head = path.read_bytes()[:4096].decode("utf-8", errors="replace")
+        # Read 4 KiB, rather than reading the file and slicing 4 KiB off it.
+        with path.open("rb") as handle:
+            head = handle.read(4096).decode("utf-8", errors="replace")
     except OSError:
         # Unreadable is not proof it is ours, so treat it as somebody else's.
         return False
@@ -242,23 +355,7 @@ def _write_output(path: Path, data: bytes | str, *, force: bool, guard: bool) ->
             "somewhere else."
         )
 
-    payload = data.encode("utf-8") if isinstance(data, str) else data
-    tmp = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
-        ) as handle:
-            tmp = Path(handle.name)
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        # Before the rename, so there is no window at a laxer mode.
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, path)
-        tmp = None
-    finally:
-        if tmp is not None and tmp.exists():
-            tmp.unlink(missing_ok=True)
+    atomic_write(path, data)
 
 
 def _obtain_icon_font(args: argparse.Namespace, store: AssetStore) -> None:
@@ -442,9 +539,9 @@ def _write_outputs(
     icons: dict[str, IconAsset],
     stagger_depth: int = 0,
     force: bool = False,
+    progress: bool = True,
 ) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    _restrict(out_dir)
+    mkdir_private(out_dir)
 
     # Every icon this render used, and nothing else, may be embedded.
     icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
@@ -461,7 +558,8 @@ def _write_outputs(
     for fmt in ("svg", "pdf", "png"):
         if fmt not in formats:
             continue
-        data = run_dot(dot_source, fmt)
+        with spinner(f"Rendering {fmt}", progress):
+            data = run_dot(dot_source, fmt)
         if fmt == "svg":
             # Graphviz references artwork by filesystem path; inline it so the
             # SVG is a single portable file.
@@ -485,6 +583,13 @@ def cmd_render(args: argparse.Namespace) -> int:
         include_clients=not args.no_clients,
         include_offline=args.show_offline == "yes",
     )
+
+    if args.layout in DEPRECATED_LAYOUTS:
+        log.warning(
+            "--layout %s is deprecated and will be removed in 0.6.0; use --layout %s.",
+            args.layout,
+            DEPRECATED_LAYOUTS[args.layout],
+        )
 
     try:
         style = Style(
@@ -526,10 +631,15 @@ def cmd_render(args: argparse.Namespace) -> int:
             hidden,
         )
 
+    # After overrides, not before: the whole point is to report what is *still*
+    # unplaced, and running first counts the clients an override just placed.
+    _hint_about_unplaced(topo, path)
+
     icons: dict[str, IconAsset] = {}
     store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)
     if style.icons == "unifi":
-        icons = _resolve_icons(topo, store, style.theme)
+        with spinner("Resolving artwork", args.progress):
+            icons = _resolve_icons(topo, store, style.theme)
 
     # Artwork the user supplied wins over anything looked up for them.
     icons.update(override_icons)
@@ -573,12 +683,16 @@ def cmd_render(args: argparse.Namespace) -> int:
         icons,
         _stagger_for(topo, args.stagger, style),
         force=args.force,
+        progress=args.progress,
     )
 
     if args.per_network:
         names = client_networks(topo)
         if not names:
             log.warning("No client networks found; skipping per-network views.")
+        # Resolved across the whole set, since a collision is a property of the
+        # set rather than of any one name.
+        stems = _unique_names(names)
         for name in names:
             view = filter_by_network(topo, name)
             log.info("Network view %r:", name)
@@ -586,12 +700,13 @@ def cmd_render(args: argparse.Namespace) -> int:
                 render_dot(view, f"{title}: {name}", style, icons, _subtitle(view.counts())),
                 view,
                 args.out_dir,
-                f"{stem}-{_safe_name(name)}",
+                f"{stem}-{stems[name]}",
                 formats,
                 style,
                 icons,
                 _stagger_for(view, args.stagger, style),
                 force=args.force,
+                progress=args.progress,
             )
 
     return 0
@@ -610,87 +725,156 @@ def cmd_all(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="unifi-map",
-        description="Export a UniFi network topology as zoomable vector diagrams "
-        "and editable draw.io files.",
-    )
-    parser.add_argument(
+    # Options accepted both before and after the subcommand.
+    #
+    # argparse attaches an option to exactly one parser, so with these on the
+    # top level only, `unifi-map all --support-file X` is an error. Every
+    # documented example reached for that form, because it is the convention
+    # every comparable tool follows, so both are accepted rather than teaching
+    # people the unusual one.
+    #
+    # `default=SUPPRESS` is what makes sharing them safe. A subparser defining
+    # the same option would otherwise write its own default over a value given
+    # before the subcommand, silently discarding it. With SUPPRESS the attribute
+    # is absent unless actually supplied, so whichever position it was given in
+    # wins and the real defaults come from `set_defaults()` below.
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument(
         "--env-file",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         help="Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi-map/env)",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--cache-dir",
         type=Path,
-        default=DEFAULT_CACHE,
+        default=argparse.SUPPRESS,
         help=f"Where controller snapshots are read/written (default: {DEFAULT_CACHE})",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--asset-cache",
         type=Path,
-        default=DEFAULT_ASSET_CACHE,
+        default=argparse.SUPPRESS,
         help=f"Where downloaded artwork is cached (default: {DEFAULT_ASSET_CACHE}). "
         "Kept separate from --cache-dir so a read-only snapshot directory stays clean.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--support-file",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         metavar="PATH",
         help="Read the topology from a UniFi support file (.tgz) instead of a "
-        "controller. Needs no credentials and no network access.",
+        "controller. Needs no credentials and never contacts a controller. "
+        "Rendering may still fetch artwork; add --offline to stop that too.",
     )
-    parser.add_argument(
-        "--support-site",
-        default=None,
+    shared.add_argument(
+        "--site",
+        default=argparse.SUPPRESS,
         metavar="NAME",
-        help="Which site to map from a multi-site support file "
-        "(default: the one with the most devices)",
+        help="Which site to read. Overrides UNIFI_SITE for a live fetch, and "
+        "picks the site from a multi-site support file. Without it, a live "
+        "fetch uses UNIFI_SITE or `default`; a support file holding more than "
+        "one site is refused rather than chosen between.",
     )
-    parser.add_argument(
+    shared.add_argument(
+        "--support-site",
+        default=argparse.SUPPRESS,
+        metavar="NAME",
+        # Kept working because 0.3.0 shipped it. --site does both inputs, which
+        # is what somebody scripting across sites actually wants.
+        help=argparse.SUPPRESS,
+    )
+    shared.add_argument(
         "--support-max-member",
         type=_bytes_arg,
-        default=SUPPORT_MAX_MEMBER,
+        default=argparse.SUPPRESS,
         metavar="SIZE",
         help=f"Largest single file to decode from a support archive (default "
         f"{SUPPORT_MAX_MEMBER // (1024 * 1024)}M). Accepts a plain number or a "
         "K/M/G suffix. Raise it if a large site is refused.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--support-max-total",
         type=_bytes_arg,
-        default=SUPPORT_MAX_TOTAL,
+        default=argparse.SUPPRESS,
         metavar="SIZE",
         help=f"Total to decode from a support archive across all files (default "
         f"{SUPPORT_MAX_TOTAL // (1024 * 1024)}M).",
     )
-    parser.add_argument(
+    shared.add_argument(
+        "--support-max-entries",
+        type=int,
+        default=argparse.SUPPRESS,
+        metavar="N",
+        help=f"How many archive entries to walk before giving up (default "
+        f"{SUPPORT_MAX_ENTRIES}). Separate from the size caps because entry "
+        "count does not follow the bytes decoded.",
+    )
+    shared.add_argument(
         "--fetch-fingerprints",
         action="store_true",
+        default=argparse.SUPPRESS,
         help="Allow downloading Ubiquiti's client fingerprint database, which is "
         "what gives clients real product artwork when reading a support file. "
         "Off by default: reading a support file otherwise contacts nothing.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--fetch-icon-font",
         action="store_true",
+        default=argparse.SUPPRESS,
         help="With --support-file, also fetch the generic client glyph font from "
         "a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because "
         "Ubiquiti publish no copy of that font. Off by default.",
     )
-    parser.add_argument(
+    shared.add_argument(
         "--icon-font",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         metavar="DIR",
         help="Load the client glyph font from a directory you copied off a "
         "controller yourself (needs its style.css and .ttf). Needs no "
         "credentials and no network. See the README.",
     )
-    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
-    parser.add_argument("-v", "--verbose", action="store_true")
+    shared.add_argument(
+        "--support-max-archive",
+        type=_bytes_arg,
+        default=argparse.SUPPRESS,
+        metavar="SIZE",
+        help=f"Total uncompressed bytes to walk in a support archive, counting "
+        f"files that are skipped (default {SUPPORT_MAX_ARCHIVE // 1024**3}G). This "
+        "is what stops a small archive that expands enormously; the other caps "
+        "only measure what is decoded.",
+    )
+    shared.add_argument(
+        "--no-progress",
+        dest="progress",
+        action="store_false",
+        default=argparse.SUPPRESS,
+        help="Never show the progress spinner. It already turns itself off when "
+        "output is not a terminal, so this is only needed for an interactive "
+        "run whose output something else is reading.",
+    )
+    shared.add_argument(
+        "--out-dir",
+        type=Path,
+        default=argparse.SUPPRESS,
+        help=f"Where diagrams are written (default: {DEFAULT_OUT})",
+    )
+    shared.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Log every artwork lookup, including the ones that found nothing, "
+        "and name nodes that --obfuscate would otherwise hide.",
+    )
+
+    parser = _Parser(
+        prog="unifi-map",
+        description="Export a UniFi network topology as zoomable vector diagrams "
+        "and editable draw.io files.",
+        parents=[shared],
+    )
     parser.add_argument("--version", action="version", version=f"unifi-map {__version__}")
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -713,10 +897,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render_flags.add_argument(
         "--layout",
-        choices=LAYOUTS,
+        # `sane` is accepted but not advertised: metavar controls what usage
+        # prints, while choices still lets the old value through until 0.6.0.
+        choices=(*LAYOUTS, *DEPRECATED_LAYOUTS),
+        metavar="{" + ",".join(LAYOUTS) + "}",
         default="unifi",
-        help="unifi: left-to-right tree like the UniFi UI, no port labels. "
-        "sane: top-down and leaf-staggered, with port labels, built to be "
+        help="unifi: left-to-right like the UniFi UI, no port labels. "
+        "tree: top-down and leaf-staggered, with port labels, built to be "
         "readable on a busy network (default: unifi)",
     )
     render_flags.add_argument(
@@ -778,7 +965,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="legend",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Show the legend (default: on for --layout sane, off for --layout unifi)",
+        help="Show the legend (default: on for --layout tree, off for --layout unifi)",
     )
     render_flags.add_argument(
         "--title-block",
@@ -787,24 +974,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Show the title and subtitle above the map. A title sets a minimum "
         "canvas width, so turning it off crops dead space on a narrow map "
-        "(default: on for --layout sane, off for --layout unifi)",
+        "(default: on for --layout tree, off for --layout unifi)",
     )
     render_flags.add_argument(
         "--stagger",
         type=int,
         default=12,
         metavar="N",
-        help="With --layout sane, stagger leaf nodes into rows of ~N to control "
+        help="With --layout tree, stagger leaf nodes into rows of ~N to control "
         "aspect ratio (0 disables; higher is taller and narrower; default 12)",
     )
 
     sub.add_parser(
-        "fetch", help="Cache controller data (or read --support-file instead)"
+        "fetch", parents=[shared], help="Cache controller data (or read --support-file instead)"
     ).set_defaults(func=cmd_fetch)
     sub.add_parser(
-        "render", parents=[render_flags], help="Render diagrams from cache"
+        "render", parents=[shared, render_flags], help="Render diagrams from cache"
     ).set_defaults(func=cmd_render)
-    sub.add_parser("all", parents=[render_flags], help="Fetch then render").set_defaults(
+    sub.add_parser("all", parents=[shared, render_flags], help="Fetch then render").set_defaults(
         func=cmd_all
     )
 
@@ -816,7 +1003,8 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(message)s",
-        stream=sys.stderr,
+        # Erases the spinner before each record, so the two never share a line.
+        handlers=[SpinnerAwareHandler(sys.stderr)],
     )
     try:
         return int(args.func(args))

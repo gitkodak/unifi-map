@@ -606,6 +606,36 @@ class TestRefusals:
         snapshot = load_support_file(support_archive, max_member=10_000, max_total=100_000)
         assert snapshot.get("device")
 
+    def test_an_archive_with_absurdly_many_entries_stops_being_walked(self, tmp_path):
+        # The third cap. An archive can be cheap to decompress and still cost
+        # real time to walk, since entry count is unrelated to the bytes
+        # decoded: nothing here is read into memory, so neither size cap fires
+        # and this is the only thing that stops it.
+        path = tmp_path / "many.tgz"
+        _write_archive(path, {f"{ROOT}/unifi/junk-{i}.txt": b"x" for i in range(25)})
+        with pytest.raises(SupportFileError, match="--support-max-entries"):
+            load_support_file(path, max_entries=10)
+
+    def test_raising_the_entry_cap_warns_that_it_may_be_slow(self, support_archive, caplog):
+        # Raising it is deliberate, but the consequence is not obvious: the
+        # archive is walked entry by entry with nothing printed, so a run that
+        # now takes minutes is indistinguishable from one that has hung.
+        with caplog.at_level("WARNING"):
+            load_support_file(support_archive, max_entries=5_000_000)
+        assert any("5,000,000" in r.getMessage() for r in caplog.records)
+
+    def test_the_default_entry_cap_does_not_warn(self, support_archive, caplog):
+        with caplog.at_level("WARNING"):
+            load_support_file(support_archive)
+        assert not any("archive entries" in r.getMessage() for r in caplog.records)
+
+    def test_the_entry_cap_is_raisable_like_the_size_caps(self, support_archive):
+        # Tunable for the same reason they are. One measurement of one small
+        # site is not evidence that entry count stays small on a large one, so
+        # a legitimately bigger archive must have a way through rather than a
+        # recompile.
+        assert load_support_file(support_archive, max_entries=1_000_000).get("device")
+
     def test_a_symlink_member_is_skipped(self, tmp_path):
         path = tmp_path / "linked.tgz"
         with tarfile.open(path, "w:gz") as archive:
@@ -631,13 +661,27 @@ class TestMultipleSites:
         _write_archive(path, members)
         return path
 
-    def test_the_largest_site_wins_by_default(self, tmp_path, caplog):
+    def test_several_sites_and_no_choice_is_refused(self, tmp_path):
+        # This used to map whichever site had the most devices, on a warning.
+        # Nothing else in this tool guesses: an ambiguous override selector is
+        # an error, an ambiguous product name resolves to nothing, and an
+        # unreported uplink gets a placeholder rather than a plausible parent.
+        # The failure mode here is the worst of the three, because the result
+        # is a complete and ordinary looking map of somebody else's network.
         path = self._two_site_archive(tmp_path)
-        with caplog.at_level("WARNING"):
-            snapshot = load_support_file(path)
-        assert len(snapshot.get("device")) == 3
-        # Choosing silently would quietly map the wrong network.
-        assert "2 sites" in caplog.text
+        with pytest.raises(SupportFileError, match="Pass --site"):
+            load_support_file(path)
+
+    def test_the_refusal_lists_what_is_available(self, tmp_path):
+        path = self._two_site_archive(tmp_path)
+        with pytest.raises(SupportFileError, match="branch, default"):
+            load_support_file(path)
+
+    def test_one_site_still_needs_no_flag(self, tmp_path):
+        # Refusing here would be ceremony: there is nothing to choose between.
+        path = tmp_path / "single.tgz"
+        _write_archive(path, _default_members())
+        assert load_support_file(path).get("device")
 
     def test_a_named_site_is_honoured(self, tmp_path):
         path = self._two_site_archive(tmp_path)
@@ -688,3 +732,64 @@ class TestArchiveMemberMatching:
                 archive.addfile(info, io.BytesIO(body))
         with pytest.raises(SupportFileError, match=r"devices\.json"):
             load_support_file(path)
+
+
+class TestArchiveWorkIsCapped:
+    """A skipped member still costs its decompressed size to walk past.
+
+    The three older caps all miss this: the size caps measure only members that
+    are decoded, and the entry cap counts headers. A 2 MiB archive holding one
+    2 GiB run of zeros passed all of them and cost 21 seconds of CPU, measured
+    before the fix. Support files are attacker-supplied, so that is a denial of
+    service with a 1000:1 amplification.
+    """
+
+    def _bomb(self, tmp_path, filler: int):
+        path = tmp_path / "bomb.tgz"
+        with tarfile.open(path, "w:gz") as archive:
+            info = tarfile.TarInfo(f"{ROOT}/logs/huge.log")
+            info.size = filler
+            archive.addfile(info, io.BytesIO(b"\0" * filler))
+            for name, payload in _default_members().items():
+                member = tarfile.TarInfo(f"{ROOT}/{name}")
+                member.size = len(payload)
+                archive.addfile(member, io.BytesIO(payload))
+        return path
+
+    def test_an_irrelevant_member_counts_towards_the_walk(self, tmp_path):
+        path = self._bomb(tmp_path, 200_000)
+        with pytest.raises(SupportFileError, match="expands to more than"):
+            load_support_file(path, max_archive=50_000)
+
+    def test_the_error_names_a_size_a_human_can_read(self, tmp_path):
+        # Reported as bytes it said "more than 0 GiB" for any sub-gigabyte cap.
+        path = self._bomb(tmp_path, 200_000)
+        with pytest.raises(SupportFileError, match=r"KiB|MiB|GiB"):
+            load_support_file(path, max_archive=50_000)
+
+    def test_a_normal_archive_is_unaffected(self, tmp_path):
+        path = self._bomb(tmp_path, 1_000)
+        assert load_support_file(path, max_archive=10 * 1024 * 1024).get("device")
+
+
+class TestMalformedLinesDoNotCrash:
+    def test_a_neighbour_line_ending_in_lladdr_is_skipped(self):
+        # Truncated log lines are ordinary, and this file comes out of an
+        # archive a stranger sent you. Indexing past the end raised IndexError.
+        from unifi_map.support import _parse_neighbours
+
+        assert _parse_neighbours(b"10.0.0.5 dev br0 lladdr\n") == {}
+
+    def test_a_well_formed_line_still_parses(self):
+        from unifi_map.support import _parse_neighbours
+
+        raw = b"10.0.0.5 dev br0 lladdr aa:bb:cc:dd:ee:ff REACHABLE\n"
+        assert _parse_neighbours(raw) == {"aa:bb:cc:dd:ee:ff": "10.0.0.5"}
+
+
+def test_the_archive_cap_is_raisable_like_the_others(tmp_path):
+    # Consistent with the other three: the defaults are a guess, so a site that
+    # legitimately exceeds one must have a way through rather than a recompile.
+    path = tmp_path / "ok.tgz"
+    _write_archive(path, _default_members())
+    assert load_support_file(path, max_archive=64 * 1024 * 1024).get("device")

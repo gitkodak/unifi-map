@@ -6,6 +6,28 @@
 # Selectors (`from`, `to`, `guest`, `host`) accept a MAC, an IP, or a
 # hostname/device name as shown on the map.
 
+# --- Devices the controller cannot see ---------------------------------------
+# A controller only reports what it manages, so anything it does not adopt is
+# invisible to it however capable that device is: an unmanaged switch with no
+# management plane at all, a fully managed third-party switch, or UniFi gear
+# that was powered off when you ran the fetch. Declaring it is the only way it
+# reaches the map.
+#
+# Declared devices are drawn with a dotted outline, and are added before every
+# other override, so the blocks below can reference this one by name.
+
+[[device]]
+name = "Basement switch"
+kind = "switch"              # gateway, switch, ap, bridge, wired_client,
+                             # wireless_client or unknown
+ip = "10.0.0.9"              # optional
+model = "NETGEAR GS308"      # optional, shown under the name
+parent = "Core Switch"       # optional; without it the device floats
+port = 24                    # optional, needs a parent
+note = "No management at all, bought years ago."
+# icon = "artwork/gs308.png" # optional, your own artwork
+
+
 # --- Links the controller cannot see -----------------------------------------
 # A direct connection the controller does not participate in. Without this the
 # NAS can only be anchored to "uplink not reported by controller".
@@ -50,8 +72,8 @@ name = "Garage freezer"
 # --- Hiding things ------------------------------------------------------------
 # Two reasons to hide something. Either it is noise (an access point whose radios
 # you disabled on purpose is still "online" to the controller, so
-# --show-offline no will not remove it), or you simply do not want it on a map you
-# are about to hand to somebody else, such as your super-secret naughty server.
+# --show-offline no will not remove it), or it is something you would rather not
+# put on a map you are about to hand to somebody else.
 #
 # Only leaf nodes can be hidden. Hiding a switch or an access point would orphan
 # everything behind it, so that is refused rather than guessed at.
@@ -59,7 +81,7 @@ name = "Garage freezer"
 [[node]]
 match = "10.0.20.99"
 hide = true
-note = "super-secret naughty server, not for the group chat"
+note = "internal service, not for a diagram I am sharing"
 
 [[node]]
 match = "Garage"

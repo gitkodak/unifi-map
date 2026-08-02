@@ -9,11 +9,13 @@
 # guess any of it, which is exactly why the file exists.
 
 
-# 1. A device nothing reports.
+# 1. A device the controller cannot see.
 #
-# An unmanaged switch has no management plane, so no controller can know it is
-# there. Declared devices are drawn with a dotted outline, because a diagram
-# should never present something you typed in as though it had been observed.
+# A controller only reports what it manages, so anything it has not adopted is
+# invisible to it. This one happens to be unmanaged, but a fully managed
+# third-party switch is equally invisible for the same reason. Declared devices
+# are drawn with a dotted outline, because a diagram should never present
+# something you typed in as though it had been observed.
 [[device]]
 name = "Bench switch"
 kind = "switch"

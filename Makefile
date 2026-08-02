@@ -1,4 +1,5 @@
-.PHONY: help check format lint test map fetch render sane offline dark demo demo-snapshot clean
+.PHONY: help check format lint test map fetch render tree sane offline dark demo \
+        demo-overrides demo-images demo-snapshot docs clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -11,10 +12,12 @@ help:
 	@echo "make fetch    pull a fresh snapshot from the UDM into cache/"
 	@echo "make render   render diagrams from cache/ into out/"
 	@echo "make map      fetch + render everything (svg, pdf, drawio)"
-	@echo "make sane     render in the readable (non-UniFi) layout"
+	@echo "make tree     render in the readable (non-UniFi) layout"
 	@echo "make offline  render with builtin icons, no network access"
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
+	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
+	@echo "make docs           regenerate the flag reference and man page from the parser"
 	@echo "make dark     render from cache in the dark theme"
 	@echo "make clean    remove out/ and caches"
 
@@ -27,6 +30,10 @@ check: $(VENV)
 	$(PY) -m ruff format --check .
 	$(PY) -m ruff check .
 	$(PY) -m pytest -q
+
+docs: $(VENV)
+	$(PY) scripts/generate_cli_docs.py
+	$(PY) scripts/generate_manpage.py
 
 format: $(VENV)
 	$(PY) -m ruff format .
@@ -46,8 +53,11 @@ render: $(VENV)
 map: $(VENV)
 	$(VENV)/bin/unifi-map all --per-network -f svg pdf drawio
 
-sane: $(VENV)
-	$(VENV)/bin/unifi-map render --layout sane -f svg pdf drawio
+tree: $(VENV)
+	$(VENV)/bin/unifi-map render --layout tree -f svg pdf drawio
+
+sane: tree
+	@echo "make sane is deprecated and goes away in 0.5.0; use make tree."
 
 offline: $(VENV)
 	$(VENV)/bin/unifi-map render --icons builtin --offline -f svg pdf drawio
@@ -63,6 +73,13 @@ demo-overrides: $(VENV)
 	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
+
+# The demo images committed under docs/images/. Not run by `make check`: they
+# are large binaries, and a rendering change should update them deliberately
+# rather than dirty the tree on every build. See the script for what is
+# generated and why the crop is computed rather than hard-coded.
+demo-images: $(VENV)
+	$(VENV)/bin/python scripts/make_demo_images.py
 
 demo-snapshot:
 	python3 scripts/make_demo_snapshot.py

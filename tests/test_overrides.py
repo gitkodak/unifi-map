@@ -364,18 +364,22 @@ class TestHideOverride:
 
     def test_the_shipped_example_documents_hiding(self):
         hidden = [n for n in load(EXAMPLE).nodes if n.hide]
-        # Both reasons to hide are worth showing: discretion and noise.
+        # Both reasons to hide are worth showing: discretion and noise. Asserted
+        # on the note existing rather than on its wording, which was previously
+        # pinned to one specific phrase and broke when the example was reworded.
         assert len(hidden) >= 2, "examples/overrides.toml should show hide entries"
-        assert any("naughty" in (n.note or "") for n in hidden)
+        assert all(n.note for n in hidden), "each hide example should say why"
         assert any(n.match == "Garage" for n in hidden)
 
 
 class TestDeclaredDevices:
     """`[[device]]` states something no source reports.
 
-    An unmanaged switch, a non-UniFi access point, gear that was powered off
-    during the fetch. The controller cannot know these exist and this tool will
-    not guess, so the user says so.
+    A controller only reports what it manages, so the category is defined by a
+    relationship rather than by any property of the device: an unmanaged switch,
+    a fully managed third-party one, and UniFi gear that was powered off during
+    the fetch are all invisible for the same reason. This tool will not guess,
+    so the user says so.
     """
 
     def _apply(self, topo, table):
@@ -384,19 +388,21 @@ class TestDeclaredDevices:
         return apply(topo, parse(table))
 
     def test_a_declared_device_becomes_a_node(self, topo):
-        result = self._apply(topo, {"device": [{"name": "Dumb switch", "kind": "switch"}]})
-        node = result.topology.nodes["asserted-dumb-switch"]
-        assert node.label == "Dumb switch"
+        result = self._apply(topo, {"device": [{"name": "Basement switch", "kind": "switch"}]})
+        node = result.topology.nodes["asserted-basement-switch"]
+        assert node.label == "Basement switch"
         assert node.kind is Kind.SWITCH
         assert result.devices_added == 1
 
     def test_it_is_marked_asserted_so_it_cannot_pass_for_observed(self, topo):
         # The whole point. A map that drew a typed-in device identically to a
         # reported one would misrepresent where its information came from.
-        result = self._apply(topo, {"device": [{"name": "Dumb switch"}]})
-        assert result.topology.nodes["asserted-dumb-switch"].asserted is True
+        result = self._apply(topo, {"device": [{"name": "Basement switch"}]})
+        assert result.topology.nodes["asserted-basement-switch"].asserted is True
         assert all(
-            not n.asserted for n in result.topology.nodes.values() if n.id != "asserted-dumb-switch"
+            not n.asserted
+            for n in result.topology.nodes.values()
+            if n.id != "asserted-basement-switch"
         )
 
     def test_a_parent_produces_an_asserted_edge(self, topo):
@@ -404,11 +410,11 @@ class TestDeclaredDevices:
             topo,
             {
                 "device": [
-                    {"name": "Dumb switch", "kind": "switch", "parent": SWITCH_MAC, "port": 7}
+                    {"name": "Basement switch", "kind": "switch", "parent": SWITCH_MAC, "port": 7}
                 ]
             },
         )
-        edge = next(e for e in result.topology.edges if e.src == "asserted-dumb-switch")
+        edge = next(e for e in result.topology.edges if e.src == "asserted-basement-switch")
         assert edge.dst == SWITCH_MAC
         assert edge.label == "port 7"
         assert edge.asserted is True
@@ -420,24 +426,24 @@ class TestDeclaredDevices:
             topo,
             {
                 "device": [
-                    {"name": "Dumb switch", "kind": "switch", "parent": SWITCH_MAC},
-                    {"name": "Old laptop", "kind": "wired_client", "parent": "Dumb switch"},
+                    {"name": "Basement switch", "kind": "switch", "parent": SWITCH_MAC},
+                    {"name": "Old laptop", "kind": "wired_client", "parent": "Basement switch"},
                 ]
             },
         )
         parents = {e.src: e.dst for e in result.topology.edges}
-        assert parents["asserted-old-laptop"] == "asserted-dumb-switch"
+        assert parents["asserted-old-laptop"] == "asserted-basement-switch"
 
     def test_a_declared_device_can_be_referenced_by_other_overrides(self, topo):
         result = self._apply(
             topo,
             {
-                "device": [{"name": "Dumb switch", "kind": "switch"}],
-                "link": [{"from": AP_MAC, "to": "Dumb switch"}],
+                "device": [{"name": "Basement switch", "kind": "switch"}],
+                "link": [{"from": AP_MAC, "to": "Basement switch"}],
             },
         )
         assert any(
-            e.src == AP_MAC and e.dst == "asserted-dumb-switch" for e in result.topology.edges
+            e.src == AP_MAC and e.dst == "asserted-basement-switch" for e in result.topology.edges
         )
 
     def test_an_id_cannot_collide_with_a_mac(self, topo):
@@ -465,3 +471,156 @@ class TestDeclaredDevices:
     def test_an_unresolvable_parent_is_a_loud_error(self, topo):
         with pytest.raises(OverrideError):
             self._apply(topo, {"device": [{"name": "Thing", "parent": "no-such-device"}]})
+
+
+class TestDeclaredDevicesAreOrderIndependent:
+    """A declared device may name a parent declared later in the file.
+
+    The comment claimed parents were resolved "after every declared device
+    exists" while resolving them inside the creation loop, so this worked in one
+    order only. The failure reads as a typo, naming a parent that "matches
+    nothing on the map", rather than as ordering.
+    """
+
+    def _apply(self, text: str, tmp_path):
+        from unifi_map.model import Topology
+
+        path = tmp_path / "o.toml"
+        path.write_text(text)
+        return apply(Topology(), load(path))
+
+    CHILD_FIRST = """
+[[device]]
+name = "Child"
+kind = "switch"
+parent = "Parent"
+
+[[device]]
+name = "Parent"
+kind = "switch"
+"""
+
+    PARENT_FIRST = """
+[[device]]
+name = "Parent"
+kind = "switch"
+
+[[device]]
+name = "Child"
+kind = "switch"
+parent = "Parent"
+"""
+
+    def test_a_parent_declared_later_still_resolves(self, tmp_path):
+        result = self._apply(self.CHILD_FIRST, tmp_path)
+        assert result.devices_added == 2
+        assert len(result.topology.edges) == 1
+
+    def test_both_orders_produce_the_same_graph(self, tmp_path):
+        first = self._apply(self.CHILD_FIRST, tmp_path)
+        second = self._apply(self.PARENT_FIRST, tmp_path)
+        assert sorted(first.topology.nodes) == sorted(second.topology.nodes)
+        assert [(e.src, e.dst) for e in first.topology.edges] == [
+            (e.src, e.dst) for e in second.topology.edges
+        ]
+
+    def test_a_genuinely_missing_parent_is_still_an_error(self, tmp_path):
+        # The fix must not turn a real typo into a silent no-op.
+        with pytest.raises(OverrideError, match="matches nothing"):
+            self._apply(
+                '[[device]]\nname = "Child"\nkind = "switch"\nparent = "Nowhere"\n', tmp_path
+            )
+
+
+class TestCyclesAreRefused:
+    """Something cannot be its own uplink.
+
+    Not a rendering problem: DOT is a digraph, cycles are legal, and Graphviz
+    draws one without complaining. Verified before adding this. Refused because
+    it is not a network a cable can make, and drawing it silently produces a map
+    that looks authoritative and is wrong.
+    """
+
+    def _apply(self, text, tmp_path):
+        from unifi_map.model import Topology
+
+        path = tmp_path / "o.toml"
+        path.write_text(text)
+        return apply(Topology(), load(path))
+
+    def test_two_devices_parenting_each_other_are_refused(self, tmp_path):
+        text = """
+[[device]]
+name = "A"
+kind = "switch"
+parent = "B"
+
+[[device]]
+name = "B"
+kind = "switch"
+parent = "A"
+"""
+        with pytest.raises(OverrideError, match="loop"):
+            self._apply(text, tmp_path)
+
+    def test_the_error_names_the_loop(self, tmp_path):
+        text = """
+[[device]]
+name = "A"
+kind = "switch"
+parent = "B"
+
+[[device]]
+name = "B"
+kind = "switch"
+parent = "A"
+"""
+        with pytest.raises(OverrideError, match=r"A -> B -> A|B -> A -> B"):
+            self._apply(text, tmp_path)
+
+    def test_a_longer_loop_is_caught_too(self):
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.overrides import _refuse_cycles
+
+        topo = Topology()
+        for name in "abc":
+            topo.add(Node(id=name, label=name.upper(), kind=Kind.SWITCH))
+        topo.edges += [Edge(src="a", dst="b"), Edge(src="b", dst="c"), Edge(src="c", dst="a")]
+        with pytest.raises(OverrideError, match="loop"):
+            _refuse_cycles(topo)
+
+    def test_a_node_parented_to_itself_is_caught(self):
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.overrides import _refuse_cycles
+
+        topo = Topology()
+        topo.add(Node(id="x", label="X", kind=Kind.SWITCH))
+        topo.edges.append(Edge(src="x", dst="x"))
+        with pytest.raises(OverrideError, match="loop"):
+            _refuse_cycles(topo)
+
+    def test_an_ordinary_tree_is_not_a_cycle(self):
+        # Two children of one parent share a destination, which is not a loop.
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.overrides import _refuse_cycles
+
+        topo = Topology()
+        for name in "abc":
+            topo.add(Node(id=name, label=name.upper(), kind=Kind.SWITCH))
+        topo.edges += [Edge(src="a", dst="b"), Edge(src="c", dst="b")]
+        _refuse_cycles(topo)
+
+    def test_the_demo_overrides_are_still_acyclic(self):
+        # Applied to the demo topology, not an empty one: the shipped examples
+        # reference real devices, so an empty graph fails at selector
+        # resolution long before anything looks for a cycle.
+        import json
+        from pathlib import Path
+
+        from unifi_map.client import Snapshot
+        from unifi_map.model import build_topology
+
+        demo = Path(__file__).resolve().parents[1] / "examples" / "demo"
+        payloads = {p.stem: json.loads(p.read_text()) for p in demo.glob("*.json")}
+        topo = build_topology(Snapshot(payloads=payloads), include_offline=False)
+        apply(topo, load(demo / "overrides.toml"))
