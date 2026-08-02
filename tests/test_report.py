@@ -181,3 +181,62 @@ class TestConsent:
         args = build_parser().parse_args(["--cache-dir", "examples/demo", "report", "--yes"])
         assert cmd_report(args) == 0
         assert "SCALE" in capsys.readouterr().out
+
+
+class TestSupportFileStats:
+    """The archive numbers are the ones nobody here can guess.
+
+    All four support-file limits were set from a single 154 MiB archive, and
+    multi-site handling has never seen a second site. These lines exist so that
+    somebody else's archive can answer both without sending it.
+    """
+
+    def _archive(self, tmp_path, sites: int = 1):
+        import json
+
+        from .test_support import _default_members, _devices, _write_archive
+
+        members = _default_members()
+        devices = _devices()
+        for n in range(1, sites):
+            devices.append(
+                {f"site-{n}": [dict(devices[0]["default"][0], mac=f"aa:bb:cc:00:00:{n:02d}")]}
+            )
+        members["unifi/devices.json"] = json.dumps(devices).encode()
+        path = tmp_path / "s.tgz"
+        _write_archive(path, members)
+        return path
+
+    def test_the_stats_are_collected(self, tmp_path):
+        from unifi_map.support import load_support_file
+
+        stats: dict[str, int] = {}
+        load_support_file(self._archive(tmp_path), stats=stats)
+        assert stats["archive_entries"] > 0
+        assert stats["archive_bytes"] > 0
+        assert stats["members_found"] >= 2
+        assert stats["sites_seen"] == 1
+
+    def test_sites_are_counted_not_named(self, tmp_path):
+        """The count is the whole point, and the names are the whole danger."""
+        from unifi_map.support import load_support_file
+
+        stats: dict[str, int] = {}
+        load_support_file(self._archive(tmp_path, sites=3), site="default", stats=stats)
+        assert stats["sites_seen"] == 3
+        assert all(isinstance(v, int) for v in stats.values()), "a name reached the stats"
+
+    def test_the_report_shows_them(self, snapshot):
+        from unifi_map.model import build_topology
+
+        extras = Extras(
+            source="support file",
+            sites_seen=3,
+            archive_bytes=1234,
+            archive_entries=99,
+            members_found=7,
+        )
+        report = build_report(build_topology(snapshot), snapshot.payloads, extras)
+        assert "sites in source     3" in report
+        assert "1,234 bytes" in report
+        assert "members read        7 of 7" in report

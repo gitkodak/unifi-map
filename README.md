@@ -507,8 +507,9 @@ None of that is fixable by thinking harder, and the one thing you should never
 be asked for is your data. So:
 
 ```bash
-unifi-map report          # prints what it collects, then asks
-unifi-map report --yes    # skip the prompt, once you have read it
+unifi-map report                              # from a cached snapshot
+unifi-map report --support-file support.tgz    # or straight from an archive
+unifi-map report --yes                         # skip the prompt, once read
 ```
 
 It prints a short plain-text description of the *shape* of your network: counts,
@@ -521,6 +522,10 @@ No addresses, MACs, hostnames, SSIDs, site names or network names appear in it,
 and no value from any field, only whether that field exists. It is short enough
 to read in full before you send it, and nothing is transmitted by the tool: the
 report goes to your terminal and what happens next is your decision.
+
+Pointed at an archive it also reports how much there is to walk and how many
+sites it contains, counted and never named. Those are the numbers behind the
+support-file limits and the untested multi-site handling.
 
 The most useful part is the schema section, which says which fields your
 controller returns and which it does not. That is the question we cannot answer

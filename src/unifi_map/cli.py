@@ -754,11 +754,34 @@ def cmd_report(args: argparse.Namespace) -> int:
             log.info("Nothing produced.")
             return 2
 
-    snapshot = Snapshot.read(args.cache_dir)
+    # Reading the archive directly rather than the cache, when one is given:
+    # its size, entry count and site count are the answers most worth having and
+    # none of them survive into a snapshot.
+    stats: dict[str, int] = {}
+    if args.support_file:
+        snapshot = load_support_file(
+            args.support_file,
+            _requested_site(args),
+            None,
+            max_member=args.support_max_member,
+            max_total=args.support_max_total,
+            max_entries=args.support_max_entries,
+            max_archive=args.support_max_archive,
+            stats=stats,
+        )
+        source = "support file"
+    else:
+        snapshot = Snapshot.read(args.cache_dir)
+        source = "cached snapshot"
+
     topo = build_topology(snapshot, include_offline=True)
     extras = Extras(
-        source="support file" if args.support_file else "cached snapshot",
+        source=source,
         controller_version=_controller_version(snapshot),
+        sites_seen=stats.get("sites_seen"),
+        archive_bytes=stats.get("archive_bytes"),
+        archive_entries=stats.get("archive_entries"),
+        members_found=stats.get("members_found"),
     )
     print(build_report(topo, snapshot.payloads, extras))
     return 0

@@ -161,6 +161,7 @@ def _read_members(
     max_total: int = MAX_TOTAL_BYTES,
     max_entries: int = MAX_ARCHIVE_ENTRIES,
     max_archive: int = MAX_ARCHIVE_BYTES,
+    stats: dict[str, int] | None = None,
 ) -> dict[str, bytes]:
     """Pull the wanted members out of the archive in a single streaming pass.
 
@@ -189,6 +190,8 @@ def _read_members(
     total = 0
     entries = 0
     walked = 0
+    if stats is not None:
+        stats.update(archive_bytes=0, archive_entries=0, members_found=0)
     try:
         with tarfile.open(path, "r|gz") as archive:
             for member in archive:
@@ -253,6 +256,8 @@ def _read_members(
         raise SupportFileError(f"{path} is not a readable gzipped tar archive: {exc}") from exc
     except OSError as exc:
         raise SupportFileError(f"Could not read {path}: {exc}") from exc
+    if stats is not None:
+        stats.update(archive_bytes=walked, archive_entries=entries, members_found=len(found))
     return found
 
 
@@ -637,6 +642,7 @@ def load_support_file(
     max_total: int = MAX_TOTAL_BYTES,
     max_entries: int = MAX_ARCHIVE_ENTRIES,
     max_archive: int = MAX_ARCHIVE_BYTES,
+    stats: dict[str, int] | None = None,
 ) -> Snapshot:
     """Read *path* and return a Snapshot equivalent to a live fetch.
 
@@ -653,7 +659,7 @@ def load_support_file(
     Raises `SupportFileError` if the archive is unreadable or does not carry
     the device and topology data a map needs.
     """
-    members = _read_members(path, max_member, max_total, max_entries, max_archive)
+    members = _read_members(path, max_member, max_total, max_entries, max_archive, stats)
     missing = [MEMBERS[name] for name in ("devices", "topology") if name not in members]
     if missing:
         raise SupportFileError(
@@ -661,7 +667,17 @@ def load_support_file(
             "support file, or may be from a console without the Network application."
         )
 
-    site_name, devices = _pick_site(_load_json(members, "devices"), site)
+    all_devices = _load_json(members, "devices")
+    if stats is not None:
+        # Counted, never named: these keys are user-chosen site names.
+        stats["sites_seen"] = sum(
+            1
+            for block in (all_devices if isinstance(all_devices, list) else [])
+            if isinstance(block, dict)
+            for name in block
+            if name != "super"
+        )
+    site_name, devices = _pick_site(all_devices, site)
     topology = _site_block(_load_json(members, "topology"), site_name)
     infrastructure = _site_block(_load_json(members, "infrastructure"), site_name)
 

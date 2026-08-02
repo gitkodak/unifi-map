@@ -48,6 +48,15 @@ Refactors, docs and tests alone do not need a release at all.
   and `--yes` skips that once read. A non-interactive run without `--yes`
   refuses rather than assuming: a cron job has nobody to consent on behalf of.
 
+  Pointed at an archive with `--support-file` it reads that directly rather
+  than the cache, and adds how much there was to walk, how many entries, and
+  how many sites it holds. Those are the numbers behind the support-file limits
+  (set from a single archive) and the untested multi-site handling. Sites are
+  counted, never named: the keys carrying those names are user-chosen.
+
+  `CONTRIBUTING.md` asked people to gather this sort of thing by hand and now
+  points at the command instead.
+
   Two tests hold the promise up. One renders a snapshot built entirely of
   identifying values and searches the output for every one. The other is
   stronger and matches the design: it asserts the report's whole vocabulary is

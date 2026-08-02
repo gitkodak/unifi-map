@@ -132,6 +132,19 @@ patch:
   one 154 MiB archive; the archive-walk default in particular has no measured
   basis, only a number that is obviously absurd to exceed.
 
+**There is a command for this.** `unifi-map report` prints exactly what is
+useful here and nothing else: counts, fan-out, which field names your controller
+returns, versions. It shows you what it collects and asks before producing
+anything, and the output is short enough to read in full before you decide.
+
+```bash
+unifi-map report                              # from a cached snapshot
+unifi-map report --support-file support.tgz    # or straight from an archive
+```
+
+The archive form also reports how large the file is to walk and how many sites
+it holds, which are the two numbers behind most of the guesses above.
+
 **Do not send the data itself.** A snapshot is a full MAC, hostname and IP
 inventory, and a support file is that plus SSIDs, subnets, WAN addresses and
 client activity logs. Neither belongs in an issue.
