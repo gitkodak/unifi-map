@@ -31,6 +31,15 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
+### Fixed
+
+- The first screenshot's caption said most clients "fall back to plain shapes".
+  They have not for some time: eleven of them draw the console's own generic
+  glyphs, which is what the image shows. The caption now describes the image,
+  and says that those glyphs need an icon font only a controller serves, so a
+  fresh clone genuinely does see shapes there. The two statements were both
+  true of different machines, which is the confusing kind of wrong.
+
 ### Added
 
 - `unifi-map shape`, which prints a short plain-text description of the shape

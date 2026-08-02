@@ -18,10 +18,16 @@ console; this pulls the same data and renders it properly.
 *The default layout, `--layout unifi`, which approximates what the console
 itself shows: left to right from the Internet, orthogonal links, and no title or
 legend because the UniFi UI has neither. Note what a demo can and cannot show
-here. The UniFi hardware carries its real artwork, because the dataset holds real
-hardware ids, but most of the **clients** are invented and have no fingerprint, so
-they fall back to plain shapes. Against a live network, expect nearly all of them
-to resolve as well.
+here. The UniFi hardware carries its real artwork, because the dataset holds
+real hardware ids. Eight of the **clients** resolve to real product renders; the
+rest are invented, have no fingerprint, and fall back to the console's own
+generic glyphs, which is the same thing the UniFi UI does with them.
+
+Those glyphs need the icon font, which only a controller serves, so a clone of
+this repository draws plain shapes there instead until it has one. See
+[the generic client glyph](#the-generic-client-glyph-and-why-it-is-awkward)
+for the three routes to it. Against a live network, expect nearly every client
+to reach a real product render.
 
 Screenshots here use `--theme dark` because they read better against this page.
 **The tool defaults to `--theme light`**, and a
