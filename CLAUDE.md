@@ -257,6 +257,13 @@ Restored after being deleted by accident in 9b18a1a, where a section replacement
 spanned two headings and took this with it. If you replace a range between
 headings, check what was in between.
 
+### Tracked in Jira as well
+
+All of the below is also **epic KAN-114** in the `bhomelan` project, with a
+ticket per item, so it is visible without reading this file. **This file stays
+authoritative**: the tickets carry the summaries, this carries the reasoning,
+and if they disagree this one is newer. Update both or neither.
+
 ### Proposals from two external reviews, with assessments
 
 From agy and from Codex, both 2026-08-02, recorded with what was thought about
