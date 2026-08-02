@@ -46,6 +46,22 @@ told something untrue and may have acted on it.
 
 Nothing yet.
 
+## 0.7.2 - 2026-08-02
+
+### Fixed
+
+- `unifi-map shape` says when its artwork counts are measuring an empty cache
+  rather than the network. Resolved against a cold cache it reported `0 of 19`
+  for any network at all, and that section exists precisely so somebody else's
+  numbers can tell us how well the fingerprint joins work. The same snapshot
+  gives `0 of 19` or `19 of 19` depending only on whether artwork has ever been
+  fetched, so reading it as a property of their network was a wrong conclusion
+  waiting to be drawn.
+- `SECURITY.md` covers `unifi-map shape`. A command whose entire purpose is
+  producing something to hand to a stranger was absent from the document about
+  what this tool discloses, which is the one place somebody assessing it would
+  look.
+
 ## 0.7.1 - 2026-08-02
 
 ### Fixed

@@ -254,6 +254,13 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
             f" {a.get('from_hardware', 0)} UniFi hardware,"
             f" {a.get('from_glyph', 0)} generic glyph)",
         ]
+        if not a.get("catalogue_cached", True):
+            # Without this the section reads as a property of the network when
+            # it is a property of the cache: the same snapshot gives 0 of 19 or
+            # 19 of 19 depending only on whether artwork has ever been fetched.
+            out.append("  NOTE: nothing is cached, so these count the cache and not the network.")
+        elif not a.get("font_cached", True):
+            out.append("  NOTE: no icon font cached, so the generic glyph count is always 0.")
 
     if extras.archive_bytes is not None:
         out += [

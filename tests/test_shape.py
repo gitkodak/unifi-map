@@ -321,3 +321,35 @@ class TestOverridesCheck:
         monkeypatch.chdir(tmp_path)
         args = build_parser().parse_args(["--cache-dir", str(Path.cwd()), "overrides", "check"])
         assert cmd_overrides(args) == 2
+
+
+class TestArtworkCountsSayWhatTheyMeasure:
+    """`0 of 19` means something different with a cold cache than a warm one.
+
+    The section exists so somebody else's network can tell us how well the
+    fingerprint joins work. Resolved against an empty asset cache it reports
+    zero for every network, which would read as "these joins fail here" when it
+    means "nothing has been fetched yet". Same snapshot, opposite conclusion.
+    """
+
+    def _report(self, snapshot, **artwork):
+        from unifi_map.model import build_topology
+
+        base = {"device_found": 0, "device_total": 7, "client_total": 19, "client_found": 0}
+        return build_report(
+            build_topology(snapshot), snapshot.payloads, Extras(artwork={**base, **artwork})
+        )
+
+    def test_a_cold_cache_is_called_out(self, snapshot):
+        report = self._report(snapshot, catalogue_cached=False, font_cached=False)
+        assert "count the cache and not the network" in report
+
+    def test_a_missing_font_alone_is_called_out(self, snapshot):
+        # Product artwork comes from a CDN, glyphs only from a controller, so
+        # this is the ordinary case for anybody without an API key.
+        report = self._report(snapshot, catalogue_cached=True, font_cached=False)
+        assert "generic glyph count is always 0" in report
+
+    def test_a_warm_cache_says_nothing(self, snapshot):
+        report = self._report(snapshot, catalogue_cached=True, font_cached=True)
+        assert "NOTE:" not in report

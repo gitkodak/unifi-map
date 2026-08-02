@@ -876,6 +876,11 @@ def cmd_shape(args: argparse.Namespace) -> int:
     store = AssetStore(cache_dir=args.asset_cache, offline=True)
     with contextlib.suppress(Exception):
         _resolve_icons(topo, store, get_theme("light"), artwork)
+    if artwork:
+        # Which of the two catalogues is present decides how to read the counts
+        # above, and neither is fetched here.
+        artwork["catalogue_cached"] = store.catalog_path.is_file()
+        artwork["font_cached"] = store.font_path.is_file()
 
     extras = Extras(
         source=source,

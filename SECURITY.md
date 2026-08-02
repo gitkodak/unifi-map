@@ -263,6 +263,40 @@ A support file is somebody else's data by design, so it is parsed as hostile.
   arrives, and the decompression-bomb threshold is tightened well below Pillow's
   default, which is sized for photographs rather than icons.
 
+## `unifi-map shape`, and why its output is safe to send
+
+There is a subcommand whose entire purpose is producing something to give to a
+stranger, so it is worth saying how it is constrained.
+
+`unifi-map shape` prints counts, fan-out, artwork resolution rates, version
+numbers, and the **names** of the fields your controller returns. It never
+prints a value from any field, so no address, MAC, hostname, SSID, site name or
+network name can appear in it.
+
+That is achieved by construction rather than by filtering. Every line is a
+counted integer, a boolean, or a field name from a list written in advance;
+nothing walks your data looking for things to remove. The distinction matters
+because a filter can be incomplete, and the one shipped by UniFi is: see the
+support-file section above, where a name-matching redaction pass left
+unredacted access tokens in place. A list that only ever adds cannot fail that
+way.
+
+One concrete trap shaped the design. A support file's `devices.json` is a list
+of objects **keyed by site name**, which users choose, so describing a payload
+by enumerating its JSON keys would leak site names on exactly the multi-site
+archives most worth seeing. Container keys are never read; only records inside
+them, and only their field names. Field names that are not shaped like field
+names are counted rather than printed.
+
+Two tests hold this up. One renders a snapshot built entirely from identifying
+values and searches the output for every one. The other asserts the report's
+whole vocabulary is closed, so a value arriving by a route nobody anticipated
+fails even though no test knew to look for it.
+
+The command prints what it collects and asks before producing anything, and it
+transmits nothing: the report goes to your terminal, and what happens next is
+your decision.
+
 ## What has and has not been reviewed
 
 Stated plainly, since it bears on how much you should trust this: most of the
