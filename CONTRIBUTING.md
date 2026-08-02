@@ -128,6 +128,12 @@ patch:
 - **A different controller version**, older or newer. Endpoint shapes are
   absorbed rather than asserted, on the assumption they will thin gracefully. It
   would be good to know whether that assumption survives contact.
+- **UniFi Access, Talk, or a UNAS.** This has only ever run against Network and
+  Protect. Devices from the other applications already draw as ordinary clients
+  or hardware, so nothing is broken; what is missing is the extra source that
+  would let an ambiguous match resolve. A `g3-flex` is both a Protect camera and
+  an Access reader, and only one of those can currently be confirmed. Even the
+  shape of an empty response from one of those apps is useful.
 - **A support file from a big site.** The four size and walk limits are set from
   one 154 MiB archive; the archive-walk default in particular has no measured
   basis, only a number that is obviously absurd to exceed.

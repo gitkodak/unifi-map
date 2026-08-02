@@ -98,6 +98,14 @@ told something untrue and may have acted on it.
   generated flag reference lives in `docs/usage.md`. It caught fourteen links
   the split broke silently.
 
+- The documentation says which UniFi applications this has been run against,
+  in the introduction rather than buried: Network for everything, and one
+  Protect endpoint read purely to tell a camera from an Access reader. Devices
+  from Access, Talk or a UNAS already draw, since they are clients or UniFi
+  hardware like anything else, so the gap is narrower than "unsupported": what
+  is missing is the second source that would let an ambiguous match resolve.
+  `CONTRIBUTING.md` asks for those environments alongside the other things
+  nobody here has.
 - Two released sections described one change twice. 0.7.0 had two entries for
   `unifi-map shape`, written days apart; 0.6.0 had two for `RELEASING.md` that
   contradicted each other, one saying a fix had been claimed and never made and
