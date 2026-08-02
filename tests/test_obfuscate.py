@@ -26,7 +26,7 @@ needs_graphviz = pytest.mark.skipif(
     shutil.which("dot") is None, reason="graphviz `dot` not installed"
 )
 
-STYLE = Style(theme=LIGHT, icons="builtin", layout="sane")
+STYLE = Style(theme=LIGHT, icons="builtin", layout="tree")
 
 
 def _without_embedded_images(text: str) -> str:

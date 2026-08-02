@@ -31,7 +31,28 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
-Nothing yet.
+### Deprecated
+
+- `--layout sane` is renamed to `--layout tree`, and **`sane` will be removed in
+  0.5.0**. It still works and still selects the same layout, but it is hidden
+  from `--help` and warns once, naming the replacement and the version.
+
+  The old name implied the other layout was not sane, and borrowed a clinical
+  word as a judgement. `tree` describes what the layout is: top down, leaf
+  staggered, with port numbers on the links.
+
+  A version is promised here, unlike the open-ended `UDM_*` deprecation, because
+  this is one flag value that anyone using it can change in seconds, and an
+  indefinite alias would keep the word in `--help` indefinitely.
+
+### Changed
+
+- The example unmanaged switch is described as "unmanaged" rather than "dumb",
+  in `examples/overrides.toml` and the README. "Unmanaged" is also the accurate
+  term: it names the absent management plane, which is why such a device has to
+  be declared by hand in the first place.
+- `make sane` is now `make tree`, and `docs/images/example-sane-dark.png` is now
+  `example-tree-dark.png`. The old make target still works and says it is going.
 
 ## 0.4.1 - 2026-08-01
 

@@ -1,4 +1,4 @@
-.PHONY: help check format lint test map fetch render sane offline dark demo \
+.PHONY: help check format lint test map fetch render tree sane offline dark demo \
         demo-overrides demo-images demo-snapshot docs clean
 
 VENV := .venv
@@ -12,7 +12,7 @@ help:
 	@echo "make fetch    pull a fresh snapshot from the UDM into cache/"
 	@echo "make render   render diagrams from cache/ into out/"
 	@echo "make map      fetch + render everything (svg, pdf, drawio)"
-	@echo "make sane     render in the readable (non-UniFi) layout"
+	@echo "make tree     render in the readable (non-UniFi) layout"
 	@echo "make offline  render with builtin icons, no network access"
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
@@ -52,8 +52,11 @@ render: $(VENV)
 map: $(VENV)
 	$(VENV)/bin/unifi-map all --per-network -f svg pdf drawio
 
-sane: $(VENV)
-	$(VENV)/bin/unifi-map render --layout sane -f svg pdf drawio
+tree: $(VENV)
+	$(VENV)/bin/unifi-map render --layout tree -f svg pdf drawio
+
+sane: tree
+	@echo "make sane is deprecated and goes away in 0.5.0; use make tree."
 
 offline: $(VENV)
 	$(VENV)/bin/unifi-map render --icons builtin --offline -f svg pdf drawio

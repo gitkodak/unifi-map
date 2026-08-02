@@ -10,7 +10,7 @@ map is drawn.
 Four images, all from `examples/demo/` so no controller is involved:
 
     example-unifi-dark.png        the default layout
-    example-sane-dark.png         the readable layout
+    example-tree-dark.png         the readable layout
     example-overrides-dark.png    the example overrides applied
     example-overrides-detail.png  a crop of the above
 
@@ -122,7 +122,7 @@ def main() -> int:
     IMAGES.mkdir(parents=True, exist_ok=True)
 
     _render("example-unifi-dark")
-    _render("example-sane-dark", "--layout", "sane", "--title", "Demo network")
+    _render("example-tree-dark", "--layout", "tree", "--title", "Demo network")
     _render(
         "example-overrides-dark",
         "--overrides",

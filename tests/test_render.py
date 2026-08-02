@@ -18,12 +18,12 @@ needs_graphviz = pytest.mark.skipif(
     shutil.which("dot") is None, reason="graphviz `dot` not installed"
 )
 
-SANE = Style(theme=LIGHT, icons="builtin", layout="sane")
+TREE = Style(theme=LIGHT, icons="builtin", layout="tree")
 UNIFI = Style(theme=LIGHT, icons="builtin", layout="unifi")
 
 
 def test_dot_output_is_syntactically_parseable_by_graphviz(snapshot: Snapshot):
-    dot_source = render_dot(build_topology(snapshot), "test map", SANE)
+    dot_source = render_dot(build_topology(snapshot), "test map", TREE)
     assert dot_source.startswith("digraph unifi {")
     assert dot_source.rstrip().endswith("}")
 
@@ -43,25 +43,25 @@ def test_get_theme_rejects_unknown_name():
 def test_dot_escapes_quotes_in_labels(networkconf: dict, devices: dict):
     devices["data"][0]["name"] = 'Weird "quoted" name'
     topo = build_topology(Snapshot(payloads={"device": devices, "networkconf": networkconf}))
-    dot_source = render_dot(topo, "t", SANE)
+    dot_source = render_dot(topo, "t", TREE)
     # The quote must be escaped, not terminate the DOT string early.
     assert r"Weird \"quoted\" name" in dot_source
 
 
 def test_wireless_edges_are_dashed_for_greyscale_readability(snapshot: Snapshot):
-    dot_source = render_dot(build_topology(snapshot), "t", SANE)
+    dot_source = render_dot(build_topology(snapshot), "t", TREE)
     assert [line for line in dot_source.splitlines() if "style=dashed" in line]
 
 
 def test_mac_colons_are_stripped_from_dot_identifiers(snapshot: Snapshot):
-    dot_source = render_dot(build_topology(snapshot), "t", SANE)
+    dot_source = render_dot(build_topology(snapshot), "t", TREE)
     # A raw colon in an identifier would parse as a DOT port specifier.
     assert '"n_aabbcc000001"' in dot_source
 
 
 class TestLayouts:
-    def test_sane_is_top_down_with_port_labels(self, snapshot: Snapshot):
-        dot_source = render_dot(build_topology(snapshot), "t", SANE)
+    def test_tree_is_top_down_with_port_labels(self, snapshot: Snapshot):
+        dot_source = render_dot(build_topology(snapshot), "t", TREE)
         assert "rankdir=TB;" in dot_source
         assert "port 12" in dot_source
 
@@ -77,8 +77,8 @@ class TestLayouts:
         assert "labelloc=t;" not in dot_source
         assert "cluster_legend" not in dot_source
 
-    def test_sane_includes_title_and_legend(self, snapshot: Snapshot):
-        dot_source = render_dot(build_topology(snapshot), "My Map", SANE, subtitle="sub")
+    def test_tree_includes_title_and_legend(self, snapshot: Snapshot):
+        dot_source = render_dot(build_topology(snapshot), "My Map", TREE, subtitle="sub")
         assert "labelloc=t;" in dot_source
         assert "My Map" in dot_source
         assert "cluster_legend" in dot_source
@@ -90,20 +90,20 @@ class TestLayouts:
         assert "labelloc=t;" in dot_source
 
     def test_unifi_layout_trims_canvas_padding(self, snapshot: Snapshot):
-        # Whether `unifi` ends up narrower than `sane` depends on the shape of
+        # Whether `unifi` ends up narrower than `tree` depends on the shape of
         # the network (it does on a real one with many sibling clients, but not
         # on a small fixture where tree depth dominates), so assert the thing
         # that is actually guaranteed: no framing whitespace.
         topo = build_topology(snapshot)
         assert "pad=0.08;" in render_dot(topo, "t", UNIFI)
-        assert "pad=0.4;" in render_dot(topo, "t", SANE)
+        assert "pad=0.4;" in render_dot(topo, "t", TREE)
 
     @needs_graphviz
     def test_both_layouts_place_every_node(self, snapshot: Snapshot):
         # Through `compute_layout` rather than run_dot plus parse_plain by hand,
         # so the wrapper callers actually use is on this path too.
         topo = build_topology(snapshot)
-        for style in (SANE, UNIFI):
+        for style in (TREE, UNIFI):
             layout = compute_layout(render_dot(topo, "t", style))
             for node_id in topo.nodes:
                 assert "n_" + node_id.replace(":", "") in layout.nodes
@@ -111,14 +111,14 @@ class TestLayouts:
 
 @needs_graphviz
 def test_graphviz_renders_svg(snapshot: Snapshot):
-    svg = run_dot(render_dot(build_topology(snapshot), "test map", SANE), "svg").decode()
+    svg = run_dot(render_dot(build_topology(snapshot), "test map", TREE), "svg").decode()
     assert "<svg" in svg
     assert "Core Switch" in svg
 
 
 @needs_graphviz
 def test_svg_scales_without_a_fixed_pixel_ceiling(snapshot: Snapshot):
-    svg = run_dot(render_dot(build_topology(snapshot), "t", SANE), "svg").decode()
+    svg = run_dot(render_dot(build_topology(snapshot), "t", TREE), "svg").decode()
     # viewBox is what lets the SVG zoom to any size with crisp labels.
     assert "viewBox" in svg
 
@@ -375,7 +375,7 @@ class TestLegendHonesty:
 
     def test_shapes_only_render_lists_every_role(self, snapshot: Snapshot):
         topo = build_topology(snapshot)
-        legend = self._legend_text(topo, SANE)
+        legend = self._legend_text(topo, TREE)
         # Nothing has artwork, so every role really is a coloured shape.
         assert "Switch" in legend
         assert "Gateway" in legend
@@ -383,7 +383,7 @@ class TestLegendHonesty:
 
     def test_roles_drawn_as_artwork_get_no_swatch(self, snapshot: Snapshot, fake_icon):
         topo = build_topology(snapshot)
-        style = Style(theme=LIGHT, icons="unifi", layout="sane")
+        style = Style(theme=LIGHT, icons="unifi", layout="tree")
         # Give every node artwork: no role swatch may remain, because artwork
         # nodes have no border or fill to carry an accent colour.
         icons = dict.fromkeys(topo.nodes, fake_icon)
@@ -395,7 +395,7 @@ class TestLegendHonesty:
 
     def test_mixed_render_separates_the_two(self, snapshot: Snapshot, fake_icon):
         topo = build_topology(snapshot)
-        style = Style(theme=LIGHT, icons="unifi", layout="sane")
+        style = Style(theme=LIGHT, icons="unifi", layout="tree")
         # The access point is the only node of its role in the fixture, so
         # covering it removes that role entirely. The fixture has two switches,
         # one of them offline, which is why picking a switch here would not.
@@ -411,11 +411,11 @@ class TestLegendHonesty:
         self, snapshot: Snapshot, fake_icon
     ):
         topo = build_topology(snapshot)
-        style = Style(theme=LIGHT, icons="unifi", layout="sane")
+        style = Style(theme=LIGHT, icons="unifi", layout="tree")
         icons = dict.fromkeys(topo.nodes, fake_icon)
         # With artwork the VLAN colour is the label text, not a border.
         assert "Client network (label colour)" in self._legend_text(topo, style, icons)
-        assert "Client network (label colour)" not in self._legend_text(topo, SANE)
+        assert "Client network (label colour)" not in self._legend_text(topo, TREE)
 
 
 class TestApiKeyIsNotCarriedAcrossHosts:
@@ -653,12 +653,12 @@ class TestStaggerIsAppliedOnceToBothRenderers:
 
         topo = build_topology(snapshot)
         _write_outputs(
-            render_dot(topo, "t", SANE),
+            render_dot(topo, "t", TREE),
             topo,
             tmp_path,
             "m",
             ["dot", "drawio"],
-            SANE,
+            TREE,
             {},
             stagger_depth=2,
         )
@@ -896,3 +896,50 @@ class TestPerNetworkFilenamesAreUnique:
         forward = _unique_names(["IoT A", "IoT-A", "Servers"])
         reverse = _unique_names(["Servers", "IoT-A", "IoT A"])
         assert forward == reverse
+
+
+class TestTheSaneLayoutAliasIsDeprecated:
+    """`sane` still works, is hidden, and is promised gone in 0.5.0.
+
+    Renamed because the word implies the alternative is not, and borrows a
+    clinical term as a judgement. `tree` says what the layout actually is.
+    """
+
+    def test_the_old_value_still_selects_the_same_layout(self):
+        from unifi_map.render_dot import Style
+
+        assert Style(theme=LIGHT, layout="sane").layout == "tree"
+        assert Style(theme=LIGHT, layout="sane").staggers is True
+
+    def test_the_old_value_still_parses_on_the_command_line(self):
+        from unifi_map.cli import build_parser
+
+        assert build_parser().parse_args(["render", "--layout", "sane"]).layout == "sane"
+
+    def test_usage_does_not_advertise_the_old_value(self):
+        # Accepted via `choices`, hidden via `metavar`. Keeping it out of the
+        # help is the point: nobody should learn it from us now.
+        from unifi_map.cli import build_parser
+
+        text = build_parser().format_help()
+        assert "sane" not in text
+
+    def test_the_supported_set_is_only_the_new_name(self):
+        from unifi_map.render_dot import LAYOUTS
+
+        assert LAYOUTS == ("tree", "unifi")
+
+    def test_an_unknown_layout_is_still_rejected(self):
+        from unifi_map.render_dot import Style
+
+        with pytest.raises(ValueError, match="layout must be one of"):
+            Style(theme=LIGHT, layout="nonsense")
+
+    def test_the_removal_version_is_stated_in_one_place_only(self):
+        # If this fails, the promise was changed in the code and not in the
+        # docs, or vice versa. The date is the whole point of this deprecation.
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        assert "0.5.0" in (root / "src" / "unifi_map" / "render_dot.py").read_text()
+        assert "0.5.0" in (root / "src" / "unifi_map" / "cli.py").read_text()

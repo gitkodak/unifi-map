@@ -23,10 +23,10 @@ hardware ids, but most of the **clients** are invented and have no fingerprint, 
 they fall back to plain shapes. Against a live network, expect nearly all of them
 to resolve as well.*
 
-![The same network in the readable sane layout](docs/images/example-sane-dark.png)
+![The same network in the readable tree layout](docs/images/example-tree-dark.png)
 
-*The same data with `--layout sane`: top down, leaf nodes staggered to keep the
-aspect ratio sane, port numbers on the links, and a title block and legend. On a
+*The same data with `--layout tree`: top down, leaf nodes staggered to keep the
+aspect ratio reasonable, port numbers on the links, and a title block and legend. On a
 busy network this is usually the one worth handing to somebody else. Run
 `make demo` to reproduce both, then point it at your own controller.*
 
@@ -43,7 +43,7 @@ busy network this is usually the one worth handing to somebody else. Run
 - **Editable draw.io files**, with real shapes already positioned by Graphviz,
   so you can rearrange the map rather than just look at it.
 - **Two layouts.** [`unifi`](#how-close-is---layout-unifi) approximates the
-  console's own view; `sane` is top down and actually readable on a busy
+  console's own view; `tree` is top down and actually readable on a busy
   network. Light and dark themes, colourblind-safe palette.
 - **Works with no credentials at all**, from a
   [support file](#mapping-from-a-support-file) instead of a controller. Useful
@@ -571,7 +571,7 @@ and there is nowhere convenient in them to record that this tool produced it.
 
 ```bash
 --icons unifi|builtin      # default: unifi
---layout unifi|sane        # default: unifi
+--layout unifi|tree        # default: unifi
 --theme light|dark         # default: light
 ```
 
@@ -587,9 +587,9 @@ external assets.
 **`--layout unifi`** approximates the UniFi UI: left-to-right tree, orthogonal
 links, no port labels, no title or legend chrome, canvas trimmed to the drawing.
 See below for how close that actually gets.
-**`--layout sane`** is top-down with leaf staggering, port numbers on links, a
+**`--layout tree`** is top-down with leaf staggering, port numbers on links, a
 title block and a legend, built to actually be readable on a busy network. Try
-both; on a network with many clients `sane` is usually the one you want to hand
+both; on a network with many clients `tree` is usually the one you want to hand
 to someone else.
 
 ### How close is `--layout unifi`?
@@ -623,7 +623,7 @@ remembering hardware long after it's been pulled from the rack, and the UI gives
 you no way to hide it. Use `yes` to see everything yours still thinks exists.
 
 Further knobs: `--legend` / `--no-legend`, `--title-block` / `--no-title-block`,
-`--stagger N` (aspect-ratio control for `sane`), `--offline` (never touch the
+`--stagger N` (aspect-ratio control for `tree`), `--offline` (never touch the
 network for artwork), `--title`, `--name`, `--out-dir`, `--cache-dir`,
 `--asset-cache` (artwork cache, kept separate from snapshots).
 
@@ -645,7 +645,7 @@ shape, or line style, so the diagram survives greyscale printing.
 | Wireless link | Dashed line |
 | Offline device | Dashed border, `OFFLINE` in the label |
 
-With `--layout sane`, edge labels are switch port numbers (`port 12`) or the
+With `--layout tree`, edge labels are switch port numbers (`port 12`) or the
 radio for wireless clients.
 
 The legend only lists what a given render actually encodes. A node drawn as
@@ -1011,7 +1011,7 @@ equivalent. Command options must follow the subcommand.
 | --- | --- | --- |
 | `-f`, `--formats` `svg\|pdf\|png\|dot\|drawio` | Output formats (default: svg drawio) | `svg drawio` |
 | `--icons` `unifi\|builtin` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
-| `--layout` `sane\|unifi` | unifi: left-to-right tree like the UniFi UI, no port labels. sane: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
+| `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
 | `--theme` `dark\|light` | Colour theme (default: light) | `light` |
 | `--offline` | Never reach the network for artwork; use only what is already cached |  |
 | `--name` | Output filename stem | `network-map` |
@@ -1022,8 +1022,8 @@ equivalent. Command options must follow the subcommand.
 | `--no-clients` | Infrastructure only, no clients |  |
 | `--show-offline` `yes\|no` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
 | `--per-network` | Also emit one diagram per client network, which keeps a busy map readable |  |
-| `--legend`, `--no-legend` | Show the legend (default: on for --layout sane, off for --layout unifi) |  |
-| `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout sane, off for --layout unifi) |  |
-| `--stagger` `N` | With --layout sane, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12) | `12` |
+| `--legend`, `--no-legend` | Show the legend (default: on for --layout tree, off for --layout unifi) |  |
+| `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout tree, off for --layout unifi) |  |
+| `--stagger` `N` | With --layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12) | `12` |
 
 <!-- END GENERATED FLAGS -->

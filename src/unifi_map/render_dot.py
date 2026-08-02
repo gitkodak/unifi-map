@@ -12,7 +12,7 @@ Two independent choices drive the look, both exposed on the command line:
     ``unifi``   left-to-right tree with orthogonal links and no port labels,
                 mirroring how the UniFi UI arranges things. The default: out of
                 the box this tool should reproduce what the web view shows.
-    ``sane``    top-down, leaf-staggered, with port numbers on the links.
+    ``tree``    top-down, leaf-staggered, with port numbers on the links.
                 Built to actually be readable on a busy network.
 
 Defaults deliberately match the UniFi web view. The one exception is offline
@@ -36,7 +36,17 @@ _CLIENT_KINDS = (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
 FONT = "Helvetica,Arial,sans-serif"
 
 ICON_SETS = ("unifi", "builtin")
-LAYOUTS = ("sane", "unifi")
+LAYOUTS = ("tree", "unifi")
+
+# `sane` was the original name for the `tree` layout. It is a poor word: it
+# implies the alternative is not, and it borrows a clinical term as a judgement.
+# Accepted for now so nobody's script breaks mid-version.
+#
+# **Scheduled for removal in 0.5.0.** Unlike the `UDM_*` environment names,
+# which are deliberately open-ended, this one has a date: it is a single flag
+# value, trivial to change, and carrying it indefinitely would mean the word
+# stays in `--help` forever.
+DEPRECATED_LAYOUTS = {"sane": "tree"}
 
 # Artwork is fitted inside this box, in points, preserving aspect ratio. Wider
 # than tall because rack-mount switch renders are long and thin.
@@ -56,6 +66,11 @@ class Style:
     def __post_init__(self) -> None:
         if self.icons not in ICON_SETS:
             raise ValueError(f"icons must be one of {ICON_SETS}, got {self.icons!r}")
+        # Normalised here rather than only in the CLI, so a library caller
+        # passing the old name gets the layout it asked for instead of an error.
+        # Silent at this level: warning belongs where a person typed it.
+        if self.layout in DEPRECATED_LAYOUTS:
+            object.__setattr__(self, "layout", DEPRECATED_LAYOUTS[self.layout])
         if self.layout not in LAYOUTS:
             raise ValueError(f"layout must be one of {LAYOUTS}, got {self.layout!r}")
 
@@ -79,7 +94,7 @@ class Style:
 
     @property
     def staggers(self) -> bool:
-        return self.layout == "sane"
+        return self.layout == "tree"
 
 
 def _escape(text: str) -> str:

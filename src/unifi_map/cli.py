@@ -42,7 +42,7 @@ from .overrides import OverrideError
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
-from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
+from .render_dot import DEPRECATED_LAYOUTS, ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
 from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
@@ -632,6 +632,13 @@ def cmd_render(args: argparse.Namespace) -> int:
         include_offline=args.show_offline == "yes",
     )
 
+    if args.layout in DEPRECATED_LAYOUTS:
+        log.warning(
+            "--layout %s is deprecated and will be removed in 0.5.0; use --layout %s.",
+            args.layout,
+            DEPRECATED_LAYOUTS[args.layout],
+        )
+
     try:
         style = Style(
             theme=get_theme(args.theme),
@@ -938,10 +945,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render_flags.add_argument(
         "--layout",
-        choices=LAYOUTS,
+        # `sane` is accepted but not advertised: metavar controls what usage
+        # prints, while choices still lets the old value through until 0.5.0.
+        choices=(*LAYOUTS, *DEPRECATED_LAYOUTS),
+        metavar="{" + ",".join(LAYOUTS) + "}",
         default="unifi",
-        help="unifi: left-to-right tree like the UniFi UI, no port labels. "
-        "sane: top-down and leaf-staggered, with port labels, built to be "
+        help="unifi: left-to-right like the UniFi UI, no port labels. "
+        "tree: top-down and leaf-staggered, with port labels, built to be "
         "readable on a busy network (default: unifi)",
     )
     render_flags.add_argument(
@@ -1003,7 +1013,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="legend",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Show the legend (default: on for --layout sane, off for --layout unifi)",
+        help="Show the legend (default: on for --layout tree, off for --layout unifi)",
     )
     render_flags.add_argument(
         "--title-block",
@@ -1012,14 +1022,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Show the title and subtitle above the map. A title sets a minimum "
         "canvas width, so turning it off crops dead space on a narrow map "
-        "(default: on for --layout sane, off for --layout unifi)",
+        "(default: on for --layout tree, off for --layout unifi)",
     )
     render_flags.add_argument(
         "--stagger",
         type=int,
         default=12,
         metavar="N",
-        help="With --layout sane, stagger leaf nodes into rows of ~N to control "
+        help="With --layout tree, stagger leaf nodes into rows of ~N to control "
         "aspect ratio (0 disables; higher is taller and narrower; default 12)",
     )
 

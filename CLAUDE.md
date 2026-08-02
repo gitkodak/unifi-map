@@ -14,7 +14,7 @@ like a plausible generic network, not like anyone's actual one.
 ```bash
 make check     # ruff format --check, ruff check, pytest (run before committing)
 make map       # fetch + render against the live controller
-make sane      # render in the readable (non-UniFi) layout
+make tree      # render in the readable (non-UniFi) layout
 make offline   # builtin icons, no network access
 make demo      # render the shipped demo dataset, no controller needed
 make test      # pytest only
@@ -131,7 +131,7 @@ controller JSON.
 
 ## Rendering constraints
 
-- **Don't switch `--layout sane` edges to `splines=ortho`.** It looks tidier but
+- **Don't switch `--layout tree` edges to `splines=ortho`.** It looks tidier but
   Graphviz cannot place edge labels on orthogonal routes, so port numbers drift
   far from their link and float beside unrelated nodes. `--layout unifi` *does*
   use ortho, and deliberately suppresses port labels for exactly this reason.
@@ -186,7 +186,7 @@ controller JSON.
 
 `--icons unifi --layout unifi --theme light` is chosen so the tool matches what
 the console shows out of the box. Don't change a default to something "better
-looking" without a reason; the point is fidelity first, with `sane` available
+looking" without a reason; the point is fidelity first, with `tree` available
 for readability.
 
 The single deliberate exception is `--show-offline no`: the UI offers no way to
@@ -208,7 +208,7 @@ glyph rather than the console's own icon, and the output is static. The README h
 this out. Keep improving fidelity if you like, but do not let the documentation
 start implying an exactness that is not there.
 
-## Whether `unifi` layout is narrower than `sane` is data-dependent
+## Whether `unifi` layout is narrower than `tree` is data-dependent
 
 It is on a real network with many sibling clients (1305pt vs 4648pt observed),
 and inverts on a small fixture where tree depth dominates. Don't assert it.
@@ -371,6 +371,15 @@ headings, check what was in between.
   `pip install unifi-map` should work. That means owning a PyPI name and never
   breaking a published artifact, so it is a commitment rather than a chore. The
   entry point and build backend already exist; CI would need a `tags:` trigger.
+
+- **Remove the `sane` layout alias in 0.5.0.** Renamed to `tree`; `sane` is
+  accepted, hidden from `--help` by `metavar`, and warns naming the version.
+  Delete `DEPRECATED_LAYOUTS` in `render_dot.py`, the warning in `cmd_render`,
+  the `choices` widening, and the `sane` Makefile target.
+
+  **Unlike `UDM_*`, this one has a promised version.** It is a single flag
+  value, trivially changed by anyone using it, so an open-ended deprecation
+  would just keep the word in `--help` forever.
 
 - **Finish retiring the `UDM_*` environment aliases.** The warning is in:
   `config.py` collects legacy names as it resolves them and emits one line
