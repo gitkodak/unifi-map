@@ -754,7 +754,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=argparse.SUPPRESS,
         metavar="PATH",
         help="Read the topology from a UniFi support file (.tgz) instead of a "
-        "controller. Needs no credentials and no network access.",
+        "controller. Needs no credentials and never contacts a controller. "
+        "Rendering may still fetch artwork; add --offline to stop that too.",
     )
     shared.add_argument(
         "--site",

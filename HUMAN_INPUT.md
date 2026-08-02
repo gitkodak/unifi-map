@@ -265,5 +265,5 @@ evidence, not just labels.
 - Drawn device icons replace Graphviz primitives in `--icons builtin` **and**
   become the fallback in `--icons unifi` when a device is absent from
   Ubiquiti's catalogue.
-- A release process, and a man page generated from the argument parser rather
-  than written twice.
+- A man page generated from the argument parser rather than written twice.
+  (The release process, listed here with it, was built: see `RELEASING.md`.)

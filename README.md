@@ -15,7 +15,7 @@ console; this pulls the same data and renders it properly.
 
 ![Example output: the demo network in the default UniFi layout, dark theme](docs/images/example-unifi-dark.png)
 
-*The defaults, `--layout unifi --theme dark`, which approximate what the console
+*The defaults, `--layout unifi --theme dark`, approximate what the console
 itself shows: left to right from the Internet, orthogonal links, and no title or
 legend because the UniFi UI has neither. Note what a demo can and cannot show
 here. The UniFi hardware carries its real artwork, because the dataset holds real
@@ -32,7 +32,7 @@ busy network this is usually the one worth handing to somebody else. Run
 
 ## Features
 
-- **Maps every client, not just infrastructure.** Gateways, switches, APs and
+- **Maps every active client, not just infrastructure.** Gateways, switches, APs and
   everything hanging off them, including clients behind a non-UniFi device.
 - **Real Ubiquiti product artwork**, for your hardware *and* your clients, plus
   your ISP's brand mark on the Internet node. [Fetched at runtime and cached,
@@ -52,8 +52,8 @@ busy network this is usually the one worth handing to somebody else. Run
 - **Safe to publish.** [`--obfuscate`](#sharing-a-map---obfuscate) replaces
   hostnames, addresses, MACs, SSIDs, VLAN names and your ISP, keeping the shape
   of the network intact.
-- **One diagram per VLAN**, optionally, each keeping the full gateway and
-  switch skeleton so they read as slices of one map.
+- **One diagram per client network**, optionally, each keeping the full gateway
+  and switch skeleton so they read as slices of one map.
 - **Hides decommissioned hardware** by default, which the console itself offers
   no way to do.
 - **[Manual overrides](#manual-overrides), which the console has no equivalent
@@ -160,7 +160,9 @@ UNIFI_VERIFY_TLS=true
 
 Create a key in the UniFi OS settings, under the integrations section (the exact
 wording moves between versions). This tool only ever reads, so read-only
-permission is enough.
+permission would be enough; on the version tested, UniFi offers no way to issue
+a key that restricted. See [`SECURITY.md`](SECURITY.md) on what a key can do before
+deciding how much that matters to you.
 
 A key is the only supported credential. There is no login and no session, so
 nothing has to be kept alive or refreshed.
@@ -277,8 +279,8 @@ Regenerate the dataset with `make demo-snapshot` (see
 ## Mapping from a support file
 
 If you would rather not hand this tool an API key, or you want to map a network
-you cannot reach, point it at a console support file instead. There are no
-credentials involved and nothing touches the network:
+you cannot reach, point it at a console support file instead. No credentials are
+involved and no controller is contacted:
 
 ```bash
 unifi-map all --support-file support-XXXX-1234567890.tgz
@@ -489,7 +491,7 @@ unifi-map all                              # fetch + render
 unifi-map fetch                            # snapshot the controller into cache/
 unifi-map fetch --support-file FILE.tgz     # or read a support file instead
 unifi-map render                           # render from the cached snapshot
-unifi-map render --per-network              # one diagram per VLAN as well
+unifi-map render --per-network              # one diagram per client network
 unifi-map render --no-clients               # infrastructure only
 unifi-map render -f svg pdf drawio dot      # pick formats
 ```
@@ -505,9 +507,13 @@ differently:
 
 | Command | Controller | Artwork |
 | --- | --- | --- |
-| `fetch` | Always. Never checks the cache first, so it always overwrites the snapshot with current state. | Fetches the icon font if it is missing |
+| `fetch` | Unless `--support-file` is given. Never checks the cache first, so it always overwrites the snapshot with current state. | Fetches the icon font if it is missing |
 | `render` | Never. Reads whatever snapshot is in `--cache-dir`, however old. | Downloads any artwork not already cached, unless `--offline` |
-| `all` | Always, because it is `fetch` then `render` | Same as `render` |
+| `all` | Same as `fetch`, because it is `fetch` then `render` | Same as `render` |
+
+Reading a support file therefore contacts no controller, but `all` goes on to
+render, and rendering fetches artwork. For a genuinely network-free run add
+`--offline` or `--icons builtin`.
 
 So `unifi-map all` does not skip the fetch when a cache already exists; it
 refreshes unconditionally. If you want to re-render without going near the
@@ -595,7 +601,7 @@ Concretely, what differs:
 - **Fingerprints are sometimes wrong.** Client artwork comes from Ubiquiti's
   fingerprint database, and it misidentifies things (a phone shown as an
   appliance, that sort of thing). That is upstream data, not a rendering bug;
-  correcting it is what the planned overrides are for.
+  correcting it is what [overrides](#manual-overrides) are for.
 - **Typography and label content differ.** This uses Helvetica/Arial and shows
   name, address and product name; the UI has its own font and its own idea of
   what belongs on a node.
@@ -850,8 +856,7 @@ parts you typed in.
   and their uplinks presented as a rack/cabling diagram rather than a client
   tree. `--no-clients` is a rough approximation of this today.
 - **A man page**, generated from the same argument parser the flag reference
-  below comes from, so `man unifi-map` works after an install. Committed for the
-  next release. It does not wait on packaging: a man page is useful to anyone
+  below comes from, so `man unifi-map` works after an install. Planned for 0.5.0. It does not wait on packaging: a man page is useful to anyone
   who cloned the repository, whether or not this is ever on PyPI.
 
 ## Artwork, licensing and attribution
@@ -977,7 +982,7 @@ equivalent. Command options must follow the subcommand.
 | `--env-file` | Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi-map/env) |  |
 | `--cache-dir` | Where controller snapshots are read/written (default: cache) | `cache` |
 | `--asset-cache` | Where downloaded artwork is cached (default: cache/assets). Kept separate from --cache-dir so a read-only snapshot directory stays clean. | `cache/assets` |
-| `--support-file` `PATH` | Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and no network access. |  |
+| `--support-file` `PATH` | Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add --offline to stop that too. |  |
 | `--site` `NAME` | Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi-site support file. Without it, a live fetch uses UNIFI_SITE or `default`, and a support file uses the site with the most devices. |  |
 | `--support-max-member` `SIZE` | Largest single file to decode from a support archive (default 64M). Accepts a plain number or a K/M/G suffix. Raise it if a large site is refused. | `64M` |
 | `--support-max-total` `SIZE` | Total to decode from a support archive across all files (default 128M). | `128M` |

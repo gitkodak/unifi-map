@@ -203,8 +203,8 @@ real KeyError.
 It is deliberately not claimed to be pixel-identical to the controller UI:
 Graphviz owns the layout, so sibling order and spacing are its decisions, link
 routing differs in its corners and channels, typography and label content are
-ours, clients fall back to shapes because the client fingerprint icon database
-is not reachable, and the output is static. The README has a section spelling
+ours, clients without a usable fingerprint fall back to shapes or a generic
+glyph rather than the console's own icon, and the output is static. The README has a section spelling
 this out. Keep improving fidelity if you like, but do not let the documentation
 start implying an exactness that is not there.
 

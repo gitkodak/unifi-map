@@ -9,12 +9,12 @@ body:
 
         Ubiquiti's fingerprint database is confidently wrong about some devices,
         and this tool draws what the database says. A phone identified as a
-        kitchen appliance is upstream data, not a rendering bug. Manual overrides
-        for exactly this are designed but not implemented yet, see
+        kitchen appliance is upstream data, not a rendering bug. A `[[node]]`
+        override corrects the name and can supply your own artwork, see
         `docs/overrides.md`. An issue is still useful, because it tells us which
         cases matter most.
 
-        Likewise, a link the controller does not report cannot be drawn. Those
+        Likewise, a link the controller does not report is not invented. Those
         clients are anchored to "Uplink not reported by controller" on purpose,
         rather than guessed at.
 

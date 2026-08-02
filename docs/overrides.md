@@ -176,8 +176,8 @@ is, so the output stays a single portable file and no local path appears in it.
 
 ### Selectors
 
-`from`, `to`, `guest` and `host` accept a MAC, an IP, or a hostname/device name
-as displayed on the map. Names rather than ids keep the file readable and mean a
+`from`, `to`, `guest`, `host`, `parent` and `match` all accept a MAC, an IP, or
+a hostname/device name as displayed on the map. Names rather than ids keep the file readable and mean a
 device renamed in the controller only has to be corrected in one place.
 
 ## How selectors are matched

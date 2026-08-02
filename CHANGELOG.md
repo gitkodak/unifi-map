@@ -29,6 +29,10 @@ a major one later.
 
 Refactors, docs and tests alone do not need a release at all.
 
+## Unreleased
+
+Nothing yet.
+
 ## 0.4.0 - 2026-08-01
 
 ### Deprecated
@@ -87,6 +91,12 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Fixed
 
+- Documentation corrections from an external review. Support-file mode was
+  described as touching nothing, when `all` goes on to render and rendering
+  fetches artwork; the README said read-only API keys were sufficient while
+  `SECURITY.md` explains UniFi will not issue one; the rendering issue template
+  still said overrides were unimplemented; and `--per-network` was described as
+  per-VLAN when it iterates client networks, which need not have a VLAN.
 - Global options are accepted after the subcommand as well as before it, so
   `unifi-map all --support-file X.tgz` works. It did not: those options were
   attached only to the top-level parser, which made every `--support-file`
@@ -188,7 +198,9 @@ Refactors, docs and tests alone do not need a release at all.
 
 - `--support-file` reads the topology from a UniFi support file archive instead
   of a controller. It needs no credentials and no network access, which makes it
-  a safe way to share a real topology when reporting a bug. Add `--support-site`
+  a safe way to share a real topology when reporting a bug. **That claim was
+  wrong and is corrected in later releases: a support file is highly
+  sensitive and must not be shared. See `SECURITY.md`.** Add `--support-site`
   to pick a site from a multi-site archive.
 
   Against a live fetch of the same network it produced identical infrastructure

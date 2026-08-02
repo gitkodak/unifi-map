@@ -34,7 +34,8 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
 - **Continuous integration** on every push and pull request, plus a repository
   hygiene job that fails if a snapshot, render or vendored font is ever
   committed.
-- **Behaviour against a real network.** Every feature here was exercised against
+- **Behaviour against a real network.** Every feature here, except the gaps
+  listed below, was exercised against
   a live UniFi console and, where relevant, a real support file. Claims in the
   documentation that carry numbers were measured rather than estimated.
 - **Two independent security reviews**, each performed by a different AI system
