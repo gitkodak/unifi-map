@@ -46,6 +46,16 @@ told something untrue and may have acted on it.
 
 ### Changed
 
+- The artwork page lists user-supplied artwork among the sources. An `icon` in
+  an overrides file is where a picture comes from when none of Ubiquiti's
+  catalogues has one, and the table describing where artwork comes from did not
+  mention it.
+- Each documentation page delivers what its opening sentence promises, checked
+  page by page rather than only that the links resolve. The artwork page
+  promised "what happens when there are none" while the glyph fallback sat on
+  the support-file page; three pages repeated their own title as their first
+  section; and the usage page promised commands and flags while also explaining
+  how to read a diagram.
 - The artwork page explains where artwork comes from, which its own opening
   sentence had been promising while the answer sat two files away. The output
   page lists every format rather than the two that needed prose. Both were the

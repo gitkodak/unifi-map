@@ -25,7 +25,7 @@ generic glyphs, which is the same thing the UniFi UI does with them.
 
 Those glyphs need the icon font, which only a controller serves, so a clone of
 this repository draws plain shapes there instead until it has one. See
-[the generic client glyph](docs/support-files.md#the-generic-client-glyph-and-why-it-is-awkward)
+[the generic client glyph](docs/artwork.md#the-generic-client-glyph-and-why-it-is-awkward)
 for the three routes to it. Against a live network, expect nearly every client
 to reach a real product render.
 

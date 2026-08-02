@@ -3,8 +3,6 @@
 Everything about giving `unifi-map` access to a controller, and what that
 access amounts to.
 
-## Credentials
-
 ```bash
 install -m 600 .env.example .env      # then edit
 ```

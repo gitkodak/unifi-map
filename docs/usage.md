@@ -1,9 +1,8 @@
 # Usage
 
-Every command and flag. The reference at the end is generated from the
-argument parser, so it cannot drift from `--help`.
-
-## Usage
+Every command and flag, and how to read what comes out of them. The reference
+at the end is generated from the argument parser, so it cannot drift from
+`--help`.
 
 ```bash
 unifi-map all                              # fetch + render
