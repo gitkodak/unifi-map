@@ -319,12 +319,30 @@ listed twice, and ordered by fit rather than by arrival.
   which is keeping the ancestor path back to the gateway so a slice still reads
   as part of one network.
 
-- **Multi-site handling, and a `sites` command.** Worth pairing: a multi-site
-  support file is now refused with a list of the sites in it, which is correct
-  but leaves discovery to an error message. A `sites` subcommand would make it
-  answerable before the failure. `--all-sites` is the natural companion, with a
-  separate cache directory per site, and both want testing against a real
-  multi-site console before the shape is fixed, since that is still untested.
+- **`--all-sites`, and a `sites` command.** Designed out with Jason 2026-08-02;
+  the full version is KAN-125. Each site gets its own diagrams, output directory
+  and cache directory, the last because `Snapshot.read()` globs a directory and
+  a snapshot is a full inventory.
+
+  Three things settled while thinking it through:
+
+  - **Spell it `--all-sites`, not `--site all`.** Site internal names are opaque
+    short strings, so a site called `all` is possible, and overloading the value
+    space would make the tool guess which was meant.
+  - **The restriction is on *naming* a network, not on networks.**
+    `--all-sites --per-network` is fine, since each site's networks land in its
+    own directory. `--all-sites --network IoT` is ambiguous and should be
+    refused. Jason's instinct was to forbid VLAN selection entirely; narrower is
+    better and keeps per-VLAN output working everywhere.
+  - **Support files can do this almost free, live cannot.** Every endpoint is
+    `api/s/{site}/...`: the site is always supplied and never discovered, so
+    live needs a site-listing call that has never been made here. A support file
+    already carries every site in `devices.json`. So the support-file half could
+    ship first, and `sites` is a hard prerequisite for the live half rather than
+    a companion to it.
+
+  Still untested against a real multi-site console, which is where this should
+  start.
 
 - **Historical clients**, opt-in and visibly dated. Codex's caveat is the right
   one and matches the rules here: an old association is not evidence of where
