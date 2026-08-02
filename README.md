@@ -908,6 +908,9 @@ parts you typed in.
 
 ## Also planned
 
+[`TODO.md`](TODO.md) is the full list: what is committed before the next
+version, what is next, and what is blocked and on what. A few highlights:
+
 - **An infrastructure view** alongside the topology view: gateway, switches, APs
   and their uplinks presented as a rack/cabling diagram rather than a client
   tree. `--no-clients` is a rough approximation of this today.

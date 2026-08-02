@@ -306,6 +306,20 @@ do not can offer it without having to guess what is useful.
   drawing. A config file is the alternative and shipping both would be worse
   than either.
 
+### Three places, and which one wins
+
+| Where | What it is for |
+| --- | --- |
+| `TODO.md` | The contributor-facing list. What and one line of why. |
+| This file | The reasoning, the constraints, what was tried and rejected. **Authoritative.** |
+| Jira epic KAN-114 | Status and workflow, not visible outside the house. |
+
+`TODO.md` exists because neither of the others is where somebody with a checkout
+would look: this file is written for agents and runs to hundreds of lines, and
+Jira needs an account. Two tests keep it from rotting, in `test_docs.py`: it may
+not plan work for an already-released version, and its "Before X" section must
+name the same version `cli.py` promises users in the deprecation warning.
+
 ### Tracked in Jira as well
 
 All of the below is also **epic KAN-114** in the `bhomelan` project, with a
@@ -505,15 +519,6 @@ listed twice, and ordered by fit rather than by arrival.
 
 ### Gaps worth considering
 
-- **`RELEASING.md` step 9 says CI cannot be checked from here. That is now
-  false.** `gh` 2.97.0 was installed and authenticated on 2026-08-02, and
-  `gh run list` works. The note telling a releaser to look at the Actions tab
-  and report CI as unconfirmed should become the command that actually checks
-  it, something like `gh run watch --exit-status`. Worth doing sooner than the
-  rest of this list, because it is a documented instruction that is wrong rather
-  than a feature that is missing.
-
-
 - **Provenance and confidence.** `Edge.asserted` marks an override-supplied link
   and nothing else distinguishes observed from inferred. A client placed from
   the v2 topology graph, one placed from `stat/sta`, and one whose fingerprint
@@ -635,7 +640,7 @@ listed twice, and ordered by fit rather than by arrival.
   breaking a published artifact, so it is a commitment rather than a chore. The
   entry point and build backend already exist; CI would need a `tags:` trigger.
 
-- **Remove the `sane` layout alias in 0.5.0.** Renamed to `tree`; `sane` is
+- **Remove the `sane` layout alias in 0.6.0.** Renamed to `tree`; `sane` is
   accepted, hidden from `--help` by `metavar`, and warns naming the version.
   Delete `DEPRECATED_LAYOUTS` in `render_dot.py`, the warning in `cmd_render`,
   the `choices` widening, and the `sane` Makefile target.

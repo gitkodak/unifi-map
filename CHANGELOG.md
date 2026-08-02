@@ -33,6 +33,11 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
+- `TODO.md`, the planned work in one contributor-facing place, since the
+  alternatives were a context file written for AI agents and a Jira instance
+  needing an account. Two tests keep it honest: it may not plan work for a
+  released version, and its commitment section must name the same version the
+  deprecation warning tells users.
 - `--transparent` draws no canvas, so a map can be dropped onto a page that
   already has a background. Covers SVG, PDF, PNG and draw.io. The theme still
   applies and still matters: with the default icon set, labels have no card
@@ -41,6 +46,17 @@ Refactors, docs and tests alone do not need a release at all.
 - Every demo screenshot is committed in both themes rather than only dark, so
   the documentation shows what the default actually produces instead of
   describing it.
+
+### Fixed
+
+- `RELEASING.md` actually tells you to check CI now. The previous entry claimed
+  this was corrected when `gh` was installed; the changelog said so and the file
+  still said CI could not be checked from here. The instruction now runs
+  `gh run watch`, and says to read the per-job output because `Dependency
+  advisories` is `continue-on-error` and reports success having failed inside.
+- `CLAUDE.md` said the `sane` layout alias goes in 0.5.0. It goes in 0.6.0,
+  which the code, the tests and the changelog all said; that one heading was
+  missed when the promise moved.
 
 ### Changed
 

@@ -119,9 +119,19 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
    git show vX.Y.Z:src/unifi_map/__init__.py | grep __version__
    ```
 
-   **CI cannot be checked from here.** `gh` is not installed on this
-   workstation, so the release finishes with CI unconfirmed; look at the Actions
-   tab. Say so plainly rather than reporting a green build nobody saw.
+   Then wait for CI rather than assuming it:
+
+   ```bash
+   gh run watch "$(gh run list --limit 1 --json databaseId -q '.[0].databaseId')" --exit-status
+   gh run view "$(gh run list --limit 1 --json databaseId -q '.[0].databaseId')" \
+     --json conclusion,jobs -q '.jobs[] | "\(.conclusion)\t\(.name)"'
+   ```
+
+   Check the per-job output, not only the overall result. `Dependency
+   advisories` is `continue-on-error`, so it reports success having failed
+   inside, which is deliberate but means the summary line is not the whole
+   story. If `gh` is unavailable on the machine you are releasing from, say CI
+   is unconfirmed rather than reporting a green build nobody saw.
 
 ## Things that have actually gone wrong
 
