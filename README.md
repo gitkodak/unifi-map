@@ -773,7 +773,7 @@ Things a controller cannot tell you, which you can state in an
 # something that was powered off when you ran the fetch. `parent` and `port`
 # are optional; without them it floats.
 [[device]]
-name = "Basement dumb switch"
+name = "Basement unmanaged switch"
 kind = "switch"            # gateway, switch, ap, bridge, wired_client,
                            # wireless_client or unknown
 ip = "10.0.0.9"            # optional

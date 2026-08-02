@@ -386,19 +386,21 @@ class TestDeclaredDevices:
         return apply(topo, parse(table))
 
     def test_a_declared_device_becomes_a_node(self, topo):
-        result = self._apply(topo, {"device": [{"name": "Dumb switch", "kind": "switch"}]})
-        node = result.topology.nodes["asserted-dumb-switch"]
-        assert node.label == "Dumb switch"
+        result = self._apply(topo, {"device": [{"name": "Unmanaged switch", "kind": "switch"}]})
+        node = result.topology.nodes["asserted-unmanaged-switch"]
+        assert node.label == "Unmanaged switch"
         assert node.kind is Kind.SWITCH
         assert result.devices_added == 1
 
     def test_it_is_marked_asserted_so_it_cannot_pass_for_observed(self, topo):
         # The whole point. A map that drew a typed-in device identically to a
         # reported one would misrepresent where its information came from.
-        result = self._apply(topo, {"device": [{"name": "Dumb switch"}]})
-        assert result.topology.nodes["asserted-dumb-switch"].asserted is True
+        result = self._apply(topo, {"device": [{"name": "Unmanaged switch"}]})
+        assert result.topology.nodes["asserted-unmanaged-switch"].asserted is True
         assert all(
-            not n.asserted for n in result.topology.nodes.values() if n.id != "asserted-dumb-switch"
+            not n.asserted
+            for n in result.topology.nodes.values()
+            if n.id != "asserted-unmanaged-switch"
         )
 
     def test_a_parent_produces_an_asserted_edge(self, topo):
@@ -406,11 +408,11 @@ class TestDeclaredDevices:
             topo,
             {
                 "device": [
-                    {"name": "Dumb switch", "kind": "switch", "parent": SWITCH_MAC, "port": 7}
+                    {"name": "Unmanaged switch", "kind": "switch", "parent": SWITCH_MAC, "port": 7}
                 ]
             },
         )
-        edge = next(e for e in result.topology.edges if e.src == "asserted-dumb-switch")
+        edge = next(e for e in result.topology.edges if e.src == "asserted-unmanaged-switch")
         assert edge.dst == SWITCH_MAC
         assert edge.label == "port 7"
         assert edge.asserted is True
@@ -422,24 +424,24 @@ class TestDeclaredDevices:
             topo,
             {
                 "device": [
-                    {"name": "Dumb switch", "kind": "switch", "parent": SWITCH_MAC},
-                    {"name": "Old laptop", "kind": "wired_client", "parent": "Dumb switch"},
+                    {"name": "Unmanaged switch", "kind": "switch", "parent": SWITCH_MAC},
+                    {"name": "Old laptop", "kind": "wired_client", "parent": "Unmanaged switch"},
                 ]
             },
         )
         parents = {e.src: e.dst for e in result.topology.edges}
-        assert parents["asserted-old-laptop"] == "asserted-dumb-switch"
+        assert parents["asserted-old-laptop"] == "asserted-unmanaged-switch"
 
     def test_a_declared_device_can_be_referenced_by_other_overrides(self, topo):
         result = self._apply(
             topo,
             {
-                "device": [{"name": "Dumb switch", "kind": "switch"}],
-                "link": [{"from": AP_MAC, "to": "Dumb switch"}],
+                "device": [{"name": "Unmanaged switch", "kind": "switch"}],
+                "link": [{"from": AP_MAC, "to": "Unmanaged switch"}],
             },
         )
         assert any(
-            e.src == AP_MAC and e.dst == "asserted-dumb-switch" for e in result.topology.edges
+            e.src == AP_MAC and e.dst == "asserted-unmanaged-switch" for e in result.topology.edges
         )
 
     def test_an_id_cannot_collide_with_a_mac(self, topo):
