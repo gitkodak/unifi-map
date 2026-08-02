@@ -1,129 +1,165 @@
 # Planned work
 
-What is coming, in one place. Kept because the alternatives are a 900-line
-context file written for AI agents and a Jira instance nobody outside this house
-can reach, and neither is where somebody looking at a checkout would think to
-look.
+Everything intended for this tool, whether or not it has been started. Kept so
+that "what is coming?" has an answer that does not require reading a 900-line
+context file or having an account on somebody's Jira.
 
-**Where the detail lives.** This file says *what* and *why in one line*.
-`CLAUDE.md` carries the reasoning, the constraints and the things already tried
-and rejected, and stays authoritative when the two disagree. Jira epic KAN-114
-tracks status. Anything here that contradicts `CLAUDE.md` is this file being
-out of date.
+Reviewed at every release. Nothing here carries a date, and items move down the
+list or out of it as often as they move up.
 
-Nothing here is a commitment except the section immediately below.
+**Where the detail lives.** This file is what and one line of why. `CLAUDE.md`
+carries the reasoning, the constraints and the approaches already tried and
+rejected, and wins if the two disagree. A `KAN-` reference is an internal ticket
+and not something you need.
 
-## Before 0.6.0
+---
 
-The only things actually promised. Each is promised in code, tests and the
-changelog, so removing them is not optional and the version number cannot move
-until they are done.
+## Making the map say how much it can be trusted
 
-- [ ] **Remove the `sane` layout alias.** Renamed to `tree` in 0.5.0, still
-      accepted, hidden from `--help`, and warning that it goes in 0.6.0. Delete
-      `DEPRECATED_LAYOUTS`, the warning in `cmd_render`, the widened `choices`,
-      the `sane` Makefile target, and the tests asserting the promise.
+The theme running through the next few items: this tool refuses to guess, and
+currently that refusal is invisible. A map drawn from a perfect fetch and one
+drawn from a thin one look equally authoritative.
 
-That is the whole list. `--transparent` and the both-theme screenshots are done
-and sitting in `Unreleased`; they need a release, not work.
+- **A diagnostic report** (KAN-115). `--report` describing the map it just drew:
+  how many nodes came from which endpoint, which clients were placed from
+  `stat/sta` versus the topology graph versus an override, what could not be
+  placed and why, artwork matches refused as ambiguous, networks a client
+  references that the controller does not list. Most of this is already decided
+  at runtime and thrown away as log lines.
+- **Provenance on the diagram itself.** An override-asserted link is drawn
+  dotted; nothing else distinguishes observed from inferred. A client placed
+  from the topology graph, one placed from `stat/sta`, and one whose fingerprint
+  was recovered from its name are drawn identically.
+- **Randomised client MACs** (KAN-129). Every join here is on MAC, so a phone
+  rotating its address appears as a new client unrelated to the old one. Explains
+  apparent duplicates. Detectable from the locally-administered bit.
 
-## Next, in the order that makes sense
+## More ways to look at the network
 
-Ranked by what makes the following item easier, not by appeal.
+- **An infrastructure view** (KAN-118). The console has a second diagram that is
+  not simply the client map with clients removed: port badges at both ends of
+  every link, speed-coloured edges, live CPU and memory, STP root. Specced in
+  detail already. Needs structured port data on `Edge` first, which today
+  carries a display label rather than a port, a speed and a medium.
+- **Generalised filters** (KAN-122). `--kind switch ap`, `--wireless-only`,
+  `--guest-only`, and `--root "Rack Switch"` for one subtree of a large map.
+  `--per-network` is a special case of this and already does the hard part,
+  which is keeping the path back to the gateway.
+- **Location and rack grouping** (KAN-121). Say in an overrides file which rack
+  something lives in, and have the diagram group by it. A controller cannot know
+  this, which is exactly what overrides are for.
+- **Colour by VLAN** (KAN-123). Segmentation visible at a glance. Needs a second
+  visual channel first: colour is never the only channel here, so that the output
+  survives greyscale and colourblind readers.
+- **Historical clients** (KAN-127). Opt-in, and visibly dated. An old association
+  is not evidence of where something is now, so it must never be drawn as a
+  current link.
 
-- [ ] **Diagnostic report** (KAN-115) — `--report` saying how trustworthy the
-      map it just drew is: what came from which endpoint, what could not be
-      placed and why, artwork matches refused as ambiguous. Most of these
-      decisions are already made at runtime and thrown away as log lines. Picked
-      first because everything after it is easier to debug once it exists.
-- [ ] **Infrastructure view** (KAN-118) — the console's own second diagram,
-      already specced in detail from a screenshot. Needs structured port data on
-      `Edge` first, which currently carries a display label like `"port 12"`
-      rather than a port, a speed and a medium.
-- [ ] **Normalised JSON export** (KAN-119) — `Topology` as JSON rather than raw
-      controller payloads, since the model is the stable thing. Shares the
-      provenance work with the report above, so do them together.
-- [ ] **Overrides tooling** (KAN-120) — `overrides check` to validate selectors
-      without rendering, and a candidates generator seeded with what could not
-      be placed. Must emit commented boilerplate that still requires a human to
-      state the relationship; never a guessed parent.
-- [ ] **Generalised filters** (KAN-122) — `--kind`, `--wireless-only`,
-      `--guest-only`, and `--root NAME` for a subtree. `--per-network` already
-      does the hard part, which is keeping the path back to the gateway.
-- [ ] **Mermaid export**, and an interactive HTML viewer (KAN-126) — the first
-      is cheap and puts a topology somewhere it currently cannot go, a README or
-      a wiki. The second is larger and needs a decision about JavaScript before
-      it starts.
-- [ ] **Drawn device icons** — seven Pillow-drawn primitives replacing the
-      Graphviz shapes, in `--icons builtin` and as the fallback inside
-      `--icons unifi` when hardware is not in Ubiquiti's catalogue.
-      `_render_cloud()` already proved the approach.
-- [ ] **Location and rack grouping** (KAN-121) — clusters from an override
-      field. Prototype the layout before fixing the schema; clusters interact
-      badly with `--layout unifi` and have never been tried against the
-      `unflatten` pass.
+## More things to do with the output
 
-## Blocked, and on what
+- **Mermaid export.** Cheap, and puts a topology somewhere it currently cannot
+  go: a README, a wiki page, anything that renders Markdown natively. Loses all
+  artwork, necessarily.
+- **A normalised JSON export** (KAN-119). `Topology` as JSON rather than raw
+  controller payloads, because the model is the stable thing and UniFi's schemas
+  are not. Lets people build inventory checks or Home Assistant integrations
+  without learning endpoints that move between versions.
+- **An interactive HTML viewer** (KAN-126). Search and filter, pan and zoom,
+  click a node to highlight its path to the gateway, collapse client subtrees.
+  That last one addresses the problem this tool exists for. Wants a decision
+  about JavaScript before it starts.
+- **Drawn device icons.** Seven Pillow-drawn shapes replacing the Graphviz
+  primitives, used in `--icons builtin` and as the fallback inside
+  `--icons unifi` for hardware absent from Ubiquiti's catalogue.
+  `_render_cloud()` already proved the approach: ours, so no network and no
+  licensing question.
 
-- [ ] **`diff` between two snapshots** (KAN-117) — blocked twice. Each fetch
-      overwrites the last, so there is no history (KAN-116), and rotating client
-      MACs would report every run as churn (KAN-129). Both are hard blockers.
-- [ ] **Snapshot retention** (KAN-116) — opt-in timestamped mode. Not a changed
-      default: `fetch` always reflecting current state is documented behaviour.
-- [ ] **Randomised client MACs** (KAN-129) — document at minimum, ideally detect
-      via the locally-administered bit.
-- [ ] **`--color-by vlan`** (KAN-123) — needs a second visual channel decided
-      first. Colour is never the only channel here, deliberately.
-- [ ] **Wireless signal overlays** (KAN-124) — verify `rssi`, `channel` and band
-      exist in a live `stat/sta` before designing anything. The demo dataset
-      lacks them, but it is synthetic and proves nothing either way.
-- [ ] **OpenBao credential backend** (KAN-128) — not blocked, despite an earlier
-      note here saying so. OpenBao has been live since 2026-07-24.
+## Comparing one fetch to another
 
-### Blocked on a network nobody here has
+- **A `diff` subcommand** (KAN-117). What changed between two snapshots: devices
+  added or removed, clients that moved switch, port, AP, network or address.
+  Snapshots are already immutable timestamped JSON, so this is a pure function
+  over two graphs.
+- **Snapshot retention** (KAN-116). Required first, because each fetch currently
+  overwrites the last and there is no history to compare. Opt-in, since `fetch`
+  always reflecting current state is documented behaviour.
 
-Labelled `needs-real-world-data` in Jira. These are not waiting on effort. Until
-somebody with the relevant setup turns up, work on them is guessing.
-`CONTRIBUTING.md` asks for exactly this.
+## Credentials and configuration
 
-- [ ] **`--all-sites` and a `sites` command** (KAN-125) — one controller, one
-      site, ever. Live cannot even enumerate sites today: every endpoint takes
-      the site as a parameter.
-- [ ] **Performance at scale** — never profiled on a large network.
-      `sysid_for_name()` scanning the catalogue per candidate is the likely
-      first problem.
-- [ ] **Support-file limits** — all four defaults come from a single 154 MiB
-      archive.
-- [ ] **Other controller versions** — everything is verified against UniFi OS
-      5.1.26 with Network 10.5.67.
+- **An OpenBao/Vault backend** (KAN-128). `config.py` is the only module that
+  reads the environment specifically so this stays a single-file change.
+- **Preferences in the environment** (KAN-130), so somebody whose taste differs
+  from the defaults need not retype them. Weighed against reproducibility
+  between machines; a config file is the alternative and shipping both would be
+  worse than either.
+- **Retiring the `UDM_*` environment names.** They warn already. No removal
+  version promised, on purpose.
 
-## Undecided
+## Overrides
 
-- [ ] **Whether a release should produce an artifact.** Today it is a tag and a
-      changelog entry. `pip install unifi-map` would mean owning the name and
-      never breaking a published build, plus placing the man page in
-      `share/man/man1`. A commitment rather than a chore. See `RELEASING.md`.
-- [ ] **Preferences in the environment** (KAN-130) — `UNIFI_MAP_THEME` and
-      friends, so somebody whose taste differs from the defaults need not retype
-      them. The objection is reproducibility between machines; a config file is
-      the alternative and shipping both would be worse than either.
-- [ ] **Retiring the `UDM_*` environment names.** Warning is in and no removal
-      version is promised, on purpose. Rename them in the maintainer's own
-      credential file before deleting, or the breakage is discovered by a
-      failing fetch.
+- **`overrides check`** (KAN-120), validating selectors without rendering.
+  Overrides fail loudly by design, and today the only way to find out is to
+  render the whole map.
+- **A candidates generator** (KAN-120). Emit a skeleton overrides file seeded
+  with what could not be placed. Commented boilerplate that still requires a
+  human to state the relationship; never a guessed parent.
+
+## Multi-site
+
+- **`--all-sites` and a `sites` command** (KAN-125). Each site to its own
+  diagrams, output directory and cache. Note that live cannot enumerate sites at
+  all today: every endpoint takes the site as a parameter, so `sites` is a
+  prerequisite rather than a companion.
+
+---
+
+## Committed to a version
+
+The only dated promise. Kept short deliberately, because a list of commitments
+is a different thing from a list of intentions.
+
+- **Removing the `sane` layout alias in 0.6.0.** Renamed to `tree` in 0.5.0,
+  still accepted, hidden from `--help`, and warning that it goes. The version is
+  promised in the code, the tests and the changelog.
+
+## Waiting on a network nobody here has
+
+Not waiting on effort. Everything here has only ever run against one controller,
+one site, one support file and one controller version, so work on these would be
+guessing. If any of this describes your setup, `CONTRIBUTING.md` says what would
+help and what not to send.
+
+- **Multi-site anything.** One site, ever.
+- **Performance at scale.** Never profiled on a large network.
+  `sysid_for_name()` scanning the catalogue per candidate is the likely first
+  problem.
+- **The support-file limits.** All four defaults come from a single 154 MiB
+  archive.
+- **Other controller versions.** Verified against UniFi OS 5.1.26 with Network
+  10.5.67.
+- **Wireless signal overlays** (KAN-124). Band, channel width and RSSI, if they
+  are in a live `stat/sta`. The demo dataset lacks them, but it is synthetic and
+  proves nothing either way.
+
+## Undecided, rather than unstarted
+
+- **Whether a release should produce an artifact.** Today it is a tag and a
+  changelog entry. `pip install unifi-map` would mean owning the name, never
+  breaking a published build, and placing the man page in `share/man/man1`. A
+  commitment rather than a chore.
 
 ## Considered and not planned
 
-Recorded so they are not proposed again as oversights.
+Recorded so they are not re-proposed as oversights.
 
 - **A dependency lock file.** Hashed constraints are ongoing maintenance for a
   dev-only benefit, and Dependabot plus the advisory job cover staying current.
   Revisit if this ever ships an artifact people install.
 - **NetBox / IPAM export.** Subsumed by the JSON export above rather than
-  refused outright: the ask was structured JSON *for importing into* NetBox, and
-  once that exists a transform against our schema beats us tracking theirs. An
-  export is fine; a *sync* is not, since `session.get` being the only HTTP verb
-  is a headline property.
+  refused: the ask was structured JSON *for importing into* NetBox, and once
+  that export exists, a transform against our stable schema beats us tracking
+  theirs. An export is fine; a *sync* is not, since `session.get` being the only
+  HTTP verb in the source is a headline property.
 - **An `AbstractRenderer` protocol.** Two renderers exist, both already pure
   functions from `Topology` to text. A protocol over two implementations is a
   layer to maintain before it has been shown to be needed.

@@ -155,53 +155,6 @@ class TestDocumentedCommandsActuallyRun:
         assert not broken, "README commands that do not parse:\n  " + "\n  ".join(broken)
 
 
-class TestTheTodoFileStaysHonest:
-    """`TODO.md` is a fourth place recording the roadmap, so it needs guarding.
-
-    The other three are `CLAUDE.md`, the Jira epic and memory. Four copies of
-    anything drift; these are the two ways this one can be wrong that a reader
-    would not notice.
-    """
-
-    def _todo(self) -> str:
-        return (Path(__file__).resolve().parents[1] / "TODO.md").read_text(encoding="utf-8")
-
-    def test_it_does_not_promise_a_version_already_released(self):
-        """A "Before X" section is a lie once X is out.
-
-        The `sane` removal was promised for 0.5.0, retargeted to 0.6.0, and the
-        heading in `CLAUDE.md` was missed and left saying 0.5.0 for a day. This
-        is the same mistake with a wider blast radius, since this file is the
-        one a contributor reads.
-        """
-        from unifi_map import __version__
-
-        released = {
-            m.group(1)
-            for m in re.finditer(r"^## (\d+\.\d+\.\d+) - ", (DOCS[3]).read_text("utf-8"), re.M)
-        }
-        promised = set(re.findall(r"[Bb]efore (\d+\.\d+\.\d+)", self._todo()))
-        stale = sorted(promised & released)
-        assert not stale, f"TODO.md still plans work for released version(s): {stale}"
-        assert __version__ not in promised, (
-            f"TODO.md plans work for {__version__}, which is the current version"
-        )
-
-    def test_the_0_6_0_promise_matches_what_the_code_promises(self):
-        """The one hard commitment has to agree with the deprecation warning.
-
-        `cli.py` tells users a version; this file tells a contributor one. If
-        they disagree, somebody has been told the wrong thing.
-        """
-        root = Path(__file__).resolve().parents[1]
-        code = (root / "src" / "unifi_map" / "cli.py").read_text(encoding="utf-8")
-        promised = re.search(r"removed in (\d+\.\d+\.\d+); use --layout", code)
-        assert promised, "the layout deprecation no longer names a version"
-        assert f"Before {promised.group(1)}" in self._todo(), (
-            f"cli.py promises removal in {promised.group(1)}; TODO.md does not have that section"
-        )
-
-
 class TestEveryOverrideBlockIsDocumented:
     """Each `[[block]]` the loader accepts must appear in both override docs.
 

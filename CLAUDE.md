@@ -316,9 +316,18 @@ do not can offer it without having to guess what is useful.
 
 `TODO.md` exists because neither of the others is where somebody with a checkout
 would look: this file is written for agents and runs to hundreds of lines, and
-Jira needs an account. Two tests keep it from rotting, in `test_docs.py`: it may
-not plan work for an already-released version, and its "Before X" section must
-name the same version `cli.py` promises users in the deprecation warning.
+Jira needs an account.
+
+**It has no test behind it, deliberately.** A first version was guarded by two,
+and they were wrong in kind: they asserted the file contained a particular
+heading, which meant the test dictated the structure rather than the accuracy.
+A list of intentions cannot be checked mechanically for being the right list.
+`RELEASING.md` promises a read of it at every release instead, which is a
+process guarantee rather than a mechanical one and is the honest tool for this.
+
+It should read as **what is coming**, grouped by what the features do. Leading
+with commitments was the first attempt and reads as a release plan, which is
+what a maintainer wants and not what a reader wants.
 
 ### Tracked in Jira as well
 

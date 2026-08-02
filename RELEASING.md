@@ -45,6 +45,17 @@ found now than after the tag exists.
 grep -rn "0\.5\.0" --include="*.md" --include="*.py" .
 ```
 
+**Read `TODO.md` and correct it.** It is the answer anyone gets to "what is
+coming?", and it is the file with no test behind it: it describes intentions, and
+a test that checked its shape would only force the shape rather than the truth.
+Every release is the promised moment to look. Specifically:
+
+* Anything shipped in this version comes out.
+* Anything that turned out to be a bad idea moves to "considered and not
+  planned", with the reason. That section is worth more than the rest, because
+  it is what stops a settled question being reopened.
+* The "committed to a version" section names only versions not yet released.
+
 Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
 
 * Every entry is under exactly one `### Added`, `### Changed` or `### Fixed`.
