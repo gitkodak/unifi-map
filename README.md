@@ -502,6 +502,42 @@ going; with `--no-progress`, or piped to a file, walking a much larger archive
 produces no output at all until it finishes, so a slow run and a hung one look
 identical.
 
+## JSON, for programs
+
+```bash
+unifi-map render -f json
+```
+
+The normalised topology rather than the controller's payloads: nodes, edges,
+networks and counts. The model is the stable thing here and UniFi's schemas are
+not, so this is what to build an inventory check or a Home Assistant integration
+against.
+
+It is also the least dangerous way to hand the data to another program. A cached
+snapshot is a full controller dump; this is the graph, and it honours
+`--obfuscate`, overrides and `--per-network` exactly as the diagram does, so
+whatever cleaning was applied to the picture applies here.
+
+```json
+{
+  "schema": 1,
+  "generator": "unifi-map 0.6.0",
+  "counts": { "gateway": 1, "switch": 4, "ap": 3, "internet": 1 },
+  "nodes": [
+    { "id": "02:00:00:00:01:01", "label": "gateway", "kind": "gateway",
+      "ip": "10.0.0.1", "model": "UDMPROMAX", "sysid": 59954 }
+  ],
+  "edges": [ { "child": "02:00:00:00:01:01", "parent": "internet", "label": "WAN" } ]
+}
+```
+
+Edges are named `child` and `parent` rather than `src` and `dst`, because a
+reader should not have to guess which way round they point. Facts that are not
+known are omitted rather than set to `null`, and flags appear only when true.
+
+**The schema may gain fields and will not lose them**, which is what `schema`
+tracks. Placement provenance is the obvious addition once it exists.
+
 ## Mermaid, for documentation
 
 ```bash
@@ -1162,7 +1198,7 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
-| `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid}` | Output formats (default: svg drawio) | `svg drawio` |
+| `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid,json}` | Output formats (default: svg drawio) | `svg drawio` |
 | `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
 | `--theme` `{dark,light}` | Colour theme (default: light) | `light` |

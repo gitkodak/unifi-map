@@ -46,6 +46,7 @@ from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
+from .render_json import render_json
 from .render_mermaid import render_mermaid
 from .report import CONSENT, Extras, build_report
 from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
@@ -68,7 +69,7 @@ DEFAULT_ASSET_CACHE = Path("cache/assets")
 DEFAULT_OVERRIDES = Path("overrides.toml")
 
 # svg first: it is the format that actually solves the readability problem.
-ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio", "mermaid")
+ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio", "mermaid", "json")
 
 # Below this many clients a view is not wide enough to need staggering, and
 # unflatten instead chains sibling APs into a pointless diagonal cascade.
@@ -596,6 +597,12 @@ def _write_outputs(
             force=force,
             guard=False,
         )
+        log.info("  %s", path)
+
+    if "json" in formats:
+        # Like mermaid, no Graphviz involved: this is the model, not a drawing.
+        path = out_dir / f"{stem}.json"
+        _write_output(path, render_json(topo, title or None), force=force, guard=False)
         log.info("  %s", path)
 
     if "drawio" in formats:

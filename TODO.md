@@ -64,9 +64,6 @@ drawn from a thin one look equally authoritative.
 
 ## More things to do with the output
 
-- **Mermaid export.** Cheap, and puts a topology somewhere it currently cannot
-  go: a README, a wiki page, anything that renders Markdown natively. Loses all
-  artwork, necessarily.
 - **A normalised JSON export** (KAN-119). `Topology` as JSON rather than raw
   controller payloads, because the model is the stable thing and UniFi's schemas
   are not. Lets people build inventory checks or Home Assistant integrations

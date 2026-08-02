@@ -42,6 +42,29 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
+- `-f json` writes the normalised topology: nodes, edges, networks and counts,
+  rather than the controller's payloads. The model is the stable thing here and
+  UniFi's schemas are not, so this is what to build an inventory check or an
+  integration against, and it is a far smaller disclosure than a snapshot. It
+  honours `--obfuscate`, overrides and `--per-network` like the diagram does.
+  Carries a `schema` number: fields may be added and will not be removed.
+- `-f mermaid` writes a `.mmd` that GitHub, GitLab and most wikis draw in
+  place. It reaches the one destination the other formats cannot: a page that
+  renders the diagram itself, with no file to open and no colour scheme to
+  guess. Artwork is lost, necessarily, since Mermaid draws boxes and text; node
+  kind is carried by shape and link meaning by line style, so nothing depends on
+  colour. The README embeds a live one of the demo.
+- `unifi-map overrides check` applies an overrides file against the cached
+  snapshot and reports, without rendering anything. Overrides fail loudly by
+  design, so the only way to find a stale selector used to be producing a whole
+  map. Exits non-zero on the first selector matching nothing or several things,
+  which makes it usable in a hook or in CI. A missing file is an error rather
+  than a pass.
+- `unifi-map shape` reports artwork resolution rates, topology depth, the
+  Graphviz version and the offline device count. The artwork counts were already
+  computed and discarded as log lines, and they measure the most fragile join in
+  the tool. Depth because fan-out alone does not distinguish a flat network from
+  a daisy chain. Graphviz version because layout differs between them.
 - `unifi-map shape`, which prints a short plain-text description of the shape
   of a network: counts, fan-out, which field names the controller returns, and
   versions. Meant for a bug report or for the features that are stuck waiting on
