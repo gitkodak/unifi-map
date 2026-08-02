@@ -378,16 +378,44 @@ listed twice, and ordered by fit rather than by arrival.
   vision. Grouping by VLAN needs a second channel (a cluster, a node shape, a
   border style) or it is the one feature that quietly breaks that promise.
 
-- **OpenBao/Vault credential backend.** Already anticipated: `config.py` is the
-  only module that reads the environment specifically so this stays a
-  single-file change, and its docstring says so. The blocker is not the code,
-  it is that `vault.bhomelan.com` does not exist yet.
+- **OpenBao credential backend.** Already anticipated: `config.py` is the only
+  module that reads the environment specifically so this stays a single-file
+  change, and its docstring says so.
 
-- **NetBox/IPAM export.** Recorded and **not planned.** It means owning a schema
-  mapping against another project's API versions, for a system this project does
-  not use, with no second consumer to justify the abstraction. If somebody wants
-  it, the Mermaid or JSON exports plus a script of their own is the honest
-  answer. Revisit if a real user asks.
+  **Not blocked.** This was first written up here as waiting on a Vault instance
+  to exist. It already does: OpenBao has been live at `vault.bhomelan.com` since
+  2026-07-24, initialised, unsealed, AppRole auth verified, with a pilot secret
+  migrated. `homelab-apps/scripts/render_secrets.py` is the pattern to copy.
+
+  When built, the key must still never reach `os.environ`. `layout.py` strips
+  the credential variables from Graphviz's environment precisely so an exported
+  key cannot leak that way, and a backend that helpfully exports what it fetched
+  would undo that silently.
+
+- **NetBox/IPAM export: subsumed by the JSON export above, not declined.**
+  First written up as declined on three grounds, one of which does not survive
+  scrutiny and is recorded here so the argument is not reused.
+
+  What holds: mapping onto NetBox's model is lossy and opinionated, forcing
+  answers this tool has no basis for (is a wireless client a Device? is an
+  association a Cable?), and it means tracking another project's API across
+  breaking majors. Nothing in this homelab runs NetBox, Nautobot, phpIPAM or
+  RackTables; checked against the app inventory rather than assumed.
+
+  What does not hold: "no second use case justifies the abstraction". A NetBox
+  export is not an abstraction, it is an output format, exactly like the Mermaid
+  export proposed alongside it and welcomed. That reason was reaching for a rule
+  that did not apply.
+
+  The real answer is the normalised JSON export. The proposal was for structured
+  JSON of connections, roles and port mappings *for importing into* NetBox,
+  which is that export with a NetBox-shaped schema. Once it exists, a NetBox
+  user writes a short transform against our stable schema instead of us tracking
+  theirs.
+
+  One line worth keeping either way: an export is fine, a **sync** is not.
+  `session.get` being the only HTTP verb in the source is a headline property,
+  and creating or updating objects in somebody else's system would end it.
 
 ### Gaps worth considering
 
