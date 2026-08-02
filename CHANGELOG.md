@@ -44,7 +44,26 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- The README is split. It had reached 1233 lines, which is past the point where
+  anybody reads it, and is now 220: what the tool is, what it produces, how to
+  install it, and how to see a map without touching your network. Everything
+  else is a page under `docs/`, indexed from the README and organised by why
+  somebody would open it rather than by what it is about.
+
+  The `## Manual overrides` section is gone rather than moved: `docs/overrides.md`
+  already explained the same feature at greater length, so the README was
+  carrying a second copy to drift against.
+
+  The documentation guards were widened before the split, not after. Every link
+  in the README used to be a same-file `#anchor`; most are now
+  `docs/artwork.md#something`, which can fail two new ways that a browser
+  renders happily. The link check resolves cross-file targets and verifies the
+  heading exists in the file it names, the flag and command checks read every
+  document rather than the README alone, and the generated flag reference now
+  lives in `docs/usage.md`. Splitting first would have traded one long file for
+  eight with less checking than before.
 
 ## 0.7.2 - 2026-08-02
 

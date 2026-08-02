@@ -1,9 +1,15 @@
 """Documentation checks.
 
-The README is long, which is exactly why the summary at the top links into it.
-Those links break silently: renaming a heading does not fail anything, the anchor
-just stops resolving and quietly sends the reader to the top of the page. That is
-the failure this file exists to catch.
+Links break silently: renaming a heading does not fail anything, the anchor just
+stops resolving and quietly sends the reader to the top of the page. That is the
+failure this file exists to catch.
+
+**The documentation is several files, so these checks are too.** When the README
+was one long file every link was same-file and `#anchor` was the only shape that
+existed. Splitting it turned most of them into `docs/artwork.md#something`, which
+is a target in another file and a new way to be wrong. The guards were widened
+before the split rather than after, because a split that quietly reduced link
+safety would have been a poor trade for a shorter file.
 """
 
 from __future__ import annotations
@@ -15,20 +21,38 @@ from typing import ClassVar
 
 import pytest
 
-DOCS = [
-    Path(__file__).resolve().parents[1] / name
-    for name in (
-        "README.md",
-        "SECURITY.md",
-        "CONTRIBUTING.md",
-        "CHANGELOG.md",
-        "AI_DISCLOSURE.md",
-        "HUMAN_INPUT.md",
-    )
-]
+ROOT = Path(__file__).resolve().parents[1]
+
+# Named rather than positional. Several checks are about the README
+# specifically, and they used to reach it as DOCS[0], which stopped being true
+# the moment the list was sorted.
+README = ROOT / "README.md"
+
+# Everything a reader might follow a link into. Discovered rather than listed:
+# a new file under docs/ should be checked without anybody remembering to add
+# it here, which is the mistake this file exists to prevent elsewhere.
+DOCS = sorted(
+    [
+        ROOT / name
+        for name in (
+            "README.md",
+            "SECURITY.md",
+            "CONTRIBUTING.md",
+            "CHANGELOG.md",
+            "AI_DISCLOSURE.md",
+            "HUMAN_INPUT.md",
+            "RELEASING.md",
+            "TODO.md",
+        )
+        if (ROOT / name).is_file()
+    ]
+    + sorted((ROOT / "docs").glob("*.md"))
+)
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.*)$", re.M)
-_INTERNAL_LINK = re.compile(r"\]\(#([^)]+)\)")
+# Same-file `#anchor`, and cross-file `path.md` or `path.md#anchor`. Anything
+# with a scheme is somebody else's problem.
+_LINK = re.compile(r"\]\((?!https?:|mailto:)([^)\s]+)\)")
 
 
 def _anchor(title: str) -> str:
@@ -38,12 +62,34 @@ def _anchor(title: str) -> str:
     return re.sub(r"\s+", "-", slug.strip())
 
 
-@pytest.mark.parametrize("path", [p for p in DOCS if p.is_file()], ids=lambda p: p.name)
-def test_every_internal_link_resolves_to_a_heading(path: Path):
-    text = path.read_text(encoding="utf-8")
-    anchors = {_anchor(m.group(2)) for m in _HEADING.finditer(text)}
-    broken = sorted({link for link in _INTERNAL_LINK.findall(text) if link not in anchors})
-    assert not broken, f"{path.name} links to headings that do not exist: {broken}"
+def _anchors(path: Path) -> set[str]:
+    return {_anchor(m.group(2)) for m in _HEADING.finditer(path.read_text(encoding="utf-8"))}
+
+
+@pytest.mark.parametrize("path", DOCS, ids=lambda p: p.name)
+def test_every_link_resolves(path: Path):
+    """Both shapes: an anchor in this file, and a path to another one.
+
+    A cross-file link can fail two ways a same-file link cannot: the file may
+    not exist, and it may exist without the heading. Both are silent in a
+    browser, which renders the link and lands the reader somewhere unhelpful.
+    """
+    broken: list[str] = []
+    for target in _LINK.findall(path.read_text(encoding="utf-8")):
+        file_part, _, anchor = target.partition("#")
+
+        if not file_part:
+            if anchor not in _anchors(path):
+                broken.append(f"#{anchor} (no such heading here)")
+            continue
+
+        destination = (path.parent / file_part).resolve()
+        if not destination.is_file():
+            broken.append(f"{target} (no such file)")
+        elif destination.suffix == ".md" and anchor and anchor not in _anchors(destination):
+            broken.append(f"{target} (file exists, heading does not)")
+
+    assert not broken, f"{path.name} has broken links: {sorted(broken)}"
 
 
 def test_the_feature_list_is_the_first_section():
@@ -52,7 +98,7 @@ def test_the_feature_list_is_the_first_section():
     Directly below the screenshots and above everything else, which is where it
     was asked to be. Anything that pushes it further down defeats the point.
     """
-    lines = (DOCS[0]).read_text(encoding="utf-8").splitlines()
+    lines = README.read_text(encoding="utf-8").splitlines()
     headings = [(i, line) for i, line in enumerate(lines) if line.startswith("## ")]
     assert headings, "README has no sections at all"
     index, first = headings[0]
@@ -65,19 +111,25 @@ def test_the_feature_list_is_the_first_section():
 _FLAGS_NOT_NEEDING_PROSE = {"--help", "--version", "--formats", "--verbose"}
 
 
-def _readme_prose() -> str:
-    """The README with the generated flag table removed.
+def _prose() -> str:
+    """Every document, with the generated flag table removed.
 
     The table lists every flag by construction, so leaving it in would make
     `test_every_flag_is_mentioned_in_the_readme` pass no matter what. That test
     is about a flag being *explained*, which only the prose does.
+
+    All of them rather than the README alone: the documentation is several files
+    now, and a flag explained in `docs/usage.md` is explained.
     """
-    text = (DOCS[0]).read_text(encoding="utf-8")
-    start = text.find("<!-- BEGIN GENERATED FLAGS -->")
-    return text if start == -1 else text[:start]
+    out = []
+    for path in DOCS:
+        text = path.read_text(encoding="utf-8")
+        start = text.find("<!-- BEGIN GENERATED FLAGS -->")
+        out.append(text if start == -1 else text[:start])
+    return "\n".join(out)
 
 
-def test_every_flag_is_mentioned_in_the_readme():
+def test_every_flag_is_explained_somewhere():
     """A flag nobody documents is a flag nobody finds.
 
     Three flags were added in one sitting and none reached the README until a
@@ -102,13 +154,13 @@ def test_every_flag_is_mentioned_in_the_readme():
                     collect(sub)
 
     collect(build_parser())
-    readme = _readme_prose()
+    readme = _prose()
     missing = sorted(f for f in flags - _FLAGS_NOT_NEEDING_PROSE if f not in readme)
-    assert not missing, f"flags absent from README.md: {missing}"
+    assert not missing, f"flags explained in no document: {missing}"
 
 
 class TestDocumentedCommandsActuallyRun:
-    """Every `unifi-map ...` the README prints must parse.
+    """Every `unifi-map ...` any document prints must parse.
 
     `test_every_flag_is_mentioned_in_the_readme` checks the docs use the right
     vocabulary; nothing checked the grammar. So all seven documented
@@ -126,12 +178,14 @@ class TestDocumentedCommandsActuallyRun:
     _SYNOPSIS = re.compile(r"[\[\]{}]")
 
     def _commands(self) -> list[str]:
-        text = DOCS[0].read_text(encoding="utf-8").replace("\\\n", " ")
-        found = [
-            m.group(1).strip()
-            for m in self._COMMAND.finditer(text)
-            if not self._SYNOPSIS.search(m.group(1))
-        ]
+        found = []
+        for path in DOCS:
+            text = path.read_text(encoding="utf-8").replace("\\\n", " ")
+            found += [
+                m.group(1).strip()
+                for m in self._COMMAND.finditer(text)
+                if not self._SYNOPSIS.search(m.group(1))
+            ]
         assert len(found) > 15, f"only found {len(found)} commands; did the regex rot?"
         return found
 
@@ -166,7 +220,7 @@ def test_every_output_format_is_in_the_readme_table():
     """
     from unifi_map.cli import ALL_FORMATS
 
-    text = (DOCS[0]).read_text(encoding="utf-8")
+    text = README.read_text(encoding="utf-8")
     start = text.index("## Output")
     section = text[start : text.index("\n## ", start + 1)]
     missing = [f for f in ALL_FORMATS if f"`{f}`" not in section]
@@ -234,12 +288,12 @@ def test_the_generated_flag_reference_is_current():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    text = (DOCS[0]).read_text(encoding="utf-8")
+    text = module.PAGE.read_text(encoding="utf-8")
     start = text.find(module.BEGIN)
     end = text.find(module.END)
-    assert start != -1 and end != -1, "README.md has no generated flag reference; run `make docs`"
+    assert start != -1 and end != -1, f"{module.PAGE.name} has no flag reference; run `make docs`"
     assert text[start : end + len(module.END)] == module.render(), (
-        "README.md flag reference is out of date. Run `make docs`."
+        f"{module.PAGE.name} flag reference is out of date. Run `make docs`."
     )
 
 

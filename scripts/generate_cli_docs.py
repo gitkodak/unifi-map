@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate the flag reference at the bottom of `README.md`.
+"""Regenerate the flag reference at the bottom of `docs/usage.md`.
 
-The flags are introduced throughout the README, next to whatever they are for,
-which is the right place to explain one and a poor place to look one up. This
-adds the lookup table without duplicating the explanations.
+The flags are introduced throughout the documentation, next to whatever they
+are for, which is the right place to explain one and a poor place to look one
+up. This adds the lookup table without duplicating the explanations.
 
 Generated rather than written, for the same reason the man page will be: two
 copies of a help string means one of them is wrong, and nothing would fail. The
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-README = ROOT / "README.md"
+PAGE = ROOT / "docs" / "usage.md"
 
 BEGIN = "<!-- BEGIN GENERATED FLAGS -->"
 END = "<!-- END GENERATED FLAGS -->"
@@ -92,7 +92,7 @@ def render() -> str:
 
 
 def main() -> int:
-    text = README.read_text(encoding="utf-8")
+    text = PAGE.read_text(encoding="utf-8")
     section = render()
 
     if BEGIN in text and END in text:
@@ -102,10 +102,10 @@ def main() -> int:
         updated = text.rstrip("\n") + "\n\n" + section + "\n"
 
     if updated == text:
-        print("README.md flag reference is current.")
+        print("docs/usage.md flag reference is current.")
         return 0
-    README.write_text(updated, encoding="utf-8")
-    print("README.md flag reference updated.")
+    PAGE.write_text(updated, encoding="utf-8")
+    print("docs/usage.md flag reference updated.")
     return 0
 
 
