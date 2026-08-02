@@ -300,16 +300,21 @@ def _pick_site(devices: Any, requested: str | None) -> tuple[str, list[dict[str,
         return requested, real[requested]
 
     if len(real) > 1:
-        # Picking silently would quietly map the wrong network, so say so.
-        chosen = max(real, key=lambda name: len(real[name]))
-        log.warning(
-            "Support file holds %d sites (%s); mapping %r, which has the most "
-            "devices. Use --support-site to choose another.",
-            len(real),
-            ", ".join(sorted(real)),
-            chosen,
+        # Refused rather than guessed. This used to map whichever site had the
+        # most devices and warn, which is the one thing the rest of this tool
+        # never does: `resolve()` calls an ambiguous selector a loud error,
+        # `sysid_for_name()` returns nothing rather than pick a favourite, and
+        # an unreported uplink gets a placeholder rather than a plausible
+        # parent. "Most devices" is a guess with no claim to being the one you
+        # meant, and its failure mode is the worst kind: a complete, ordinary
+        # looking map of the wrong network, off a warning nobody reads when
+        # stderr is redirected.
+        available = ", ".join(sorted(real))
+        raise SupportFileError(
+            f"This support file holds {len(real)} sites ({available}). Pass "
+            "--site NAME to say which one to map; there is no sensible way to "
+            "choose for you."
         )
-        return chosen, real[chosen]
 
     name = next(iter(real))
     return name, real[name]

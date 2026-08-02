@@ -661,13 +661,27 @@ class TestMultipleSites:
         _write_archive(path, members)
         return path
 
-    def test_the_largest_site_wins_by_default(self, tmp_path, caplog):
+    def test_several_sites_and_no_choice_is_refused(self, tmp_path):
+        # This used to map whichever site had the most devices, on a warning.
+        # Nothing else in this tool guesses: an ambiguous override selector is
+        # an error, an ambiguous product name resolves to nothing, and an
+        # unreported uplink gets a placeholder rather than a plausible parent.
+        # The failure mode here is the worst of the three, because the result
+        # is a complete and ordinary looking map of somebody else's network.
         path = self._two_site_archive(tmp_path)
-        with caplog.at_level("WARNING"):
-            snapshot = load_support_file(path)
-        assert len(snapshot.get("device")) == 3
-        # Choosing silently would quietly map the wrong network.
-        assert "2 sites" in caplog.text
+        with pytest.raises(SupportFileError, match="Pass --site"):
+            load_support_file(path)
+
+    def test_the_refusal_lists_what_is_available(self, tmp_path):
+        path = self._two_site_archive(tmp_path)
+        with pytest.raises(SupportFileError, match="branch, default"):
+            load_support_file(path)
+
+    def test_one_site_still_needs_no_flag(self, tmp_path):
+        # Refusing here would be ceremony: there is nothing to choose between.
+        path = tmp_path / "single.tgz"
+        _write_archive(path, _default_members())
+        assert load_support_file(path).get("device")
 
     def test_a_named_site_is_honoured(self, tmp_path):
         path = self._two_site_archive(tmp_path)

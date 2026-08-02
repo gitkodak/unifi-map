@@ -427,9 +427,12 @@ Two smaller caveats:
 - Only the LAN networks appear. The controller's live network list also includes
   WAN and VPN entries, which no client belongs to and which nothing draws.
 
-For a console with more than one site, the largest is mapped and a warning says
-so; pass `--site NAME` to choose another. (`--support-site` was the original
-spelling and still works, but `--site` covers both inputs and is preferred.)
+A support file from a console with more than one site is **refused** until you
+say which one you want, and the error lists them. Mapping the largest and
+warning was tried first and was wrong: the result is a complete, entirely
+ordinary looking map, and if it is the wrong site nothing about the diagram
+says so. Pass `--site NAME`. (`--support-site` was the original spelling and
+still works, but `--site` covers both inputs and is preferred.)
 
 Only seven files are ever read out of the archive, as a stream. It is never
 unpacked, which matters because a support file also contains extensive logs.
@@ -991,7 +994,7 @@ equivalent. Command options must follow the subcommand.
 | `--cache-dir` | Where controller snapshots are read/written (default: cache) | `cache` |
 | `--asset-cache` | Where downloaded artwork is cached (default: cache/assets). Kept separate from --cache-dir so a read-only snapshot directory stays clean. | `cache/assets` |
 | `--support-file` `PATH` | Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add --offline to stop that too. |  |
-| `--site` `NAME` | Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi-site support file. Without it, a live fetch uses UNIFI_SITE or `default`, and a support file uses the site with the most devices. |  |
+| `--site` `NAME` | Which site to read. Overrides UNIFI_SITE for a live fetch, and picks the site from a multi-site support file. Without it, a live fetch uses UNIFI_SITE or `default`; a support file holding more than one site is refused rather than chosen between. |  |
 | `--support-max-member` `SIZE` | Largest single file to decode from a support archive (default 64M). Accepts a plain number or a K/M/G suffix. Raise it if a large site is refused. | `64M` |
 | `--support-max-total` `SIZE` | Total to decode from a support archive across all files (default 128M). | `128M` |
 | `--support-max-entries` `N` | How many archive entries to walk before giving up (default 100000). Separate from the size caps because entry count does not follow the bytes decoded. | `100000` |

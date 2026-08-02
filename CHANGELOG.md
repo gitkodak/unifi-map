@@ -47,6 +47,14 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Fixed
 
+- A support file holding more than one site is refused until `--site` says
+  which, instead of mapping whichever site had the most devices and warning.
+  The old behaviour was the only place this tool guessed: an ambiguous override
+  selector is a loud error, an ambiguous product name resolves to nothing, and
+  an unreported uplink gets a placeholder rather than a plausible parent. It was
+  also the worst place to guess, because the result is a complete and entirely
+  ordinary looking map, and nothing about the diagram says it is the wrong
+  network. A single-site archive still needs no flag.
 - Every directory this tool creates is restricted, not only the last one.
   `--out-dir out/private/maps` created three directories and locked down one,
   leaving the other two at the umask. Output filenames come from network names,

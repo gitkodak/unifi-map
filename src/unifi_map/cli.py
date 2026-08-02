@@ -773,8 +773,8 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="Which site to read. Overrides UNIFI_SITE for a live fetch, and "
         "picks the site from a multi-site support file. Without it, a live "
-        "fetch uses UNIFI_SITE or `default`, and a support file uses the site "
-        "with the most devices.",
+        "fetch uses UNIFI_SITE or `default`; a support file holding more than "
+        "one site is refused rather than chosen between.",
     )
     shared.add_argument(
         "--support-site",
