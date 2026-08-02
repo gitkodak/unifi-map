@@ -257,7 +257,90 @@ Restored after being deleted by accident in 9b18a1a, where a section replacement
 spanned two headings and took this with it. If you replace a range between
 headings, check what was in between.
 
+### Proposals from an external review, with assessments
+
+Six suggestions from agy, 2026-08-02, recorded with what was thought about them
+so the thinking is not redone. Ordered by how well they fit what is already
+here, which is not the order they arrived in.
+
+- **A `diff` subcommand**, comparing two cached snapshots and reporting what
+  moved. The strongest of the set. Snapshots are already immutable, timestamped
+  JSON, and `build_topology()` already turns one into a graph, so a diff is a
+  pure function over two `Topology` objects and needs no new input path. It also
+  makes the snapshot cache worth something beyond re-rendering: this file
+  already calls each snapshot "a record of what the network looked like at that
+  moment" and nothing currently reads one that way.
+
+  **Prerequisite, and it is a real one:** randomised client MACs, listed below
+  as its own gap. Every join here is on MAC, so a phone rotating its address
+  appears as one device leaving and another arriving. A diff would report that
+  as churn on every run and be ignored within a week. Solve the MAC problem
+  first or the feature is noise.
+
+- **`generate-overrides`**, emitting a skeleton `overrides.toml` seeded with the
+  nodes the tool could not place. Closes a loop that is currently half open: the
+  run already counts clients with no reported uplink and points at overrides,
+  and the "no reconciliation report" gap below is asking for the same
+  information from the other end. One command could answer both.
+
+- **Mermaid export.** Cheap and a clean architectural fit: another pure function
+  from `Topology` to text, beside `render_dot` and `render_drawio`. Worth
+  documenting that it necessarily loses artwork, so it is the shape of the
+  network and nothing else. Good for a README or a wiki page, which is a place
+  this tool's output currently cannot go.
+
+- **An interactive HTML viewer.** Collapsible client subtrees address the exact
+  problem the tool exists for, and path highlighting is genuinely useful on a
+  busy map. Two things to decide before starting: it wants JavaScript, and
+  vendoring a pan/zoom library sits badly beside the rule against vendoring
+  anything else, so either write the few hundred lines by hand or accept the
+  dependency deliberately. It can still be a pure function from `Topology` to
+  text, which is what keeps it in the existing shape rather than beside it.
+
+- **Location and rack grouping via overrides.** Philosophically the best fit of
+  all of them: a controller cannot know which rack something is in, which is
+  precisely what `[[device]]` and friends are for. The unknown is rendering.
+  Graphviz clusters interact badly with `--layout unifi` (`rankdir=LR` with
+  ortho routing), there is already a legend cluster in `sane`, and the
+  `unflatten` stagger pass has not been tried against nested clusters. Prototype
+  the layout before committing to the schema.
+
+- **Link and wireless metadata overlays.** Partly already specced: the
+  infrastructure view below covers speed and media colouring, and
+  `port_table[].speed`/`.media` were verified present on a live snapshot. Fold
+  that half in there rather than tracking it twice.
+
+  The wireless half (RSSI, band, channel width) is **not verified**. The demo
+  dataset carries only `essid` and `radio_name`, but it is synthetic and
+  `make_demo_snapshot.py` does not emit those fields at all, so its silence
+  proves nothing either way. Check a live `stat/sta` before promising anything.
+
+  **`--color-by vlan` conflicts with a standing rule.** Colour is never the only
+  channel here, because the palette has to survive greyscale and deuteran
+  vision. Grouping by VLAN needs a second channel (a cluster, a node shape, a
+  border style) or it is the one feature that quietly breaks that promise.
+
+- **OpenBao/Vault credential backend.** Already anticipated: `config.py` is the
+  only module that reads the environment specifically so this stays a
+  single-file change, and its docstring says so. The blocker is not the code,
+  it is that `vault.bhomelan.com` does not exist yet.
+
+- **NetBox/IPAM export.** Recorded and **not planned.** It means owning a schema
+  mapping against another project's API versions, for a system this project does
+  not use, with no second consumer to justify the abstraction. If somebody wants
+  it, the Mermaid or JSON exports plus a script of their own is the honest
+  answer. Revisit if a real user asks.
+
 ### Gaps worth considering
+
+- **`RELEASING.md` step 9 says CI cannot be checked from here. That is now
+  false.** `gh` 2.97.0 was installed and authenticated on 2026-08-02, and
+  `gh run list` works. The note telling a releaser to look at the Actions tab
+  and report CI as unconfirmed should become the command that actually checks
+  it, something like `gh run watch --exit-status`. Worth doing sooner than the
+  rest of this list, because it is a documented instruction that is wrong rather
+  than a feature that is missing.
+
 
 - **Provenance and confidence.** `Edge.asserted` marks an override-supplied link
   and nothing else distinguishes observed from inferred. A client placed from
