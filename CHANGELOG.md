@@ -44,7 +44,13 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-Nothing yet.
+### Fixed
+
+- The README's `## Output` table lists `mermaid` and `json`. It had not, since
+  both were added, so the first place a reader looks to find out what the tool
+  can produce named five formats out of seven. A test now checks the table
+  against `ALL_FORMATS`: the existing guard covers flag names, not the values a
+  flag accepts, which is how the table fell behind twice without failing.
 
 ## 0.7.0 - 2026-08-02
 

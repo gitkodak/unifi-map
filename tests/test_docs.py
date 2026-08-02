@@ -155,6 +155,24 @@ class TestDocumentedCommandsActuallyRun:
         assert not broken, "README commands that do not parse:\n  " + "\n  ".join(broken)
 
 
+def test_every_output_format_is_in_the_readme_table():
+    """`## Output` must list every format `-f` accepts.
+
+    `test_every_flag_is_mentioned_in_the_readme` checks flag *names*, not the
+    *values* a flag takes, so `ALL_FORMATS` grew twice without that table
+    noticing. Scoped to the section rather than the whole file: a format
+    mentioned in passing elsewhere is not the same as being listed where a
+    reader goes to find out what the tool can produce.
+    """
+    from unifi_map.cli import ALL_FORMATS
+
+    text = (DOCS[0]).read_text(encoding="utf-8")
+    start = text.index("## Output")
+    section = text[start : text.index("\n## ", start + 1)]
+    missing = [f for f in ALL_FORMATS if f"`{f}`" not in section]
+    assert not missing, f"formats absent from the Output table: {missing}"
+
+
 class TestEveryOverrideBlockIsDocumented:
     """Each `[[block]]` the loader accepts must appear in both override docs.
 

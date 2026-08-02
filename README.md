@@ -131,6 +131,8 @@ Judge it on that basis.
 | `png` | Raster, when something insists on it. |
 | `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net). Lucid also documents `.drawio` import, though that has not been tried. |
 | `dot` | Graphviz source, to tweak styling by hand. |
+| `mermaid` | Text that GitHub, GitLab and most wikis draw in place. No artwork; shape only. [More below](#mermaid-for-documentation). |
+| `json` | The normalised topology, for programs rather than people. [More below](#json-for-programs). |
 
 ## Install
 
