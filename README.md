@@ -193,7 +193,7 @@ getting a first map out of it. Everything else is a page of its own.
 | [Usage](docs/usage.md) | Every command and flag, and how to read the diagram. The flag reference is generated from the parser. |
 | [Credentials](docs/credentials.md) | Connecting to a controller, and what an API key can actually do. |
 | [Support files](docs/support-files.md) | Mapping without credentials, and why the file is a secret. |
-| [Output formats](docs/output.md) | JSON, Mermaid, `--transparent`, and turning the spinner off. |
+| [Output formats](docs/output.md) | What each format is for, plus `--transparent` and turning the spinner off. |
 | [Overrides](docs/overrides.md) | Stating what the controller cannot see: unreported links, nesting, corrections. |
 | [Artwork](docs/artwork.md) | Where the pictures come from, how they are matched, and the licensing position. |
 | [Sharing a map](docs/sharing.md) | `--obfuscate`, and the report meant for a bug report. |
@@ -201,14 +201,3 @@ getting a first map out of it. Everything else is a page of its own.
 | [Security](SECURITY.md) | The credential model, what reaches Ubiquiti's CDN, support-file risk. |
 | [Contributing](CONTRIBUTING.md) | Including which data would genuinely help. |
 | [Planned work](TODO.md) | What is coming, what is blocked and on what. |
-
-## Also planned
-
-[`TODO.md`](TODO.md) is the full list: what is committed before the next
-version, what is next, and what is blocked and on what. A few highlights:
-
-- **An infrastructure view** alongside the topology view: gateway, switches, APs
-  and their uplinks presented as a rack/cabling diagram rather than a client
-  tree. `--no-clients` is a rough approximation of this today.
-
-

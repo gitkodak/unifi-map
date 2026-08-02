@@ -46,8 +46,9 @@ drawn from a thin one look equally authoritative.
 - **An infrastructure view** (KAN-118). The console has a second diagram that is
   not simply the client map with clients removed: port badges at both ends of
   every link, speed-coloured edges, live CPU and memory, STP root. Specced in
-  detail already. Needs structured port data on `Edge` first, which today
-  carries a display label rather than a port, a speed and a medium.
+  detail already. `--no-clients` is the rough approximation available today.
+  Needs structured port data on `Edge` first, which currently carries a display
+  label rather than a port, a speed and a medium.
 - **Generalised filters** (KAN-122). `--kind switch ap`, `--wireless-only`,
   `--guest-only`, and `--root "Rack Switch"` for one subtree of a large map.
   `--per-network` is a special case of this and already does the hard part,
