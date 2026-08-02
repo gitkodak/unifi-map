@@ -833,3 +833,66 @@ class TestLegacyVariableNames:
             },
         )
         assert config.host == "right.example.com"
+
+
+class TestAnExistingOutputDirectoryIsLeftAlone:
+    """Only a directory this tool created may be tightened to 0700.
+
+    `_restrict` said exactly that in its own docstring while the caller ran it
+    unconditionally after `mkdir(exist_ok=True)`. Pointing `--out-dir` at a
+    shared directory silently took it from 0775 to 0700 and locked out everyone
+    else, which is a hard failure to attribute to a diagram tool.
+    """
+
+    def test_a_directory_we_created_is_private(self, tmp_path):
+        from unifi_map.cli import _mkdir_private
+
+        target = tmp_path / "fresh"
+        _mkdir_private(target)
+        assert target.is_dir()
+        assert oct(target.stat().st_mode)[-3:] == "700"
+
+    def test_an_existing_directory_keeps_its_mode(self, tmp_path):
+        from unifi_map.cli import _mkdir_private
+
+        target = tmp_path / "shared"
+        target.mkdir()
+        target.chmod(0o775)
+        _mkdir_private(target)
+        assert oct(target.stat().st_mode)[-3:] == "775", "somebody else's directory was tightened"
+
+    def test_missing_parents_are_created(self, tmp_path):
+        from unifi_map.cli import _mkdir_private
+
+        target = tmp_path / "a" / "b" / "c"
+        _mkdir_private(target)
+        assert target.is_dir()
+
+
+class TestPerNetworkFilenamesAreUnique:
+    """Distinct networks must not land on the same file.
+
+    `_safe_name` maps "IoT A", "IoT-A" and "IoT/A" all to "iot-a". The second
+    diagram overwrote the first, and quietly: the file it replaced carried this
+    tool's own provenance marker, so the overwrite guard let it through.
+    """
+
+    def test_names_differing_only_in_punctuation_get_distinct_stems(self):
+        from unifi_map.cli import _unique_names
+
+        stems = _unique_names(["IoT A", "IoT-A", "IoT/A"])
+        assert len(set(stems.values())) == 3, f"collision remains: {stems}"
+
+    def test_an_uncontested_name_keeps_the_plain_slug(self):
+        from unifi_map.cli import _unique_names
+
+        assert _unique_names(["Servers", "IoT A"])["Servers"] == "servers"
+
+    def test_a_stem_does_not_depend_on_the_order_networks_arrive_in(self):
+        # A counter would renumber diagrams whenever the controller reordered
+        # its networks, so the suffix is derived from the name itself.
+        from unifi_map.cli import _unique_names
+
+        forward = _unique_names(["IoT A", "IoT-A", "Servers"])
+        reverse = _unique_names(["Servers", "IoT-A", "IoT A"])
+        assert forward == reverse

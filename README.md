@@ -433,16 +433,21 @@ spelling and still works, but `--site` covers both inputs and is preferred.)
 Only seven files are ever read out of the archive, as a stream. It is never
 unpacked, which matters because a support file also contains extensive logs.
 
-Reading one is capped three ways, since the whole point is that somebody else
-can send you one. Two cap what is decoded into memory, and the third caps how
-much of the archive is walked, which is a separate concern because entry count
-does not follow the bytes decoded.
+Reading one is capped four ways, since the whole point is that somebody else can
+send you one. Two cap what is decoded into memory; the others cap how much of
+the archive is walked, in entries and in uncompressed bytes, because neither
+follows from the bytes decoded.
+
+The last one is the only defence against a compression bomb. Streaming tar has
+to read through a member to reach the next header, so a file this tool skips
+still costs its full decompressed size, and the size caps never see it.
 
 | Flag | Default | Guards against |
 | --- | --- | --- |
 | `--support-max-member` | 64M | one huge member decompressed on trust |
 | `--support-max-total` | 128M | many members that are individually fine |
 | `--support-max-entries` | 100,000 | an archive that is cheap to decompress and enormous to iterate |
+| `--support-max-archive` | 4G | a small archive that expands enormously |
 
 ```bash
 unifi-map all --support-file support-XXXX.tgz \
@@ -991,6 +996,7 @@ equivalent. Command options must follow the subcommand.
 | `--fetch-fingerprints` | Allow downloading Ubiquiti's client fingerprint database, which is what gives clients real product artwork when reading a support file. Off by default: reading a support file otherwise contacts nothing. |  |
 | `--fetch-icon-font` | With --support-file, also fetch the generic client glyph font from a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because Ubiquiti publish no copy of that font. Off by default. |  |
 | `--icon-font` `DIR` | Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See the README. |  |
+| `--support-max-archive` `SIZE` | Total uncompressed bytes to walk in a support archive, counting files that are skipped (default 4G). This is what stops a small archive that expands enormously; the other caps only measure what is decoded. | `4G` |
 | `--no-progress` | Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading. |  |
 | `--out-dir` | Where diagrams are written (default: out) | `out` |
 | `-v`, `--verbose` | Log every artwork lookup, including the ones that found nothing, and name nodes that --obfuscate would otherwise hide. |  |

@@ -125,6 +125,31 @@ MAX_TOTAL_BYTES = 128 * 1024 * 1024
 # scale, this is raisable like the others. Refusing to guess costs one flag.
 MAX_ARCHIVE_ENTRIES = 100_000
 
+# The cap the three above do not provide: total uncompressed bytes the archive
+# is allowed to make us walk, wanted or not.
+#
+# Streaming tar has to read through a member's data to reach the next header, so
+# a member we skip still costs its full decompressed size. Nothing above notices:
+# the size caps only measure members we decode, and the entry cap counts headers.
+# A 2 MiB archive holding one 2 GiB run of zeros passes all three and costs 21
+# seconds of CPU, measured. Scaled up it is an afternoon.
+#
+# The default bounds the amplification rather than removing it: 4 GiB of zeros
+# still costs about 40 seconds, from an archive a few MiB on disk. It is set
+# against the compressed size of the one real support file seen (154 MiB),
+# because that file is gone and its *uncompressed* size was never measured, so
+# there is no honest basis for a tighter number. Treat 4 GiB as "obviously
+# absurd" rather than as a measured ceiling, and tune it if you have data.
+MAX_ARCHIVE_BYTES = 4 * 1024**3
+
+
+def _human(size: int) -> str:
+    """Byte count as a person would write it, for error messages."""
+    for unit, scale in (("GiB", 1024**3), ("MiB", 1024**2), ("KiB", 1024)):
+        if size >= scale:
+            return f"{size / scale:.6g} {unit}"
+    return f"{size} bytes"
+
 
 class SupportFileError(RuntimeError):
     """Raised when a support file is unreadable or missing what we need."""
@@ -135,6 +160,7 @@ def _read_members(
     max_member: int = MAX_MEMBER_BYTES,
     max_total: int = MAX_TOTAL_BYTES,
     max_entries: int = MAX_ARCHIVE_ENTRIES,
+    max_archive: int = MAX_ARCHIVE_BYTES,
 ) -> dict[str, bytes]:
     """Pull the wanted members out of the archive in a single streaming pass.
 
@@ -162,6 +188,7 @@ def _read_members(
     found: dict[str, bytes] = {}
     total = 0
     entries = 0
+    walked = 0
     try:
         with tarfile.open(path, "r|gz") as archive:
             for member in archive:
@@ -172,6 +199,16 @@ def _read_members(
                         "keep walking it. The one archive measured held about 2,500. "
                         "Raise it with --support-max-entries if yours is legitimately "
                         "larger, and please open an issue saying so."
+                    )
+                # Counted for every member, including the ones skipped below,
+                # because reaching the next header decompresses this one either
+                # way. This is the only cap that sees a compression bomb.
+                walked += max(0, member.size)
+                if walked > max_archive:
+                    raise SupportFileError(
+                        f"{path} expands to more than {_human(max_archive)}. That is "
+                        "far larger than any real support file, and reading further "
+                        "would cost time without reading anything useful."
                     )
                 if len(found) == len(MEMBERS):
                     break
@@ -359,7 +396,13 @@ def _parse_neighbours(raw: bytes | None) -> dict[str, str]:
         if fields[-1] in {"FAILED", "INCOMPLETE"}:
             continue
         address = fields[0]
-        mac = fields[fields.index("lladdr") + 1].lower()
+        # A line ending in `lladdr` has no MAC after it. Truncated log lines are
+        # ordinary, and this file comes out of an attacker-supplied archive, so
+        # the index is checked rather than assumed.
+        index = fields.index("lladdr") + 1
+        if index >= len(fields):
+            continue
+        mac = fields[index].lower()
         if not _is_address(address) or mac in neighbours:
             continue
         neighbours[mac] = address
@@ -588,6 +631,7 @@ def load_support_file(
     max_member: int = MAX_MEMBER_BYTES,
     max_total: int = MAX_TOTAL_BYTES,
     max_entries: int = MAX_ARCHIVE_ENTRIES,
+    max_archive: int = MAX_ARCHIVE_BYTES,
 ) -> Snapshot:
     """Read *path* and return a Snapshot equivalent to a live fetch.
 
@@ -604,7 +648,7 @@ def load_support_file(
     Raises `SupportFileError` if the archive is unreadable or does not carry
     the device and topology data a map needs.
     """
-    members = _read_members(path, max_member, max_total, max_entries)
+    members = _read_members(path, max_member, max_total, max_entries, max_archive)
     missing = [MEMBERS[name] for name in ("devices", "topology") if name not in members]
     if missing:
         raise SupportFileError(

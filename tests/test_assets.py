@@ -525,6 +525,14 @@ class TestNetworkFailure:
             content = b""
             headers: ClassVar[dict[str, str]] = {}
 
+            # Streamed like a real response; an empty body still has to be
+            # iterable now that the reader is bounded rather than eager.
+            def iter_content(self, chunk_size=8192):
+                return iter(())
+
+            def close(self):
+                return None
+
         def fake_get(url, **kwargs):
             calls.append(url)
             return Missing()
@@ -553,28 +561,62 @@ class TestNetworkFailure:
 class TestResourceLimits:
     """Artwork arrives from a CDN or from a user-supplied override path."""
 
+    class _Streamed:
+        """A response shaped like the streaming ones the code now requests.
+
+        The doubles here used to expose only `.content`, which matched a plain
+        `requests.get`. Downloads are streamed now precisely so an oversized body
+        is never fully resident, so the double has to stream too or the test
+        would be asserting against an interface the code no longer uses.
+        """
+
+        status_code = 200
+
+        def __init__(self, body: bytes, declared: str | None = None):
+            self._body = body
+            self.headers = {"Content-Length": declared} if declared is not None else {}
+            self.closed = False
+            self.chunks_served = 0
+
+        def iter_content(self, chunk_size=8192):
+            for start in range(0, len(self._body), chunk_size):
+                self.chunks_served += 1
+                yield self._body[start : start + chunk_size]
+
+        def close(self):
+            self.closed = True
+
+        def raise_for_status(self):
+            return None
+
     def test_an_oversized_response_is_not_treated_as_artwork(self, tmp_path, monkeypatch):
         from unifi_map.assets import MAX_ASSET_BYTES
 
-        class Huge:
-            status_code = 200
-            content = b"x" * 16
-            headers: ClassVar[dict[str, str]] = {"Content-Length": str(MAX_ASSET_BYTES + 1)}
-
-        monkeypatch.setattr("unifi_map.assets.requests.get", lambda *a, **k: Huge())
-        # Refused on the declared length, without buffering the body.
+        response = self._Streamed(b"x" * 16, declared=str(MAX_ASSET_BYTES + 1))
+        monkeypatch.setattr("unifi_map.assets.requests.get", lambda *a, **k: response)
         assert AssetStore(cache_dir=tmp_path / "c").client_icon(1) is None
+        # Refused on the declared length, so the body is never read at all.
+        assert response.chunks_served == 0
+        assert response.closed
 
     def test_a_lying_content_length_is_still_caught(self, tmp_path, monkeypatch):
         from unifi_map.assets import MAX_ASSET_BYTES
 
-        class Liar:
-            status_code = 200
-            content = b"x" * (MAX_ASSET_BYTES + 1)
-            headers: ClassVar[dict[str, str]] = {"Content-Length": "10"}
-
-        monkeypatch.setattr("unifi_map.assets.requests.get", lambda *a, **k: Liar())
+        response = self._Streamed(b"x" * (MAX_ASSET_BYTES + 1), declared="10")
+        monkeypatch.setattr("unifi_map.assets.requests.get", lambda *a, **k: response)
         assert AssetStore(cache_dir=tmp_path / "c").client_icon(1) is None
+
+    def test_reading_stops_at_the_cap_rather_than_after_it(self, tmp_path, monkeypatch):
+        # The point of streaming: a body twice the cap must not be buffered
+        # whole before being rejected.
+        from unifi_map.assets import MAX_ASSET_BYTES
+
+        response = self._Streamed(b"x" * (MAX_ASSET_BYTES * 2), declared=None)
+        monkeypatch.setattr("unifi_map.assets.requests.get", lambda *a, **k: response)
+        assert AssetStore(cache_dir=tmp_path / "c").client_icon(1) is None
+        assert response.closed
+        served = response.chunks_served * 64 * 1024
+        assert served <= MAX_ASSET_BYTES + 64 * 1024, f"buffered {served} bytes past the cap"
 
     def test_the_pillow_bomb_threshold_is_tightened(self):
         from PIL import Image

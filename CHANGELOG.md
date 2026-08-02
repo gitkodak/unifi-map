@@ -33,6 +33,43 @@ Refactors, docs and tests alone do not need a release at all.
 
 Nothing yet.
 
+## 0.4.1 - 2026-08-01
+
+A code review by an external AI system, distinct from the two security audits
+and the two documentation reviews. Eight findings, all reproduced and fixed.
+
+### Fixed
+
+- An existing output directory is no longer tightened to `0700`. `--out-dir`
+  pointed at a shared directory silently took it from `0775` to `0700` and
+  locked out everyone else, despite the code saying in its own comment that it
+  must only restrict directories it created.
+- `--per-network` no longer overwrites one diagram with another. Network names
+  differing only in punctuation ("IoT A", "IoT-A", "IoT/A") produced the same
+  filename, and the overwrite guard passed it because the file it replaced was
+  this tool's own. Colliding names now get a short digest of the name, which is
+  stable whatever order the networks arrive in.
+- A support archive can no longer force unbounded decompression. Streaming tar
+  reads through a member to reach the next header, so a member this tool skips
+  still costs its full uncompressed size, and neither size cap measured it: a
+  2 MiB archive holding 2 GiB of zeros cost 21 seconds of CPU. `--support-max-archive`
+  caps total uncompressed bytes walked, skipped members included.
+- A declared `[[device]]` can name a parent declared later in the file. Parents
+  were resolved while devices were still being created, so it worked in one
+  order only and failed as "matches nothing on the map", which reads as a typo.
+- Artwork downloads are streamed and stop at the size cap rather than being
+  measured after arrival, so an oversized body is never fully resident. The
+  client fingerprint database had no size cap at all and now has one.
+- Artwork and catalogue caches are written to a temporary file and renamed, as
+  snapshots and rendered output already were, so an interrupted or concurrent
+  run cannot leave a truncated file. An unreadable cached icon is now discarded
+  and refetched rather than returned broken forever.
+- Malformed input produces an error rather than a traceback: an unreadable
+  cached snapshot, a neighbour line ending in `lladdr`, and a glyph map whose
+  values are not numbers.
+- The provenance check reads 4 KiB rather than reading the whole file and
+  slicing 4 KiB off it.
+
 ## 0.4.0 - 2026-08-01
 
 ### Deprecated

@@ -467,3 +467,62 @@ class TestDeclaredDevices:
     def test_an_unresolvable_parent_is_a_loud_error(self, topo):
         with pytest.raises(OverrideError):
             self._apply(topo, {"device": [{"name": "Thing", "parent": "no-such-device"}]})
+
+
+class TestDeclaredDevicesAreOrderIndependent:
+    """A declared device may name a parent declared later in the file.
+
+    The comment claimed parents were resolved "after every declared device
+    exists" while resolving them inside the creation loop, so this worked in one
+    order only. The failure reads as a typo, naming a parent that "matches
+    nothing on the map", rather than as ordering.
+    """
+
+    def _apply(self, text: str, tmp_path):
+        from unifi_map.model import Topology
+
+        path = tmp_path / "o.toml"
+        path.write_text(text)
+        return apply(Topology(), load(path))
+
+    CHILD_FIRST = """
+[[device]]
+name = "Child"
+kind = "switch"
+parent = "Parent"
+
+[[device]]
+name = "Parent"
+kind = "switch"
+"""
+
+    PARENT_FIRST = """
+[[device]]
+name = "Parent"
+kind = "switch"
+
+[[device]]
+name = "Child"
+kind = "switch"
+parent = "Parent"
+"""
+
+    def test_a_parent_declared_later_still_resolves(self, tmp_path):
+        result = self._apply(self.CHILD_FIRST, tmp_path)
+        assert result.devices_added == 2
+        assert len(result.topology.edges) == 1
+
+    def test_both_orders_produce_the_same_graph(self, tmp_path):
+        first = self._apply(self.CHILD_FIRST, tmp_path)
+        second = self._apply(self.PARENT_FIRST, tmp_path)
+        assert sorted(first.topology.nodes) == sorted(second.topology.nodes)
+        assert [(e.src, e.dst) for e in first.topology.edges] == [
+            (e.src, e.dst) for e in second.topology.edges
+        ]
+
+    def test_a_genuinely_missing_parent_is_still_an_error(self, tmp_path):
+        # The fix must not turn a real typo into a silent no-op.
+        with pytest.raises(OverrideError, match="matches nothing"):
+            self._apply(
+                '[[device]]\nname = "Child"\nkind = "switch"\nparent = "Nowhere"\n', tmp_path
+            )

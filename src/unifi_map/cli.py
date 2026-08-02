@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import logging
 import os
 import sys
@@ -43,6 +44,7 @@ from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
+from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
 from .support import MAX_MEMBER_BYTES as SUPPORT_MAX_MEMBER
 from .support import MAX_TOTAL_BYTES as SUPPORT_MAX_TOTAL
@@ -106,6 +108,7 @@ GLOBAL_DEFAULTS = {
     "support_max_member": SUPPORT_MAX_MEMBER,
     "support_max_total": SUPPORT_MAX_TOTAL,
     "support_max_entries": SUPPORT_MAX_ENTRIES,
+    "support_max_archive": SUPPORT_MAX_ARCHIVE,
     "fetch_fingerprints": False,
     "fetch_icon_font": False,
     "icon_font": None,
@@ -140,6 +143,32 @@ def _bytes_arg(raw: str) -> int:
 def _safe_name(text: str) -> str:
     keep = [c if (c.isalnum() or c in "-_") else "-" for c in text]
     return "".join(keep).strip("-").lower() or "network"
+
+
+def _unique_names(names: list[str]) -> dict[str, str]:
+    """Map each network name to a filename stem no other network shares.
+
+    `_safe_name` is not injective: "IoT A", "IoT-A" and "IoT/A" all become
+    "iot-a". Written straight out, the second network overwrote the first, and
+    silently, because the file it replaced carried this tool's own provenance
+    marker and so passed the overwrite guard.
+
+    Collisions get a short digest of the original name rather than a counter, so
+    a given network keeps its filename whatever order the networks arrive in.
+    """
+    slugs: dict[str, list[str]] = {}
+    for name in names:
+        slugs.setdefault(_safe_name(name), []).append(name)
+
+    resolved: dict[str, str] = {}
+    for slug, colliding in slugs.items():
+        if len(colliding) == 1:
+            resolved[colliding[0]] = slug
+            continue
+        for name in colliding:
+            digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:6]
+            resolved[name] = f"{slug}-{digest}"
+    return resolved
 
 
 def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
@@ -264,6 +293,7 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
             max_member=args.support_max_member,
             max_total=args.support_max_total,
             max_entries=args.support_max_entries,
+            max_archive=args.support_max_archive,
         )
     snapshot.write(args.cache_dir)
     log.info("Wrote snapshot to %s/", args.cache_dir)
@@ -272,13 +302,30 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
     return 0
 
 
-def _restrict(directory: Path) -> None:
-    """Make a directory we created private, best effort.
+def _mkdir_private(directory: Path) -> None:
+    """Create *directory*, and make it private only if we created it.
 
-    Only applied to directories this tool creates. Somebody who deliberately
-    points `--out-dir` at a shared location has made a choice, and silently
-    tightening an existing directory would break it.
+    The distinction is the whole point and was previously lost: this used to run
+    unconditionally after `mkdir(exist_ok=True)`, so pointing `--out-dir` at an
+    existing shared directory silently took it from 0775 to 0700 and locked out
+    everyone else. Somebody who chose a shared location has made a choice.
+
+    `exist_ok=False` is what tells us which case we are in; there is no race-free
+    way to ask afterwards.
     """
+    try:
+        directory.mkdir(parents=True)
+    except FileExistsError:
+        return
+    except OSError:
+        # Let the caller's own write fail with something more informative.
+        log.debug("Could not create %s", directory, exc_info=True)
+        return
+    _restrict(directory)
+
+
+def _restrict(directory: Path) -> None:
+    """Tighten a directory to 0700, best effort."""
     try:
         directory.chmod(0o700)
     except OSError:
@@ -298,7 +345,9 @@ _PROVENANCE = ("unifi-map", "digraph unifi")
 
 def _is_ours(path: Path) -> bool:
     try:
-        head = path.read_bytes()[:4096].decode("utf-8", errors="replace")
+        # Read 4 KiB, rather than reading the file and slicing 4 KiB off it.
+        with path.open("rb") as handle:
+            head = handle.read(4096).decode("utf-8", errors="replace")
     except OSError:
         # Unreadable is not proof it is ours, so treat it as somebody else's.
         return False
@@ -540,8 +589,7 @@ def _write_outputs(
     force: bool = False,
     progress: bool = True,
 ) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    _restrict(out_dir)
+    _mkdir_private(out_dir)
 
     # Every icon this render used, and nothing else, may be embedded.
     icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
@@ -683,6 +731,9 @@ def cmd_render(args: argparse.Namespace) -> int:
         names = client_networks(topo)
         if not names:
             log.warning("No client networks found; skipping per-network views.")
+        # Resolved across the whole set, since a collision is a property of the
+        # set rather than of any one name.
+        stems = _unique_names(names)
         for name in names:
             view = filter_by_network(topo, name)
             log.info("Network view %r:", name)
@@ -690,7 +741,7 @@ def cmd_render(args: argparse.Namespace) -> int:
                 render_dot(view, f"{title}: {name}", style, icons, _subtitle(view.counts())),
                 view,
                 args.out_dir,
-                f"{stem}-{_safe_name(name)}",
+                f"{stem}-{stems[name]}",
                 formats,
                 style,
                 icons,
@@ -824,6 +875,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Load the client glyph font from a directory you copied off a "
         "controller yourself (needs its style.css and .ttf). Needs no "
         "credentials and no network. See the README.",
+    )
+    shared.add_argument(
+        "--support-max-archive",
+        type=_bytes_arg,
+        default=argparse.SUPPRESS,
+        metavar="SIZE",
+        help=f"Total uncompressed bytes to walk in a support archive, counting "
+        f"files that are skipped (default {SUPPORT_MAX_ARCHIVE // 1024**3}G). This "
+        "is what stops a small archive that expands enormously; the other caps "
+        "only measure what is decoded.",
     )
     shared.add_argument(
         "--no-progress",

@@ -718,3 +718,64 @@ class TestArchiveMemberMatching:
                 archive.addfile(info, io.BytesIO(body))
         with pytest.raises(SupportFileError, match=r"devices\.json"):
             load_support_file(path)
+
+
+class TestArchiveWorkIsCapped:
+    """A skipped member still costs its decompressed size to walk past.
+
+    The three older caps all miss this: the size caps measure only members that
+    are decoded, and the entry cap counts headers. A 2 MiB archive holding one
+    2 GiB run of zeros passed all of them and cost 21 seconds of CPU, measured
+    before the fix. Support files are attacker-supplied, so that is a denial of
+    service with a 1000:1 amplification.
+    """
+
+    def _bomb(self, tmp_path, filler: int):
+        path = tmp_path / "bomb.tgz"
+        with tarfile.open(path, "w:gz") as archive:
+            info = tarfile.TarInfo(f"{ROOT}/logs/huge.log")
+            info.size = filler
+            archive.addfile(info, io.BytesIO(b"\0" * filler))
+            for name, payload in _default_members().items():
+                member = tarfile.TarInfo(f"{ROOT}/{name}")
+                member.size = len(payload)
+                archive.addfile(member, io.BytesIO(payload))
+        return path
+
+    def test_an_irrelevant_member_counts_towards_the_walk(self, tmp_path):
+        path = self._bomb(tmp_path, 200_000)
+        with pytest.raises(SupportFileError, match="expands to more than"):
+            load_support_file(path, max_archive=50_000)
+
+    def test_the_error_names_a_size_a_human_can_read(self, tmp_path):
+        # Reported as bytes it said "more than 0 GiB" for any sub-gigabyte cap.
+        path = self._bomb(tmp_path, 200_000)
+        with pytest.raises(SupportFileError, match=r"KiB|MiB|GiB"):
+            load_support_file(path, max_archive=50_000)
+
+    def test_a_normal_archive_is_unaffected(self, tmp_path):
+        path = self._bomb(tmp_path, 1_000)
+        assert load_support_file(path, max_archive=10 * 1024 * 1024).get("device")
+
+
+class TestMalformedLinesDoNotCrash:
+    def test_a_neighbour_line_ending_in_lladdr_is_skipped(self):
+        # Truncated log lines are ordinary, and this file comes out of an
+        # archive a stranger sent you. Indexing past the end raised IndexError.
+        from unifi_map.support import _parse_neighbours
+
+        assert _parse_neighbours(b"10.0.0.5 dev br0 lladdr\n") == {}
+
+    def test_a_well_formed_line_still_parses(self):
+        from unifi_map.support import _parse_neighbours
+
+        raw = b"10.0.0.5 dev br0 lladdr aa:bb:cc:dd:ee:ff REACHABLE\n"
+        assert _parse_neighbours(raw) == {"aa:bb:cc:dd:ee:ff": "10.0.0.5"}
+
+
+def test_the_archive_cap_is_raisable_like_the_others(tmp_path):
+    # Consistent with the other three: the defaults are a guess, so a site that
+    # legitimately exceeds one must have a way through rather than a recompile.
+    path = tmp_path / "ok.tgz"
+    _write_archive(path, _default_members())
+    assert load_support_file(path, max_archive=64 * 1024 * 1024).get("device")

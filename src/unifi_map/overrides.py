@@ -380,18 +380,25 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
         result.devices_added += 1
         if device.icon is not None:
             result.icons[device.node_id] = local_icon(device.icon)
-        if device.parent:
-            # Resolved after every declared device exists, so one asserted
-            # device can hang off another.
-            parent_id = resolve(device.parent, working)
-            working.edges.append(
-                Edge(
-                    src=device.node_id,
-                    dst=parent_id,
-                    label=f"port {device.port}" if device.port else None,
-                    asserted=True,
-                )
+
+    # Second pass, and it has to be one. The comment here used to claim parents
+    # were "resolved after every declared device exists" while resolving them
+    # inside the loop above, so a device could only hang off one declared
+    # earlier in the file. Reversing two blocks turned a working file into
+    # "'Parent' matches nothing on the map", which reads as a typo rather than
+    # as ordering.
+    for device in overrides.devices:
+        if not device.parent:
+            continue
+        parent_id = resolve(device.parent, working)
+        working.edges.append(
+            Edge(
+                src=device.node_id,
+                dst=parent_id,
+                label=f"port {device.port}" if device.port else None,
+                asserted=True,
             )
+        )
 
     for link in overrides.links:
         source = resolve(link.source, working)

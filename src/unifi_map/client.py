@@ -143,7 +143,13 @@ class Snapshot:
         for name in list(ENDPOINTS) + list(EXTRA_ENDPOINTS):
             path = cache_dir / f"{name}.json"
             if path.is_file():
-                payloads[name] = json.loads(path.read_text(encoding="utf-8"))
+                try:
+                    payloads[name] = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError) as exc:
+                    raise UniFiError(
+                        f"Cached snapshot {path} is not readable JSON ({exc}). "
+                        "Re-run `unifi-map fetch` to replace it."
+                    ) from exc
         if not payloads:
             raise UniFiError(f"Cache directory {cache_dir} contains no snapshot files.")
         return cls(payloads=payloads)
