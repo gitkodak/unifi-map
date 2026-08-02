@@ -113,8 +113,7 @@ drawn from a thin one look equally authoritative.
 
 ## Committed to a version
 
-Nothing currently. The last entry here, removing the `sane` layout alias, shipped
-in 0.6.0.
+Nothing currently.
 
 A commitment means a version named in the code, the tests and the changelog, so
 this section stays empty unless something has actually been promised to users.
