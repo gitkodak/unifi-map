@@ -306,6 +306,30 @@ do not can offer it without having to guess what is useful.
   drawing. A config file is the alternative and shipping both would be worse
   than either.
 
+### Check `TODO.md` before handing anything over
+
+Not at release. **Every time work is handed back for review.** Jason asked for
+this after `TODO.md` was left claiming mermaid was coming when it had shipped,
+and then, in the same turn that fixed it, left claiming the JSON export and
+`overrides check` were coming when they had shipped too.
+
+The failure is not forgetfulness, it is order: the file gets updated for the
+thing most recently discussed rather than swept. So sweep it, mechanically:
+
+```bash
+unifi-map --help                     # subcommands that exist
+python -c "from unifi_map.cli import ALL_FORMATS; print(ALL_FORMATS)"
+grep -nE "shape|check|export|-f " TODO.md
+```
+
+Anything shipped comes out of the planned sections and, if the decision behind
+it is worth keeping, moves to "considered and not planned" with the reason.
+Watch for entries that *reference* a removed one: the NetBox note said
+"subsumed by the JSON export above" and the JSON export was no longer above.
+
+`RELEASING.md` still requires the same read at release. That is the backstop,
+not the routine.
+
 ### Three places, and which one wins
 
 | Where | What it is for |

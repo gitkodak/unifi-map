@@ -64,10 +64,6 @@ drawn from a thin one look equally authoritative.
 
 ## More things to do with the output
 
-- **A normalised JSON export** (KAN-119). `Topology` as JSON rather than raw
-  controller payloads, because the model is the stable thing and UniFi's schemas
-  are not. Lets people build inventory checks or Home Assistant integrations
-  without learning endpoints that move between versions.
 - **An interactive HTML viewer** (KAN-126). Search and filter, pan and zoom,
   click a node to highlight its path to the gateway, collapse client subtrees.
   That last one addresses the problem this tool exists for. Wants a decision
@@ -101,12 +97,10 @@ drawn from a thin one look equally authoritative.
 
 ## Overrides
 
-- **`overrides check`** (KAN-120), validating selectors without rendering.
-  Overrides fail loudly by design, and today the only way to find out is to
-  render the whole map.
 - **A candidates generator** (KAN-120). Emit a skeleton overrides file seeded
   with what could not be placed. Commented boilerplate that still requires a
-  human to state the relationship; never a guessed parent.
+  human to state the relationship; never a guessed parent. The other half of
+  that ticket, `overrides check`, ships already.
 
 ## Multi-site
 
@@ -160,10 +154,10 @@ Recorded so they are not re-proposed as oversights.
 - **A dependency lock file.** Hashed constraints are ongoing maintenance for a
   dev-only benefit, and Dependabot plus the advisory job cover staying current.
   Revisit if this ever ships an artifact people install.
-- **NetBox / IPAM export.** Subsumed by the JSON export above rather than
+- **NetBox / IPAM export.** Subsumed by `-f json`, which ships, rather than
   refused: the ask was structured JSON *for importing into* NetBox, and once
   that export exists, a transform against our stable schema beats us tracking
-  theirs. An export is fine; a *sync* is not, since `session.get` being the only
+  theirs, and it does. An export is fine; a *sync* is not, since `session.get` being the only
   HTTP verb in the source is a headline property.
 - **An `AbstractRenderer` protocol.** Two renderers exist, both already pure
   functions from `Topology` to text. A protocol over two implementations is a
