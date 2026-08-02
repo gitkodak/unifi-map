@@ -38,17 +38,6 @@ FONT = "Helvetica,Arial,sans-serif"
 ICON_SETS = ("unifi", "builtin")
 LAYOUTS = ("tree", "unifi")
 
-# `sane` was the original name for the `tree` layout. It is a poor word: it
-# implies the alternative is not, and it borrows a clinical term as a judgement.
-# Accepted for now so nobody's script breaks mid-version.
-#
-# **Scheduled for removal in 0.6.0**, moved from 0.5.0 because that is the
-# release introducing `tree`: deprecating and removing in one version gives
-# nobody a release to migrate in. Unlike the `UDM_*` environment names,
-# which are deliberately open-ended, this one has a date: it is a single flag
-# value, trivial to change, and carrying it indefinitely would mean the word
-# stays in `--help` forever.
-DEPRECATED_LAYOUTS = {"sane": "tree"}
 
 # Artwork is fitted inside this box, in points, preserving aspect ratio. Wider
 # than tall because rack-mount switch renders are long and thin.
@@ -73,11 +62,6 @@ class Style:
     def __post_init__(self) -> None:
         if self.icons not in ICON_SETS:
             raise ValueError(f"icons must be one of {ICON_SETS}, got {self.icons!r}")
-        # Normalised here rather than only in the CLI, so a library caller
-        # passing the old name gets the layout it asked for instead of an error.
-        # Silent at this level: warning belongs where a person typed it.
-        if self.layout in DEPRECATED_LAYOUTS:
-            object.__setattr__(self, "layout", DEPRECATED_LAYOUTS[self.layout])
         if self.layout not in LAYOUTS:
             raise ValueError(f"layout must be one of {LAYOUTS}, got {self.layout!r}")
 

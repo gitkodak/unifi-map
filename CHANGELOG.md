@@ -31,6 +31,19 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.6.0 - 2026-08-02
+
+### Removed
+
+- `--layout sane`, and the `make sane` target. Renamed to `tree` in 0.5.0, where
+  it was deprecated with this version named in the warning, the code, the tests
+  and the changelog. `--layout sane` is now an argparse error listing the valid
+  choices, and `Style(layout="sane")` raises. One release of overlap was the
+  whole point of promising a version rather than leaving it open-ended, which is
+  still the right call for the `UDM_*` environment names.
+
 ### Added
 
 - `TODO.md`, the planned work in one contributor-facing place, since the

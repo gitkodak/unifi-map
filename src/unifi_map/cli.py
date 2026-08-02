@@ -41,7 +41,7 @@ from .overrides import OverrideError
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
-from .render_dot import DEPRECATED_LAYOUTS, ICON_SETS, LAYOUTS, Style, render_dot
+from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
 from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
@@ -584,13 +584,6 @@ def cmd_render(args: argparse.Namespace) -> int:
         include_offline=args.show_offline == "yes",
     )
 
-    if args.layout in DEPRECATED_LAYOUTS:
-        log.warning(
-            "--layout %s is deprecated and will be removed in 0.6.0; use --layout %s.",
-            args.layout,
-            DEPRECATED_LAYOUTS[args.layout],
-        )
-
     try:
         style = Style(
             theme=get_theme(args.theme),
@@ -898,10 +891,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render_flags.add_argument(
         "--layout",
-        # `sane` is accepted but not advertised: metavar controls what usage
-        # prints, while choices still lets the old value through until 0.6.0.
-        choices=(*LAYOUTS, *DEPRECATED_LAYOUTS),
-        metavar="{" + ",".join(LAYOUTS) + "}",
+        choices=LAYOUTS,
         default="unifi",
         help="unifi: left-to-right like the UniFi UI, no port labels. "
         "tree: top-down and leaf-staggered, with port labels, built to be "

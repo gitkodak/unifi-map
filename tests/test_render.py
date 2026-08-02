@@ -916,53 +916,6 @@ class TestPerNetworkFilenamesAreUnique:
         assert forward == reverse
 
 
-class TestTheSaneLayoutAliasIsDeprecated:
-    """`sane` still works, is hidden, and is promised gone in 0.6.0.
-
-    Renamed because the word implies the alternative is not, and borrows a
-    clinical term as a judgement. `tree` says what the layout actually is.
-    """
-
-    def test_the_old_value_still_selects_the_same_layout(self):
-        from unifi_map.render_dot import Style
-
-        assert Style(theme=LIGHT, layout="sane").layout == "tree"
-        assert Style(theme=LIGHT, layout="sane").staggers is True
-
-    def test_the_old_value_still_parses_on_the_command_line(self):
-        from unifi_map.cli import build_parser
-
-        assert build_parser().parse_args(["render", "--layout", "sane"]).layout == "sane"
-
-    def test_usage_does_not_advertise_the_old_value(self):
-        # Accepted via `choices`, hidden via `metavar`. Keeping it out of the
-        # help is the point: nobody should learn it from us now.
-        from unifi_map.cli import build_parser
-
-        text = build_parser().format_help()
-        assert "sane" not in text
-
-    def test_the_supported_set_is_only_the_new_name(self):
-        from unifi_map.render_dot import LAYOUTS
-
-        assert LAYOUTS == ("tree", "unifi")
-
-    def test_an_unknown_layout_is_still_rejected(self):
-        from unifi_map.render_dot import Style
-
-        with pytest.raises(ValueError, match="layout must be one of"):
-            Style(theme=LIGHT, layout="nonsense")
-
-    def test_the_removal_version_is_stated_in_one_place_only(self):
-        # If this fails, the promise was changed in the code and not in the
-        # docs, or vice versa. The date is the whole point of this deprecation.
-        from pathlib import Path
-
-        root = Path(__file__).resolve().parents[1]
-        assert "0.6.0" in (root / "src" / "unifi_map" / "render_dot.py").read_text()
-        assert "0.6.0" in (root / "src" / "unifi_map" / "cli.py").read_text()
-
-
 class TestTransparentBackground:
     """`--transparent` draws no canvas, so the map sits on the page beneath it.
 

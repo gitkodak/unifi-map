@@ -115,12 +115,11 @@ drawn from a thin one look equally authoritative.
 
 ## Committed to a version
 
-The only dated promise. Kept short deliberately, because a list of commitments
-is a different thing from a list of intentions.
+Nothing currently. The last entry here, removing the `sane` layout alias, shipped
+in 0.6.0.
 
-- **Removing the `sane` layout alias in 0.6.0.** Renamed to `tree` in 0.5.0,
-  still accepted, hidden from `--help`, and warning that it goes. The version is
-  promised in the code, the tests and the changelog.
+A commitment means a version named in the code, the tests and the changelog, so
+this section stays empty unless something has actually been promised to users.
 
 ## Waiting on a network nobody here has
 

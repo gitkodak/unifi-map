@@ -1,4 +1,4 @@
-.PHONY: help check format lint test map fetch render tree sane offline dark demo \
+.PHONY: help check format lint test map fetch render tree offline dark demo \
         demo-overrides demo-images demo-snapshot docs clean
 
 VENV := .venv
@@ -55,9 +55,6 @@ map: $(VENV)
 
 tree: $(VENV)
 	$(VENV)/bin/unifi-map render --layout tree -f svg pdf drawio
-
-sane: tree
-	@echo "make sane is deprecated and goes away in 0.5.0; use make tree."
 
 offline: $(VENV)
 	$(VENV)/bin/unifi-map render --icons builtin --offline -f svg pdf drawio

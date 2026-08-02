@@ -20,7 +20,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from unifi_map.cli import GLOBAL_DEFAULTS, _bytes_arg, build_parser  # noqa: E402
-from unifi_map.render_dot import DEPRECATED_LAYOUTS  # noqa: E402
 
 # Accepted, deliberately undocumented: advertising a deprecated spelling teaches
 # it to people who do not know it yet.
@@ -81,10 +80,7 @@ def options(parser: argparse.ArgumentParser) -> list[Option]:
         if action.metavar:
             argument = str(action.metavar)
         elif action.choices:
-            # Deprecated values are accepted but not listed; `--layout` takes
-            # `sane` and must not advertise it.
-            shown = [str(c) for c in action.choices if str(c) not in DEPRECATED_LAYOUTS]
-            argument = "{" + ",".join(shown) + "}"
+            argument = "{" + ",".join(str(c) for c in action.choices) + "}"
 
         found.append(
             Option(
