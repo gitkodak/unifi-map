@@ -48,6 +48,11 @@ Refactors, docs and tests alone do not need a release at all.
   framing the wrong part of the map. The two existing screenshots are refreshed
   by the same run; both predated the ISP mark on the Internet node and were
   visibly the wrong shape.
+- Clients with no reported uplink are now counted in the output, with a pointer
+  to overrides as the way to place them. The "Uplink not reported by controller"
+  placeholder said what had happened but never that it was fixable, so the tool
+  refusing to guess looked the same as the tool failing. The README section says
+  so too.
 - `--site NAME` selects the site from the command line, for a live fetch as
   well as a support file. It overrides `UNIFI_SITE`, so a script can loop over
   sites without re-exporting a variable per invocation. `--support-site` still

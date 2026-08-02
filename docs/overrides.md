@@ -10,6 +10,8 @@ are invisible to it:
 **Links it isn't in the path of.** A NAS connected to a switch over a 10G SFP+
 DAC often has no `sw_mac` in `stat/sta`. The renderer has nothing to attach it
 to, so it lands under the "Uplink not reported by controller" placeholder.
+[`[[link]]`](#link) is the fix, and the placeholder disappears once nothing is
+left under it.
 
 **Nesting.** A VM or container appears as an ordinary client with its own MAC and
 IP. Nothing in the data says it lives inside a particular hypervisor, so it is

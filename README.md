@@ -657,6 +657,14 @@ Anything still unresolved after that is anchored to an explicit placeholder,
 rather than left floating (which looks like a bug) or attached to a guessed
 parent (which would invent a connection that does not exist).
 
+**You can place them yourself.** The tool refuses to guess, but you know where
+the cable goes, and [manual overrides](#manual-overrides) are how you say so. A
+`[[link]]` attaches the client to its real parent, and if that parent is an
+unmanaged switch nothing reports either, `[[device]]` declares the switch first
+and the link hangs off it. Both are drawn dotted, so the map still distinguishes
+what you asserted from what the controller reported. The placeholder disappears
+once nothing is left under it.
+
 ## Sharing a map: `--obfuscate`
 
 A rendered map is not anonymous. Labels carry hostnames, addresses, VLAN names

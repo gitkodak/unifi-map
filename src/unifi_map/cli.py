@@ -28,7 +28,14 @@ from .assets import AssetError, AssetStore, IconAsset, read_icon_font_dir
 from .client import Snapshot, UniFiClient, UniFiError
 from .config import ConfigError, load_config
 from .layout import GraphvizError, GraphvizMissing, compute_layout, run_dot, stagger
-from .model import Kind, Topology, build_topology, client_networks, filter_by_network
+from .model import (
+    UNKNOWN_UPLINK_ID,
+    Kind,
+    Topology,
+    build_topology,
+    client_networks,
+    filter_by_network,
+)
 from .obfuscate import id_map, obfuscate
 from .overrides import OverrideError
 from .overrides import apply as apply_overrides
@@ -133,6 +140,33 @@ def _bytes_arg(raw: str) -> int:
 def _safe_name(text: str) -> str:
     keep = [c if (c.isalnum() or c in "-_") else "-" for c in text]
     return "".join(keep).strip("-").lower() or "network"
+
+
+def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
+    """Say that the placeholder node is fixable, at the moment it appears.
+
+    Somebody meeting "Uplink not reported by controller" on a map has no way to
+    know the tool is refusing to guess rather than failing, or that they can
+    place it themselves. Saying so in the README only helps whoever reads that
+    section; this reaches the person looking at the diagram.
+
+    The count is reported either way, because somebody who already wrote an
+    overrides file and still has stranded clients is exactly who benefits from
+    knowing how many are left. Only the pointer to the README is dropped once
+    they have plainly found it.
+    """
+    if UNKNOWN_UPLINK_ID not in topo.nodes:
+        return
+    stranded = sum(1 for edge in topo.edges if edge.dst == UNKNOWN_UPLINK_ID)
+    if overrides_path is not None:
+        log.info("%d client(s) still have no uplink the controller reports.", stranded)
+        return
+    log.info(
+        "%d client(s) have no uplink the controller reports, so they hang off a "
+        "placeholder rather than a guessed parent. An overrides file can place "
+        "them: see Manual overrides in the README.",
+        stranded,
+    )
 
 
 def _stagger_for(topo: Topology, requested: int, style: Style) -> int:
@@ -589,6 +623,10 @@ def cmd_render(args: argparse.Namespace) -> int:
             len(result.hidden),
             hidden,
         )
+
+    # After overrides, not before: the whole point is to report what is *still*
+    # unplaced, and running first counts the clients an override just placed.
+    _hint_about_unplaced(topo, path)
 
     icons: dict[str, IconAsset] = {}
     store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)

@@ -248,6 +248,67 @@ def test_client_sets_the_api_key_header_and_makes_no_request(tmp_path):
     assert not hasattr(client, "logout")
 
 
+class TestUnplacedClientsAreExplained:
+    """The placeholder must say it is fixable, where somebody will see it.
+
+    "Uplink not reported by controller" on a diagram gives no hint that the
+    tool is refusing to guess rather than failing, or that the reader can place
+    it themselves. The README section says so now; this says it at the moment
+    the map is produced, which reaches whoever never read that section.
+    """
+
+    def _topo(self, stranded: int):
+        from unifi_map.model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology
+
+        topo = Topology()
+        topo.add(Node(id="sw", label="switch", kind=Kind.SWITCH))
+        if stranded:
+            topo.add(Node(id=UNKNOWN_UPLINK_ID, label="Uplink not reported", kind=Kind.UNKNOWN))
+            for i in range(stranded):
+                topo.add(Node(id=f"c{i}", label=f"c{i}", kind=Kind.WIRED_CLIENT))
+                topo.edges.append(Edge(src=f"c{i}", dst=UNKNOWN_UPLINK_ID))
+        return topo
+
+    def test_it_counts_them_and_points_at_overrides(self, caplog):
+        from unifi_map.cli import _hint_about_unplaced
+
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(self._topo(3), None)
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "3 client(s)" in message
+        assert "overrides" in message.lower()
+
+    def test_it_says_nothing_when_everything_is_placed(self, caplog):
+        from unifi_map.cli import _hint_about_unplaced
+
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(self._topo(0), None)
+        assert not caplog.records
+
+    def test_with_an_overrides_file_it_reports_what_is_left(self, caplog):
+        # Still counted, because somebody who wrote overrides and has stranded
+        # clients remaining is exactly who benefits from the number. Only the
+        # pointer is dropped, since they have plainly found it.
+        from unifi_map.cli import _hint_about_unplaced
+
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(self._topo(2), Path("overrides.toml"))
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "2 client(s) still" in message
+        assert "README" not in message
+
+    def test_the_count_is_of_stranded_clients_not_all_edges(self, caplog):
+        from unifi_map.cli import _hint_about_unplaced
+        from unifi_map.model import Edge
+
+        topo = self._topo(2)
+        # An unrelated link must not inflate the number.
+        topo.edges.append(Edge(src="c0", dst="sw"))
+        with caplog.at_level("INFO"):
+            _hint_about_unplaced(topo, None)
+        assert "2 client(s)" in " ".join(r.getMessage() for r in caplog.records)
+
+
 class TestSiteSelection:
     """`--site` exists so a script can loop over sites without re-exporting.
 
