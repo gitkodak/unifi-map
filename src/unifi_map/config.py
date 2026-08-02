@@ -6,6 +6,7 @@ makes swapping the ``.env`` file for OpenBao/Vault a single-file change later.
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 from dataclasses import dataclass
@@ -163,6 +164,22 @@ def read_dotenv(path: Path) -> dict[str, str]:
 # Not every variable this module reads is about reaching a controller. This one
 # changes nothing about the data and is off unless deliberately set.
 _FLOURISH_VAR = "HOOPY_FROOD"
+
+
+def source_date() -> datetime.datetime | None:
+    """`SOURCE_DATE_EPOCH` as a local datetime, or None.
+
+    The reproducible-builds convention. A rendered map stamps itself with the
+    time it was drawn, which is right for a real map and wrong for one committed
+    to a repository: regenerating it produced a diff every run, from the clock
+    alone, so a genuine rendering change was indistinguishable from a tick.
+
+    Read here because this module owns the environment.
+    """
+    raw = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    if not raw.isdigit():
+        return None
+    return datetime.datetime.fromtimestamp(int(raw), datetime.UTC)
 
 
 def flourish() -> str | None:

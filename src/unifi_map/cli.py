@@ -28,7 +28,7 @@ from pathlib import Path
 from . import __version__
 from .assets import AssetError, AssetStore, IconAsset, read_icon_font_dir
 from .client import Snapshot, UniFiClient, UniFiError
-from .config import ConfigError, load_config
+from .config import ConfigError, load_config, source_date
 from .fsio import atomic_write, mkdir_private
 from .layout import GraphvizError, GraphvizMissing, compute_layout, run_dot, stagger
 from .model import (
@@ -748,7 +748,11 @@ def cmd_render(args: argparse.Namespace) -> int:
 def _subtitle(tally: dict[str, int]) -> str:
     devices = sum(tally.get(k, 0) for k in ("gateway", "switch", "ap", "bridge"))
     clients = tally.get("wired_client", 0) + tally.get("wireless_client", 0)
-    stamp = dt.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z")
+    # SOURCE_DATE_EPOCH wins where it is set, so the committed demo images do
+    # not change on every regeneration for no reason.
+    fixed = source_date()
+    when = fixed if fixed is not None else dt.datetime.now().astimezone()
+    stamp = when.strftime("%Y-%m-%d %H:%M %Z")
     return f"{devices} UniFi devices · {clients} clients · generated {stamp}"
 
 

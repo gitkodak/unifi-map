@@ -1013,3 +1013,40 @@ class TestTheEnvironmentCanAskForAFlourish:
         monkeypatch.setenv("HOOPY_FROOD", "map")
         svg = run_dot(render_dot(build_topology(snapshot), "t", UNIFI), "svg").decode()
         assert "<svg" in svg
+
+
+class TestTheRenderedStampCanBeFixed:
+    """`SOURCE_DATE_EPOCH` pins the time in the title block.
+
+    A real map should say when it was drawn. A map committed to a repository
+    should not, because regenerating it then produces a diff on every run from
+    the clock alone, and a genuine rendering change becomes indistinguishable
+    from a tick. That is not hypothetical: two committed screenshots differed by
+    exactly the thirty pixels of their timestamp.
+    """
+
+    def test_the_stamp_moves_without_it(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+        from unifi_map.cli import _subtitle
+
+        assert "generated" in _subtitle(build_topology(snapshot).counts())
+
+    def test_it_is_honoured_when_set(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "1785715200")
+        from unifi_map.cli import _subtitle
+
+        assert "2026-08-03 00:00 UTC" in _subtitle(build_topology(snapshot).counts())
+
+    def test_nonsense_is_ignored_rather_than_fatal(self, snapshot: Snapshot, monkeypatch):
+        from unifi_map.cli import _subtitle
+
+        for bad in ("", "yesterday", "-1", "12.5"):
+            monkeypatch.setenv("SOURCE_DATE_EPOCH", bad)
+            assert "generated" in _subtitle(build_topology(snapshot).counts())
+
+    def test_the_same_epoch_gives_the_same_subtitle_twice(self, snapshot: Snapshot, monkeypatch):
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "1785715200")
+        from unifi_map.cli import _subtitle
+
+        counts = build_topology(snapshot).counts()
+        assert _subtitle(counts) == _subtitle(counts)

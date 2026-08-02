@@ -33,6 +33,13 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Fixed
 
+- `SOURCE_DATE_EPOCH` fixes the time stamped into the title block, following the
+  reproducible-builds convention. Without it the committed demo screenshots
+  changed on every regeneration, by exactly the thirty pixels of their
+  timestamp, which made a real rendering change indistinguishable from the clock
+  ticking. `make demo-images` sets it; a real map still stamps the time it was
+  drawn.
+
 - The first screenshot's caption said most clients "fall back to plain shapes".
   They have not for some time: eleven of them draw the console's own generic
   glyphs, which is what the image shows. The caption now describes the image,

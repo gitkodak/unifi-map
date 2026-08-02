@@ -41,6 +41,7 @@ keeps that true.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -55,6 +56,11 @@ IMAGES = ROOT / "docs" / "images"
 # Space left around the cropped region, in layout points. Enough that labels
 # under the lowest node are not sheared off.
 CROP_PADDING = 38.0
+
+# The date stamped into the committed screenshots. Any fixed value would do;
+# this is the day the images were last deliberately regenerated. Bump it when
+# they are redone for a real reason, not otherwise.
+SOURCE_DATE_EPOCH = "1785672000"
 
 # Dark first: it is what the README shows. `light` is the tool's default and is
 # generated so the docs can show both rather than describe one.
@@ -83,7 +89,10 @@ def _render(name: str, theme: str, *extra: str, formats: str = "png") -> None:
         name,
         *extra,
     ]
-    subprocess.run(command, check=True, cwd=ROOT)
+    # Fixed clock, so regenerating produces the same bytes. Without it the
+    # title block stamps the current time and every run is a diff.
+    environment = {**os.environ, "SOURCE_DATE_EPOCH": SOURCE_DATE_EPOCH}
+    subprocess.run(command, check=True, cwd=ROOT, env=environment)
 
 
 def _crop_box(dot_path: Path, image: Image.Image) -> tuple[int, int, int, int]:
