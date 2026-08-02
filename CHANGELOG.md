@@ -31,6 +31,10 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
+Nothing yet.
+
+## 0.7.0 - 2026-08-02
+
 ### Fixed
 
 - `SOURCE_DATE_EPOCH` fixes the time stamped into the title block, following the
