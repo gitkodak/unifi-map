@@ -64,6 +64,11 @@ class Style:
     # None means "decide from the layout".
     legend: bool | None = None
     title_block: bool | None = None
+    # Draw no canvas at all, so the map sits on whatever it is placed on.
+    # Everything else still comes from the theme, which matters more here than
+    # it looks: node labels have no card behind them, so on a transparent
+    # canvas every label lands directly on the destination page.
+    transparent: bool = False
 
     def __post_init__(self) -> None:
         if self.icons not in ICON_SETS:
@@ -193,7 +198,8 @@ def _graph_attrs(style: Style) -> list[str]:
     return [
         *shape,
         "  compound=true;",
-        f'  bgcolor="{theme.background}";',
+        # Graphviz spells it "transparent" and honours it for svg, png and pdf.
+        f'  bgcolor="{"transparent" if style.transparent else theme.background}";',
     ]
 
 

@@ -496,6 +496,28 @@ going; with `--no-progress`, or piped to a file, walking a much larger archive
 produces no output at all until it finishes, so a slow run and a hung one look
 identical.
 
+## Putting a map on a page: `--transparent`
+
+```bash
+unifi-map render --transparent --theme dark
+```
+
+Draws no canvas, so the diagram sits on whatever is behind it. Applies to SVG,
+PDF, PNG and draw.io. Without it, every theme paints a solid background, which
+means an SVG dropped into a page is an opaque rectangle whichever theme you
+picked.
+
+**The theme still matters, and more than it looks.** With the default
+`--icons unifi`, device labels have no card behind them: the artwork is the
+node, and the text sits on the canvas. Remove the canvas and every label, edge
+label and title lands directly on the destination page, so a light-theme map is
+near-invisible on a dark one and vice versa. Match the theme to where the image
+is going.
+
+`--icons builtin` differs slightly: the fallback shapes carry their own fill, so
+those nodes keep a background even when the canvas is gone. Only the text
+outside them is exposed.
+
 ## Progress, and turning it off
 
 Reading an archive, fetching artwork on a cold cache and running Graphviz on a
@@ -1039,6 +1061,7 @@ equivalent. Command options must follow the subcommand.
 | `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
 | `--theme` `{dark,light}` | Colour theme (default: light) | `light` |
+| `--transparent` | Draw no background, so the map sits on whatever page it is placed on. Applies to svg, pdf, png and drawio. Pick the theme to match the destination: labels are drawn straight onto the canvas with nothing behind them, so light text vanishes on a light page. |  |
 | `--offline` | Never reach the network for artwork; use only what is already cached |  |
 | `--name` | Output filename stem | `network-map` |
 | `--force` | Overwrite output files that unifi-map did not write. Without this, an existing .dot or .drawio it does not recognise is left alone, so a diagram you have edited by hand is not silently replaced. |  |

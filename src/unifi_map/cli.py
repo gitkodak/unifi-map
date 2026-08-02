@@ -570,7 +570,7 @@ def _write_outputs(
 
     if "drawio" in formats:
         layout = compute_layout(dot_source)
-        xml = render_drawio(topo, layout, stem, style.theme, icons)
+        xml = render_drawio(topo, layout, stem, style.theme, icons, style.transparent)
         path = out_dir / f"{stem}.drawio"
         _write_output(path, xml, force=force, guard=True)
         log.info("  %s (%.1f KiB)", path, len(xml.encode()) / 1024)
@@ -598,6 +598,7 @@ def cmd_render(args: argparse.Namespace) -> int:
             layout=args.layout,
             legend=args.legend,
             title_block=args.title_block,
+            transparent=args.transparent,
         )
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
@@ -908,6 +909,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     render_flags.add_argument(
         "--theme", choices=sorted(THEMES), default="light", help="Colour theme (default: light)"
+    )
+    render_flags.add_argument(
+        "--transparent",
+        action="store_true",
+        help="Draw no background, so the map sits on whatever page it is placed "
+        "on. Applies to svg, pdf, png and drawio. Pick the theme to match the "
+        "destination: labels are drawn straight onto the canvas with nothing "
+        "behind them, so light text vanishes on a light page.",
     )
     render_flags.add_argument(
         "--offline",

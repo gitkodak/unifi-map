@@ -31,6 +31,17 @@ Refactors, docs and tests alone do not need a release at all.
 
 ## Unreleased
 
+### Added
+
+- `--transparent` draws no canvas, so a map can be dropped onto a page that
+  already has a background. Covers SVG, PDF, PNG and draw.io. The theme still
+  applies and still matters: with the default icon set, labels have no card
+  behind them, so on a transparent canvas they land straight on the destination
+  page and a light map is near-invisible on a dark one.
+- Every demo screenshot is committed in both themes rather than only dark, so
+  the documentation shows what the default actually produces instead of
+  describing it.
+
 ### Changed
 
 - `--site`'s help text no longer reads as though multi-site support files are

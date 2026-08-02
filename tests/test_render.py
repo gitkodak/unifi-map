@@ -961,3 +961,66 @@ class TestTheSaneLayoutAliasIsDeprecated:
         root = Path(__file__).resolve().parents[1]
         assert "0.6.0" in (root / "src" / "unifi_map" / "render_dot.py").read_text()
         assert "0.6.0" in (root / "src" / "unifi_map" / "cli.py").read_text()
+
+
+class TestTransparentBackground:
+    """`--transparent` draws no canvas, so the map sits on the page beneath it.
+
+    The theme still applies, and matters more than it appears to. Node labels
+    have no card behind them: a light render has exactly one filled shape, the
+    canvas itself. Remove it and every label, edge label and title is drawn
+    straight onto whatever the map is placed on, so the theme has to match the
+    destination or the text is invisible.
+    """
+
+    def test_dot_asks_graphviz_for_no_background(self, snapshot: Snapshot):
+        style = Style(theme=LIGHT, icons="builtin", layout="unifi", transparent=True)
+        assert 'bgcolor="transparent";' in render_dot(build_topology(snapshot), "t", style)
+
+    def test_without_the_flag_the_theme_paints_the_canvas(self, snapshot: Snapshot):
+        dot = render_dot(build_topology(snapshot), "t", UNIFI)
+        assert f'bgcolor="{LIGHT.background}";' in dot
+        assert "transparent" not in dot
+
+    def test_drawio_omits_the_background_attribute(self):
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Kind, Node, Topology
+        from unifi_map.render_drawio import render_drawio
+
+        topo = Topology()
+        topo.add(Node(id="a", label="a", kind=Kind.SWITCH))
+        layout = Layout(
+            nodes={"a": Placed(x=0.0, y=0.0, width=10.0, height=10.0)}, width=10.0, height=10.0
+        )
+        opaque = render_drawio(topo, layout, "t", LIGHT)
+        clear = render_drawio(topo, layout, "t", LIGHT, None, True)
+        # Absent rather than the literal string "none", which is not portable
+        # across draw.io versions.
+        assert f'background="{LIGHT.background}"' in opaque
+        assert "background=" not in clear
+
+    def test_the_theme_still_colours_everything_else(self, snapshot: Snapshot):
+        # The point of keeping --theme meaningful under --transparent.
+        topo = build_topology(snapshot)
+        light = render_dot(topo, "t", Style(theme=LIGHT, icons="builtin", transparent=True))
+        dark = render_dot(
+            topo, "t", Style(theme=get_theme("dark"), icons="builtin", transparent=True)
+        )
+        assert light != dark
+        assert LIGHT.text in light and LIGHT.text not in dark
+
+    @needs_graphviz
+    def test_the_rendered_svg_paints_no_canvas(self, snapshot: Snapshot):
+        # The canvas goes; node shapes keep their own fill, which is the point.
+        # `--icons builtin` draws filled shapes and they must survive, so the
+        # assertion is about the background colour specifically rather than
+        # about there being no fills at all.
+        style = Style(theme=LIGHT, icons="builtin", layout="unifi", transparent=True)
+        svg = run_dot(render_dot(build_topology(snapshot), "t", style), "svg").decode()
+        assert LIGHT.background.lower() not in svg.lower(), "the canvas was still painted"
+
+    @needs_graphviz
+    def test_node_shapes_keep_their_fill(self, snapshot: Snapshot):
+        style = Style(theme=LIGHT, icons="builtin", layout="unifi", transparent=True)
+        svg = run_dot(render_dot(build_topology(snapshot), "t", style), "svg").decode()
+        assert LIGHT.card.lower() in svg.lower(), "transparency ate the node shapes too"

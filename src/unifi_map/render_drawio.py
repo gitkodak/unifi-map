@@ -119,6 +119,7 @@ def render_drawio(
     title: str,
     theme: Theme,
     icons: dict[str, IconAsset] | None = None,
+    transparent: bool = False,
 ) -> str:
     icons = icons or {}
     mxfile = ET.Element("mxfile", host="unifi-map", type="device")
@@ -139,7 +140,10 @@ def render_drawio(
         pageScale="1",
         pageWidth="1169",
         pageHeight="826",
-        background=theme.background,
+        # draw.io treats a missing background as none, which is what
+        # `--transparent` wants; writing the string "none" is not portable
+        # across versions, so the attribute is left out instead.
+        **({} if transparent else {"background": theme.background}),
         math="0",
         shadow="0",
     )
