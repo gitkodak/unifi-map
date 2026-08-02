@@ -530,3 +530,97 @@ parent = "Parent"
             self._apply(
                 '[[device]]\nname = "Child"\nkind = "switch"\nparent = "Nowhere"\n', tmp_path
             )
+
+
+class TestCyclesAreRefused:
+    """Something cannot be its own uplink.
+
+    Not a rendering problem: DOT is a digraph, cycles are legal, and Graphviz
+    draws one without complaining. Verified before adding this. Refused because
+    it is not a network a cable can make, and drawing it silently produces a map
+    that looks authoritative and is wrong.
+    """
+
+    def _apply(self, text, tmp_path):
+        from unifi_map.model import Topology
+
+        path = tmp_path / "o.toml"
+        path.write_text(text)
+        return apply(Topology(), load(path))
+
+    def test_two_devices_parenting_each_other_are_refused(self, tmp_path):
+        text = """
+[[device]]
+name = "A"
+kind = "switch"
+parent = "B"
+
+[[device]]
+name = "B"
+kind = "switch"
+parent = "A"
+"""
+        with pytest.raises(OverrideError, match="loop"):
+            self._apply(text, tmp_path)
+
+    def test_the_error_names_the_loop(self, tmp_path):
+        text = """
+[[device]]
+name = "A"
+kind = "switch"
+parent = "B"
+
+[[device]]
+name = "B"
+kind = "switch"
+parent = "A"
+"""
+        with pytest.raises(OverrideError, match=r"A -> B -> A|B -> A -> B"):
+            self._apply(text, tmp_path)
+
+    def test_a_longer_loop_is_caught_too(self):
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.overrides import _refuse_cycles
+
+        topo = Topology()
+        for name in "abc":
+            topo.add(Node(id=name, label=name.upper(), kind=Kind.SWITCH))
+        topo.edges += [Edge(src="a", dst="b"), Edge(src="b", dst="c"), Edge(src="c", dst="a")]
+        with pytest.raises(OverrideError, match="loop"):
+            _refuse_cycles(topo)
+
+    def test_a_node_parented_to_itself_is_caught(self):
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.overrides import _refuse_cycles
+
+        topo = Topology()
+        topo.add(Node(id="x", label="X", kind=Kind.SWITCH))
+        topo.edges.append(Edge(src="x", dst="x"))
+        with pytest.raises(OverrideError, match="loop"):
+            _refuse_cycles(topo)
+
+    def test_an_ordinary_tree_is_not_a_cycle(self):
+        # Two children of one parent share a destination, which is not a loop.
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.overrides import _refuse_cycles
+
+        topo = Topology()
+        for name in "abc":
+            topo.add(Node(id=name, label=name.upper(), kind=Kind.SWITCH))
+        topo.edges += [Edge(src="a", dst="b"), Edge(src="c", dst="b")]
+        _refuse_cycles(topo)
+
+    def test_the_demo_overrides_are_still_acyclic(self):
+        # Applied to the demo topology, not an empty one: the shipped examples
+        # reference real devices, so an empty graph fails at selector
+        # resolution long before anything looks for a cycle.
+        import json
+        from pathlib import Path
+
+        from unifi_map.client import Snapshot
+        from unifi_map.model import build_topology
+
+        demo = Path(__file__).resolve().parents[1] / "examples" / "demo"
+        payloads = {p.stem: json.loads(p.read_text()) for p in demo.glob("*.json")}
+        topo = build_topology(Snapshot(payloads=payloads), include_offline=False)
+        apply(topo, load(demo / "overrides.toml"))

@@ -45,8 +45,27 @@ Refactors, docs and tests alone do not need a release at all.
   this is one flag value that anyone using it can change in seconds, and an
   indefinite alias would keep the word in `--help` indefinitely.
 
+### Fixed
+
+- Every directory this tool creates is restricted, not only the last one.
+  `--out-dir out/private/maps` created three directories and locked down one,
+  leaving the other two at the umask. Output filenames come from network names,
+  so a listable parent disclosed the network layout even though the files
+  themselves are `0600`. An existing directory is still left exactly as it is.
+- Overrides that make a loop are refused, naming the loop. Nothing crashed:
+  Graphviz draws a cycle without complaint, since DOT is a digraph. It is
+  refused because a switch cannot be its own uplink, so such a map asserts
+  hardware that cannot exist while looking as authoritative as any other.
+
 ### Changed
 
+- Atomic writes live in one module, `fsio.py`. Three copies had grown apart:
+  two called `fsync` before the rename and one did not, and only two set the
+  file mode before putting it in place. None of the differences were intended.
+- `_fetch` returns a small `Fetched` object rather than a `requests.Response`
+  with two private attributes assigned by hand. The body is streamed through a
+  size cap rather than read by `requests`, which is why the response had to be
+  doctored; callers only ever used three fields.
 - The example unmanaged switch is described as "unmanaged" rather than "dumb",
   in `examples/overrides.toml` and the README. "Unmanaged" is also the accurate
   term: it names the absent management plane, which is why such a device has to

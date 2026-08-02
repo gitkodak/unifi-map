@@ -27,16 +27,46 @@ from __future__ import annotations
 import base64
 import json
 import logging
-import os
 import re
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import requests
 
+from .fsio import atomic_write
+
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Fetched:
+    """The parts of a response callers here actually use.
+
+    `_fetch` used to hand back a `requests.Response` with `_content` and
+    `_content_consumed` assigned by hand, because the body is streamed and read
+    through a cap rather than by `requests` itself. That worked, and depended on
+    two private attributes of somebody else's library staying where they are.
+
+    Callers only ever touch `status_code`, `content` and `raise_for_status`, so
+    those are all this carries.
+    """
+
+    status_code: int
+    content: bytes
+    url: str
+
+    def raise_for_status(self) -> None:
+        """Match `requests` closely enough that existing handlers still catch it."""
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} for {self.url}")
+
+
+def _cache_write(path: Path, data: bytes) -> None:
+    """Atomic, but without the fsync: artwork is refetchable, so paying for
+    durability on every icon would be a cost with nothing behind it."""
+    atomic_write(path, data, mode=0o644, fsync=False)
+
 
 CATALOG_URL = "https://static.ui.com/fingerprint/ui/public.json"
 
@@ -277,7 +307,7 @@ class AssetStore:
     # hanging. One failure is enough to know the rest will fail too.
     _unreachable: bool = False
 
-    def _fetch(self, url: str, *, allow_redirects: bool = True) -> requests.Response | None:
+    def _fetch(self, url: str, *, allow_redirects: bool = True) -> Fetched | None:
         """GET *url*, or None if artwork is unavailable for any reason.
 
         Transport failures trip `_unreachable` so the rest of the run stops
@@ -303,11 +333,7 @@ class AssetStore:
             if body is None:
                 log.warning("%s is larger than %d bytes; not artwork.", url, MAX_ASSET_BYTES)
                 return None
-            # Downstream reads `.content`; hand back a response that already has
-            # it, so nothing else has to know this was streamed.
-            response._content = body
-            response._content_consumed = True
-            return response
+            return Fetched(status_code=response.status_code, content=body, url=url)
         except requests.RequestException as exc:
             self._unreachable = True
             log.warning(
@@ -318,26 +344,6 @@ class AssetStore:
                 describe_network_error(exc),
             )
             return None
-
-    @staticmethod
-    def _atomic_write(path: Path, data: bytes) -> None:
-        """Write via a temporary file in the same directory, then rename.
-
-        The caches were written in place, so an interrupt or two concurrent runs
-        could leave a truncated file. That is stickiest for icons, where the
-        existence check treats any file as a usable one and a corrupt icon is
-        never refetched.
-        """
-        path.parent.mkdir(parents=True, exist_ok=True)
-        handle, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
-        tmp = Path(tmp_name)
-        try:
-            with os.fdopen(handle, "wb") as fh:
-                fh.write(data)
-            os.replace(tmp, path)
-        finally:
-            if tmp.exists():
-                tmp.unlink(missing_ok=True)
 
     @property
     def catalog_path(self) -> Path:
@@ -362,8 +368,8 @@ class AssetStore:
     def save_icon_font(self, font: bytes, codepoints: dict[str, int]) -> None:
         """Cache the controller's icon font. Never vendored into the repo."""
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._atomic_write(self.font_path, font)
-        self._atomic_write(self.font_map_path, json.dumps(codepoints, indent=2).encode("utf-8"))
+        _cache_write(self.font_path, font)
+        _cache_write(self.font_map_path, json.dumps(codepoints, indent=2).encode("utf-8"))
 
     def save_fingerprint_db(self, payload: Any) -> None:
         """Cache the controller's client fingerprint database.
@@ -377,7 +383,7 @@ class AssetStore:
         if not isinstance(payload, dict) or not payload.get("dev_ids"):
             return
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._atomic_write(self.fingerprint_db_path, json.dumps(payload).encode("utf-8"))
+        _cache_write(self.fingerprint_db_path, json.dumps(payload).encode("utf-8"))
 
     def _cached_fingerprint_db(self) -> dict[str, Any] | None:
         if not self.fingerprint_db_path.is_file():
@@ -597,7 +603,7 @@ class AssetStore:
             return None
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._atomic_write(self.catalog_path, json.dumps(payload).encode("utf-8"))
+        _cache_write(self.catalog_path, json.dumps(payload).encode("utf-8"))
         return payload
 
     def catalog(self) -> dict[int, dict[str, Any]]:
@@ -851,7 +857,7 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
             # decides whether to refetch, so it would be cached corrupt forever.
             buffer = BytesIO()
             image.save(buffer, format="PNG", optimize=True)
-            AssetStore._atomic_write(dest, buffer.getvalue())
+            _cache_write(dest, buffer.getvalue())
             return IconAsset(path=dest, width=image.width, height=image.height)
     except (OSError, ValueError) as exc:
         raise AssetError(f"Could not process artwork: {exc}") from exc

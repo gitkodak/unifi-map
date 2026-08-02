@@ -14,9 +14,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import os
 import re
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -26,6 +24,7 @@ import urllib3
 
 from .assets import describe_network_error, parse_glyph_codepoints
 from .config import ExporterConfig
+from .fsio import atomic_write
 
 log = logging.getLogger(__name__)
 
@@ -117,23 +116,8 @@ class Snapshot:
         with contextlib.suppress(OSError):
             cache_dir.chmod(0o700)
         for name, payload in self.payloads.items():
-            path = cache_dir / f"{name}.json"
-            body = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
-            tmp = None
-            try:
-                with tempfile.NamedTemporaryFile(
-                    dir=cache_dir, prefix=f".{name}.", suffix=".tmp", delete=False
-                ) as handle:
-                    tmp = Path(handle.name)
-                    handle.write(body)
-                    handle.flush()
-                    os.fsync(handle.fileno())
-                os.chmod(tmp, 0o600)
-                os.replace(tmp, path)
-                tmp = None
-            finally:
-                if tmp is not None and tmp.exists():
-                    tmp.unlink(missing_ok=True)
+            body = json.dumps(payload, indent=2, sort_keys=True)
+            atomic_write(cache_dir / f"{name}.json", body)
 
     @classmethod
     def read(cls, cache_dir: Path) -> Snapshot:

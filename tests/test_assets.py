@@ -625,3 +625,46 @@ class TestResourceLimits:
 
         _pillow_image()
         assert Image.MAX_IMAGE_PIXELS == MAX_IMAGE_PIXELS
+
+
+class TestFetchDoesNotDependOnRequestsInternals:
+    """`_fetch` returns our own object, not a hand-modified `requests.Response`.
+
+    The body is streamed through a size cap rather than read by `requests`, so
+    handing back a `Response` meant assigning `_content` and `_content_consumed`
+    ourselves. Two private attributes of somebody else's library is a poor thing
+    to depend on for a feature that only needs three fields.
+    """
+
+    def test_it_is_not_a_requests_response(self, tmp_path, monkeypatch):
+        import requests
+
+        from unifi_map.assets import Fetched
+
+        captured = {}
+
+        class Streamed:
+            status_code = 200
+            headers: ClassVar[dict[str, str]] = {}
+
+            def iter_content(self, chunk_size=8192):
+                yield b"payload"
+
+            def close(self):
+                return None
+
+        monkeypatch.setattr("unifi_map.assets.requests.get", lambda *a, **k: Streamed())
+        store = AssetStore(cache_dir=tmp_path / "c")
+        captured["r"] = store._fetch("https://example.invalid/x")
+        assert isinstance(captured["r"], Fetched)
+        assert not isinstance(captured["r"], requests.Response)
+        assert captured["r"].content == b"payload"
+
+    def test_raise_for_status_still_raises_what_callers_catch(self):
+        import requests
+
+        from unifi_map.assets import Fetched
+
+        Fetched(status_code=200, content=b"", url="u").raise_for_status()
+        with pytest.raises(requests.RequestException):
+            Fetched(status_code=404, content=b"", url="u").raise_for_status()

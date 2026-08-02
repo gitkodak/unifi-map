@@ -516,10 +516,12 @@ class TestWritesAreAtomic:
         def fail(*args, **kwargs):
             raise OSError("disk full")
 
-        monkeypatch.setattr("unifi_map.cli.os.replace", fail)
+        # Patched in `fsio`, which is where the rename now happens: the three
+        # copies of this logic were merged into one helper.
+        monkeypatch.setattr("unifi_map.fsio.os.replace", fail)
         with pytest.raises(OSError):
             _write_output(path, "half a file", force=False, guard=False)
-        monkeypatch.setattr("unifi_map.cli.os.replace", real)
+        monkeypatch.setattr("unifi_map.fsio.os.replace", real)
 
         # Not truncated, not replaced, and no debris beside it.
         assert path.read_text(encoding="utf-8") == "the good previous render"
@@ -845,28 +847,44 @@ class TestAnExistingOutputDirectoryIsLeftAlone:
     """
 
     def test_a_directory_we_created_is_private(self, tmp_path):
-        from unifi_map.cli import _mkdir_private
+        from unifi_map.fsio import mkdir_private
 
         target = tmp_path / "fresh"
-        _mkdir_private(target)
+        mkdir_private(target)
         assert target.is_dir()
         assert oct(target.stat().st_mode)[-3:] == "700"
 
     def test_an_existing_directory_keeps_its_mode(self, tmp_path):
-        from unifi_map.cli import _mkdir_private
+        from unifi_map.fsio import mkdir_private
 
         target = tmp_path / "shared"
         target.mkdir()
         target.chmod(0o775)
-        _mkdir_private(target)
+        mkdir_private(target)
         assert oct(target.stat().st_mode)[-3:] == "775", "somebody else's directory was tightened"
 
-    def test_missing_parents_are_created(self, tmp_path):
-        from unifi_map.cli import _mkdir_private
+    def test_every_level_we_create_is_private_not_just_the_leaf(self, tmp_path):
+        # `mkdir(parents=True)` creates three directories; restricting only the
+        # last left the other two at the umask. Output filenames are derived
+        # from network names, so a listable parent discloses the network layout
+        # even though the files themselves are 0600.
+        from unifi_map.fsio import mkdir_private
 
         target = tmp_path / "a" / "b" / "c"
-        _mkdir_private(target)
+        mkdir_private(target)
         assert target.is_dir()
+        for level in (tmp_path / "a", tmp_path / "a" / "b", target):
+            assert oct(level.stat().st_mode)[-3:] == "700", f"{level} left at the umask"
+
+    def test_a_new_child_of_an_existing_directory_is_still_private(self, tmp_path):
+        from unifi_map.fsio import mkdir_private
+
+        parent = tmp_path / "shared"
+        parent.mkdir()
+        parent.chmod(0o775)
+        mkdir_private(parent / "ours")
+        assert oct(parent.stat().st_mode)[-3:] == "775"
+        assert oct((parent / "ours").stat().st_mode)[-3:] == "700"
 
 
 class TestPerNetworkFilenamesAreUnique:

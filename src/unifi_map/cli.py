@@ -19,15 +19,14 @@ import argparse
 import datetime as dt
 import hashlib
 import logging
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 from . import __version__
 from .assets import AssetError, AssetStore, IconAsset, read_icon_font_dir
 from .client import Snapshot, UniFiClient, UniFiError
 from .config import ConfigError, load_config
+from .fsio import atomic_write, mkdir_private
 from .layout import GraphvizError, GraphvizMissing, compute_layout, run_dot, stagger
 from .model import (
     UNKNOWN_UPLINK_ID,
@@ -302,37 +301,6 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
     return 0
 
 
-def _mkdir_private(directory: Path) -> None:
-    """Create *directory*, and make it private only if we created it.
-
-    The distinction is the whole point and was previously lost: this used to run
-    unconditionally after `mkdir(exist_ok=True)`, so pointing `--out-dir` at an
-    existing shared directory silently took it from 0775 to 0700 and locked out
-    everyone else. Somebody who chose a shared location has made a choice.
-
-    `exist_ok=False` is what tells us which case we are in; there is no race-free
-    way to ask afterwards.
-    """
-    try:
-        directory.mkdir(parents=True)
-    except FileExistsError:
-        return
-    except OSError:
-        # Let the caller's own write fail with something more informative.
-        log.debug("Could not create %s", directory, exc_info=True)
-        return
-    _restrict(directory)
-
-
-def _restrict(directory: Path) -> None:
-    """Tighten a directory to 0700, best effort."""
-    try:
-        directory.chmod(0o700)
-    except OSError:
-        # A mount without POSIX modes, or somebody else's directory. Not fatal.
-        log.debug("Could not restrict %s", directory, exc_info=True)
-
-
 class OutputExistsError(RuntimeError):
     """Raised rather than overwrite a file this tool did not write."""
 
@@ -387,23 +355,7 @@ def _write_output(path: Path, data: bytes | str, *, force: bool, guard: bool) ->
             "somewhere else."
         )
 
-    payload = data.encode("utf-8") if isinstance(data, str) else data
-    tmp = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
-        ) as handle:
-            tmp = Path(handle.name)
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        # Before the rename, so there is no window at a laxer mode.
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, path)
-        tmp = None
-    finally:
-        if tmp is not None and tmp.exists():
-            tmp.unlink(missing_ok=True)
+    atomic_write(path, data)
 
 
 def _obtain_icon_font(args: argparse.Namespace, store: AssetStore) -> None:
@@ -589,7 +541,7 @@ def _write_outputs(
     force: bool = False,
     progress: bool = True,
 ) -> None:
-    _mkdir_private(out_dir)
+    mkdir_private(out_dir)
 
     # Every icon this render used, and nothing else, may be embedded.
     icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
