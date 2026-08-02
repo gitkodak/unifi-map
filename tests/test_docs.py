@@ -110,6 +110,10 @@ class TestDocumentedCommandsActuallyRun:
         assert len(found) > 15, f"only found {len(found)} commands; did the regex rot?"
         return found
 
+    # Redirection and pipes belong to the shell, not to argparse, so a command
+    # is only checked up to the first one.
+    _SHELL = re.compile(r"\s(?:[|><]|&&|2>&1)")
+
     def test_every_readme_command_parses(self):
         import shlex
 
@@ -117,6 +121,7 @@ class TestDocumentedCommandsActuallyRun:
 
         broken = []
         for command in self._commands():
+            command = self._SHELL.split(command)[0]
             argv = shlex.split(command)[1:]
             try:
                 build_parser().parse_args(argv)

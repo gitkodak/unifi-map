@@ -63,6 +63,9 @@ busy network this is usually the one worth handing to somebody else. Run
   as a claim rather than an observation, so a reader can tell the difference.
   `make demo-overrides` renders the shipped example.
 - **Read-only, always.** `session.get` is the only HTTP verb in the source.
+- **Scriptable by default.** The progress spinner turns itself off whenever
+  output is not a terminal, so piping or redirecting produces clean text with
+  no escape sequences and no `--no-progress` to remember.
 
 Quickest look, no credentials and no controller:
 
@@ -441,6 +444,29 @@ safety margin: it says nothing about how any of these numbers grow with site
 size. All three are therefore adjustable. If you hit one legitimately, please
 open an issue saying so, because a second data point would be worth more than
 the reasoning that picked these.
+
+Raising `--support-max-entries` prints a warning first, because the cost is
+otherwise invisible: walking a much larger archive produces no output until it
+finishes, so a slow run and a hung one look identical.
+
+## Progress, and turning it off
+
+Reading an archive, fetching artwork on a cold cache and running Graphviz on a
+large network can each take long enough that a silent terminal looks like a
+hang, so a spinner says which step is running.
+
+**It disables itself whenever output is not a terminal.** Piping, redirecting to
+a file or running under cron or CI all produce clean text with no escape
+sequences, without passing anything. `--no-progress` covers the case that check
+cannot see: an interactive terminal whose output something else is reading.
+
+```bash
+unifi-map --no-progress all          # never spin
+unifi-map all > map.log 2>&1         # already silent, no flag needed
+```
+
+Nothing is ever written to stdout, and log output goes to stderr with or without
+the spinner, so neither choice changes what a script sees.
 
 ## Usage
 

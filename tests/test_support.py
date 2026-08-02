@@ -616,6 +616,19 @@ class TestRefusals:
         with pytest.raises(SupportFileError, match="--support-max-entries"):
             load_support_file(path, max_entries=10)
 
+    def test_raising_the_entry_cap_warns_that_it_may_be_slow(self, support_archive, caplog):
+        # Raising it is deliberate, but the consequence is not obvious: the
+        # archive is walked entry by entry with nothing printed, so a run that
+        # now takes minutes is indistinguishable from one that has hung.
+        with caplog.at_level("WARNING"):
+            load_support_file(support_archive, max_entries=5_000_000)
+        assert any("5,000,000" in r.getMessage() for r in caplog.records)
+
+    def test_the_default_entry_cap_does_not_warn(self, support_archive, caplog):
+        with caplog.at_level("WARNING"):
+            load_support_file(support_archive)
+        assert not any("archive entries" in r.getMessage() for r in caplog.records)
+
     def test_the_entry_cap_is_raisable_like_the_size_caps(self, support_archive):
         # Tunable for the same reason they are. One measurement of one small
         # site is not evidence that entry count stays small on a large one, so

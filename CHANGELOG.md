@@ -40,6 +40,14 @@ Refactors, docs and tests alone do not need a release at all.
 
 ### Added
 
+- A progress spinner on the three steps slow enough to look like a hang:
+  reading a support archive, resolving artwork, and running Graphviz. It turns
+  itself off whenever output is not a terminal, so piping, redirecting and CI
+  are unaffected and need no flag; `--no-progress` covers an interactive
+  terminal whose output something else is reading.
+- Raising `--support-max-entries` above the default warns that the run may take
+  a while, since walking a larger archive prints nothing until it finishes and
+  is otherwise indistinguishable from a hang.
 - `--support-max-entries` caps how much of a support archive is walked. It was
   already capped at 100,000; what is new is being able to change it. The two
   size caps guard memory and this one guards time, since entry count does not

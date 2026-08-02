@@ -33,6 +33,7 @@ from .obfuscate import id_map, obfuscate
 from .overrides import OverrideError
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
+from .progress import SpinnerAwareHandler, spinner
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
 from .render_drawio import render_drawio
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
@@ -61,9 +62,6 @@ ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio")
 STAGGER_MIN_CLIENTS = 15
 
 
-# Defaults for the options shared between the top-level parser and every
-# subcommand. They live here rather than on the arguments because those must use
-# `argparse.SUPPRESS`; see the comment in `build_parser`.
 class _Parser(argparse.ArgumentParser):
     """An ArgumentParser that fills in the shared options' defaults last.
 
@@ -88,6 +86,9 @@ class _Parser(argparse.ArgumentParser):
         return parsed
 
 
+# Defaults for the options shared between the top-level parser and every
+# subcommand. They live here rather than on the arguments because those must use
+# `argparse.SUPPRESS`; see `_Parser` above.
 GLOBAL_DEFAULTS = {
     "env_file": None,
     "cache_dir": DEFAULT_CACHE,
@@ -102,6 +103,7 @@ GLOBAL_DEFAULTS = {
     "icon_font": None,
     "out_dir": DEFAULT_OUT,
     "verbose": False,
+    "progress": True,
 }
 
 
@@ -148,7 +150,8 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     config = load_config(args.env_file)
     client = UniFiClient(config)
     log.info("Reading %s (site %s)", config.host, config.site)
-    snapshot = client.snapshot()
+    with spinner(f"Querying {config.host}", args.progress):
+        snapshot = client.snapshot()
 
     store = AssetStore(cache_dir=args.asset_cache)
     # Kept beside the artwork rather than in the snapshot: it describes
@@ -207,14 +210,15 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
 
     _obtain_icon_font(args, store)
 
-    snapshot = load_support_file(
-        args.support_file,
-        args.support_site,
-        fingerprint_db,
-        max_member=args.support_max_member,
-        max_total=args.support_max_total,
-        max_entries=args.support_max_entries,
-    )
+    with spinner(f"Reading {args.support_file.name}", args.progress):
+        snapshot = load_support_file(
+            args.support_file,
+            args.support_site,
+            fingerprint_db,
+            max_member=args.support_max_member,
+            max_total=args.support_max_total,
+            max_entries=args.support_max_entries,
+        )
     snapshot.write(args.cache_dir)
     log.info("Wrote snapshot to %s/", args.cache_dir)
     for name, payload in sorted(snapshot.payloads.items()):
@@ -488,6 +492,7 @@ def _write_outputs(
     icons: dict[str, IconAsset],
     stagger_depth: int = 0,
     force: bool = False,
+    progress: bool = True,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     _restrict(out_dir)
@@ -507,7 +512,8 @@ def _write_outputs(
     for fmt in ("svg", "pdf", "png"):
         if fmt not in formats:
             continue
-        data = run_dot(dot_source, fmt)
+        with spinner(f"Rendering {fmt}", progress):
+            data = run_dot(dot_source, fmt)
         if fmt == "svg":
             # Graphviz references artwork by filesystem path; inline it so the
             # SVG is a single portable file.
@@ -575,7 +581,8 @@ def cmd_render(args: argparse.Namespace) -> int:
     icons: dict[str, IconAsset] = {}
     store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)
     if style.icons == "unifi":
-        icons = _resolve_icons(topo, store, style.theme)
+        with spinner("Resolving artwork", args.progress):
+            icons = _resolve_icons(topo, store, style.theme)
 
     # Artwork the user supplied wins over anything looked up for them.
     icons.update(override_icons)
@@ -619,6 +626,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         icons,
         _stagger_for(topo, args.stagger, style),
         force=args.force,
+        progress=args.progress,
     )
 
     if args.per_network:
@@ -638,6 +646,7 @@ def cmd_render(args: argparse.Namespace) -> int:
                 icons,
                 _stagger_for(view, args.stagger, style),
                 force=args.force,
+                progress=args.progress,
             )
 
     return 0
@@ -754,6 +763,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Load the client glyph font from a directory you copied off a "
         "controller yourself (needs its style.css and .ttf). Needs no "
         "credentials and no network. See the README.",
+    )
+    shared.add_argument(
+        "--no-progress",
+        dest="progress",
+        action="store_false",
+        default=argparse.SUPPRESS,
+        help="Never show the progress spinner. It already turns itself off when "
+        "output is not a terminal, so this is only needed for an interactive "
+        "run whose output something else is reading.",
     )
     shared.add_argument("--out-dir", type=Path, default=argparse.SUPPRESS)
     shared.add_argument("-v", "--verbose", action="store_true", default=argparse.SUPPRESS)
@@ -889,7 +907,8 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(message)s",
-        stream=sys.stderr,
+        # Erases the spinner before each record, so the two never share a line.
+        handlers=[SpinnerAwareHandler(sys.stderr)],
     )
     try:
         return int(args.func(args))

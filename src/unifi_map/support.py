@@ -147,6 +147,17 @@ def _read_members(
     would be worse than the exhaustion the caps exist to prevent, so they are
     raisable from the command line and the error says which flag to use.
     """
+    if max_entries > MAX_ARCHIVE_ENTRIES:
+        # Raising this is a deliberate act, but the consequence is invisible:
+        # the archive is walked entry by entry with nothing printed, so a run
+        # that now takes minutes looks identical to one that has hung.
+        log.warning(
+            "Walking up to %s archive entries (the default is %s). This can take "
+            "a while on a large archive, and there is no output until it finishes.",
+            f"{max_entries:,}",
+            f"{MAX_ARCHIVE_ENTRIES:,}",
+        )
+
     found: dict[str, bytes] = {}
     total = 0
     entries = 0
