@@ -70,6 +70,24 @@ drawn from a thin one look equally authoritative.
   That last one addresses the problem this tool exists for. Wants a decision
   about JavaScript before it starts.
 
+## Cache housekeeping
+
+- **Decide what to do about a cache that only grows** (KAN-139). Nothing ever
+  removes anything from the artwork cache. Product renders, client icons, ISP
+  marks, the icon font and the fingerprint database all accumulate, and the
+  rasterised copies of user-supplied SVGs are keyed on a hash of the source, so
+  editing one leaves its predecessor behind permanently.
+
+  Probably a `--clear-cache`, but the shape needs thought before the flag does.
+  There are **two** caches with different characters: the snapshot cache holds a
+  full inventory of a network and is regenerable only by talking to the
+  controller again, while the artwork cache is entirely regenerable from the
+  network. Clearing them is not the same act and one flag covering both would be
+  a footgun. Selective clearing, or pruning by age, may be the better answer.
+
+  Not urgent. It is tens of megabytes on a real network, and worth designing
+  once rather than adding a flag that has to be redefined later.
+
 ## Cache integrity
 
 - **Make a snapshot an atomic generation** (KAN-138). A fetch now removes recognised
