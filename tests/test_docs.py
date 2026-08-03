@@ -681,3 +681,78 @@ def test_every_docs_page_links_back_to_the_index():
     crumb = "[← Documentation index](../README.md#documentation)"
     missing = [p.name for p in sorted(ROOT.glob("docs/*.md")) if crumb not in p.read_text("utf-8")]
     assert not missing, f"docs pages with no link back to the index: {missing}"
+
+
+class TestDirectoriesFromTheEnvironment:
+    """`UNIFI_CACHE_DIR` and friends, and the order they lose in.
+
+    The motivating case is concrete: a snapshot is a full inventory of a
+    network, the default cache is inside the working directory, and for anyone
+    working on this tool that directory is a git repository. One such backup sat
+    untracked in this repo, one `git add -A` from being published.
+    """
+
+    def _parsed(self, argv, env, monkeypatch, tmp_path):
+        from unifi_map.cli import build_parser
+
+        # Isolated from any real credential file, which could set these too.
+        monkeypatch.setenv("UNIFI_MAP_ENV", str(tmp_path / "absent.env"))
+        for name in ("UNIFI_CACHE_DIR", "UNIFI_ASSET_CACHE", "UNIFI_OUT_DIR"):
+            monkeypatch.delenv(name, raising=False)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        return build_parser().parse_args(argv)
+
+    def test_the_environment_sets_the_cache(self, monkeypatch, tmp_path):
+        args = self._parsed(["render"], {"UNIFI_CACHE_DIR": "/tmp/snaps"}, monkeypatch, tmp_path)
+        assert args.cache_dir == Path("/tmp/snaps")
+
+    def test_a_flag_beats_the_environment(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render", "--cache-dir", "/tmp/flag"],
+            {"UNIFI_CACHE_DIR": "/tmp/env"},
+            monkeypatch,
+            tmp_path,
+        )
+        assert args.cache_dir == Path("/tmp/flag")
+
+    def test_the_default_still_applies_with_neither(self, monkeypatch, tmp_path):
+        from unifi_map.cli import DEFAULT_CACHE
+
+        args = self._parsed(["render"], {}, monkeypatch, tmp_path)
+        assert args.cache_dir == DEFAULT_CACHE
+
+    def test_a_leading_tilde_is_expanded(self, monkeypatch, tmp_path):
+        """`~` is the shell's job and there is no shell here, so an unexpanded
+        one would create a directory literally named `~`."""
+        args = self._parsed(["render"], {"UNIFI_CACHE_DIR": "~/snaps"}, monkeypatch, tmp_path)
+        assert str(args.cache_dir).startswith(str(Path.home()))
+
+    def test_all_three_directories_are_settable(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render"],
+            {
+                "UNIFI_CACHE_DIR": "/tmp/a",
+                "UNIFI_ASSET_CACHE": "/tmp/b",
+                "UNIFI_OUT_DIR": "/tmp/c",
+            },
+            monkeypatch,
+            tmp_path,
+        )
+        assert (args.cache_dir, args.asset_cache, args.out_dir) == (
+            Path("/tmp/a"),
+            Path("/tmp/b"),
+            Path("/tmp/c"),
+        )
+
+    def test_they_can_live_in_the_credential_file(self, monkeypatch, tmp_path):
+        """The natural place to put it: the file already kept outside the repo."""
+        env_file = tmp_path / "env"
+        env_file.write_text("UNIFI_CACHE_DIR=/tmp/from-file\n", encoding="utf-8")
+        monkeypatch.delenv("UNIFI_CACHE_DIR", raising=False)
+        monkeypatch.setenv("UNIFI_MAP_ENV", str(env_file))
+
+        from unifi_map.cli import build_parser
+
+        args = build_parser().parse_args(["render"])
+        assert args.cache_dir == Path("/tmp/from-file")

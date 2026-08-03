@@ -29,7 +29,7 @@ from pathlib import Path
 from . import __version__
 from .assets import AssetError, AssetStore, IconAsset, read_icon_font_dir
 from .client import Snapshot, UniFiClient, UniFiError
-from .config import ConfigError, load_config, source_date
+from .config import ConfigError, directory_defaults, load_config, source_date
 from .fsio import atomic_write, mkdir_private
 from .layout import GraphvizError, GraphvizMissing, compute_layout, run_dot, stagger
 from .model import (
@@ -95,6 +95,16 @@ class _Parser(argparse.ArgumentParser):
 
     def parse_args(self, args=None, namespace=None):  # type: ignore[override]
         parsed = super().parse_args(args, namespace)
+
+        # Precedence: flag, then environment, then the built-in default. An
+        # attribute is still missing here only when no flag supplied it, which
+        # is what `argparse.SUPPRESS` buys, so the environment can fill it
+        # without ever overriding something typed on the command line.
+        from_env = directory_defaults(getattr(parsed, "env_file", None))
+        for key, value in from_env.items():
+            if not hasattr(parsed, key):
+                setattr(parsed, key, value)
+
         for key, value in GLOBAL_DEFAULTS.items():
             if not hasattr(parsed, key):
                 setattr(parsed, key, value)
@@ -1034,7 +1044,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--cache-dir",
         type=Path,
         default=argparse.SUPPRESS,
-        help=f"Where controller snapshots are read/written (default: {DEFAULT_CACHE})",
+        help=f"Where controller snapshots are read/written. A snapshot is a full "
+        f"inventory of your network, so keeping it outside a git repository is "
+        f"worth doing: set $UNIFI_CACHE_DIR once instead of passing this every "
+        f"time (default: {DEFAULT_CACHE})",
     )
     shared.add_argument(
         "--asset-cache",

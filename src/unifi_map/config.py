@@ -28,6 +28,17 @@ _ALIASES: dict[str, tuple[str, ...]] = {
     "verify": ("UNIFI_VERIFY_TLS", "UDM_VERIFY_TLS"),
 }
 
+# Directories, which are not credentials and are read without requiring any.
+# Kept apart from the aliases above because those are needed only for a live
+# fetch, while these apply to `render` too, which needs no credentials at all.
+#
+# No `UDM_*` spellings: these are new, and that deprecation is not one to extend.
+_DIRECTORY_VARS: dict[str, str] = {
+    "cache_dir": "UNIFI_CACHE_DIR",
+    "asset_cache": "UNIFI_ASSET_CACHE",
+    "out_dir": "UNIFI_OUT_DIR",
+}
+
 # Searched in order; the first existing file wins. Set UNIFI_MAP_ENV to point at
 # a credential file kept outside the project directory.
 ENV_FILE_VAR = "UNIFI_MAP_ENV"
@@ -97,6 +108,36 @@ class ExporterConfig:
         if not host.startswith(("http://", "https://")):
             host = f"https://{host}"
         return host.rstrip("/")
+
+
+def directory_defaults(env_file: Path | None = None) -> dict[str, Path]:
+    """Directory settings from the environment, or an empty mapping.
+
+    Separate from `load_config` because that requires a host and an API key and
+    raises without them, while these apply to `render`, which needs neither.
+
+    The motivating case: a snapshot is a complete inventory of a network, and
+    the default cache sits inside the working directory, which for anyone
+    working on this tool is a git repository. Pointing it somewhere else should
+    not mean retyping a flag on every command.
+
+    Note that the three are independent on purpose. Setting only
+    `UNIFI_CACHE_DIR` leaves artwork in `cache/assets`, because the two are
+    deliberately separate: `--cache-dir examples/demo` must not cause downloads
+    to be written into the shipped demo dataset.
+    """
+    searched: list[Path] = [env_file] if env_file is not None else default_env_files()
+    values: dict[str, str] = {}
+    for candidate in searched:
+        if candidate.is_file():
+            values = read_dotenv(candidate)
+            break
+    resolved: dict[str, Path] = {}
+    for key, name in _DIRECTORY_VARS.items():
+        raw = os.environ.get(name) or values.get(name)
+        if raw and raw.strip():
+            resolved[key] = Path(raw.strip()).expanduser()
+    return resolved
 
 
 def _parse_verify(raw: str) -> bool | str:

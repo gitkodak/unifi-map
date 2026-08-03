@@ -56,7 +56,20 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-Nothing yet.
+### Added
+
+- **`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR`**, so the
+  directories can be set once instead of passed on every command. A flag still
+  wins over the variable, and the variable over the default. They can go in the
+  credential file as well as the environment, which is the natural place, since
+  that file is already the thing kept outside the project.
+
+  The cache one is the point. A snapshot is a complete inventory of a network,
+  the default puts it in the working directory, and for anyone working on this
+  tool that directory is a git checkout. A `cache.bak` copy made before a risky
+  fetch is not covered by a `.gitignore` entry for `cache/`; one sat untracked
+  in this repository, one `git add -A` from being published. The ignore rule was
+  widened in 0.8.0, and this removes the question rather than guarding it.
 
 ## 0.8.0 - 2026-08-02
 

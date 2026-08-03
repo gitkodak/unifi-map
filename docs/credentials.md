@@ -115,4 +115,33 @@ before 1.0.
 `UNIFI_MAP_ENV` is not read from the credential file itself; it is the
 environment variable that says *where* the credential file is.
 
+## Where things are written
+
+Three more variables, which are not credentials but are set the same way, in
+the environment or in the credential file:
+
+| Variable | Sets | Default |
+| --- | --- | --- |
+| `UNIFI_CACHE_DIR` | `--cache-dir`, where snapshots go | `cache/` |
+| `UNIFI_ASSET_CACHE` | `--asset-cache`, where artwork is cached | `cache/assets/` |
+| `UNIFI_OUT_DIR` | `--out-dir`, where diagrams are written | `out/` |
+
+A flag always beats the variable, and the variable beats the default, so a
+one-off run can still point somewhere else without editing anything.
+
+**`UNIFI_CACHE_DIR` is the one worth setting.** A snapshot is a complete
+inventory of your network: every MAC, hostname, address and lease, your SSIDs
+and subnets. The default puts it in the working directory, which for anyone
+working on this tool is a git checkout, and a directory named `cache.bak` made
+before a risky fetch is not covered by a `.gitignore` entry for `cache/`.
+Pointing it somewhere outside any repository removes the question:
+
+```bash
+UNIFI_CACHE_DIR=~/.local/share/unifi-map/cache
+```
+
+The three are independent on purpose. Setting only `UNIFI_CACHE_DIR` leaves
+artwork in `cache/assets`, because `--cache-dir examples/demo` must not cause
+downloads to be written into the shipped demo dataset.
+
 Tested against UniFi Network 10.5.67 on a UDM Pro Max, with a single site.

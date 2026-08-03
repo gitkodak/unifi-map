@@ -216,7 +216,7 @@ equivalent. Command options must follow the subcommand.
 | Flag | What it does | Default |
 | --- | --- | --- |
 | `--env-file` | Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi-map/env) |  |
-| `--cache-dir` | Where controller snapshots are read/written (default: cache) | `cache` |
+| `--cache-dir` | Where controller snapshots are read/written. A snapshot is a full inventory of your network, so keeping it outside a git repository is worth doing: set $UNIFI_CACHE_DIR once instead of passing this every time (default: cache) | `cache` |
 | `--asset-cache` | Where downloaded artwork is cached (default: cache/assets). Kept separate from --cache-dir so a read-only snapshot directory stays clean. | `cache/assets` |
 | `--support-file` `PATH` | Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add --offline to stop that too. |  |
 | `--site` `NAME` | Which site to read. For a live fetch this overrides UNIFI_SITE, which otherwise falls back to `default`. For a support file it picks one of the sites inside, and is required when the file holds more than one: the run stops and lists them rather than choosing for you. |  |

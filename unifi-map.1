@@ -60,7 +60,7 @@ Accepted before or after the subcommand, so
 Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi\-map/env)
 .TP
 \fB\-\-cache\-dir\fR
-Where controller snapshots are read/written (default: cache)
+Where controller snapshots are read/written. A snapshot is a full inventory of your network, so keeping it outside a git repository is worth doing: set $UNIFI_CACHE_DIR once instead of passing this every time (default: cache)
 .TP
 \fB\-\-asset\-cache\fR
 Where downloaded artwork is cached (default: cache/assets). Kept separate from \-\-cache\-dir so a read\-only snapshot directory stays clean.
