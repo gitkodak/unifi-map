@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import hashlib
 import json
 import logging
 import math
@@ -761,7 +762,72 @@ class AssetStore:
             return None
 
 
-def local_icon(path: Path) -> IconAsset:
+def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
+    """An SVG turned into a cached PNG, or None if that is not possible.
+
+    Graphviz loads SVG artwork only for its own `svg` driver: `png` and `pdf`
+    go through cairo, which has no SVG loader, so the image is dropped from
+    both with a warning and an exit status of 0. Rasterising here is what makes
+    a user's SVG reach every format.
+
+    Two things fall out of doing it ourselves, and both are the point:
+
+    * **The XML declaration stops mattering.** Graphviz refuses an SVG without
+      one; CairoSVG does not care, and produces byte-identical output either
+      way. So the file the user already has works untouched, and nothing needs
+      to write a corrected copy into their pictures folder.
+    * **The result is a PNG like everything else.** All fetched artwork is
+      already PNG, including inside the SVG output, so this makes a supplied
+      SVG consistent rather than a special case. The alternative, vector in the
+      SVG and raster elsewhere, needs two assets per node and the pipeline
+      carries one.
+
+    Optional: CairoSVG is an extra, and without it the caller keeps the SVG and
+    warns about the formats it will miss.
+
+    Cached under a hash of the file's contents, so editing the original
+    produces a new entry rather than a stale hit.
+    """
+    try:
+        import cairosvg
+    except ImportError:
+        return None
+
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    if len(data) > MAX_ASSET_BYTES:
+        log.warning("%s is larger than %d bytes; not rasterising.", path, MAX_ASSET_BYTES)
+        return None
+
+    out_dir = cache_dir / "user-svg"
+    target = out_dir / f"{hashlib.sha256(data).hexdigest()[:16]}.png"
+    if not target.is_file():
+        # Ratio from the source, so a wide drawing stays wide. `_measure_svg`
+        # already knows how to read it, including from a viewBox.
+        measured = _measure_svg(path)
+        kwargs: dict[str, int] = {}
+        if measured is not None and measured.height > measured.width:
+            kwargs["output_height"] = ICON_PX
+        else:
+            kwargs["output_width"] = ICON_PX
+        try:
+            # `unsafe` stays False, its default, which blocks external file and
+            # URL references. CairoSVG parses with defusedxml, so an entity
+            # expansion attack is refused rather than merely capped.
+            png = cairosvg.svg2png(bytestring=data, **kwargs)
+        except Exception as exc:  # cairosvg raises a wide variety
+            log.warning("Could not rasterise %s: %s", path, exc)
+            return None
+        out_dir.mkdir(parents=True, exist_ok=True)
+        _cache_write(target, png)
+        log.info("Rasterised %s to PNG so it reaches every output format.", path.name)
+
+    return _measure(target)
+
+
+def local_icon(path: Path, cache_dir: Path | None = None) -> IconAsset:
     """Artwork the user supplied, read from where they put it.
 
     Loud on failure rather than silent: falling back to the wrong fingerprint
@@ -769,6 +835,12 @@ def local_icon(path: Path) -> IconAsset:
     """
     if not path.is_file():
         raise AssetError(f"No artwork file at {path}")
+    if path.suffix.lower() == ".svg" and cache_dir is not None:
+        rasterised = rasterise_svg(path, cache_dir)
+        if rasterised is not None:
+            return rasterised
+        # Falls through to the SVG itself, which still works in the svg and
+        # drawio outputs. `write_outputs` warns about the ones it will miss.
     asset = _measure(path)
     if asset is None:
         # "Could not read" on a file the user can plainly see and open is not

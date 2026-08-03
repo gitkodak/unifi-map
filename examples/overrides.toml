@@ -58,6 +58,17 @@ port = 9
 # supply; relative paths resolve against this file's directory, so a config plus
 # an assets folder travel together. Nothing is downloaded for it.
 
+#
+# PNG is the simplest choice and needs nothing extra. If you point `icon` at an
+# .svg instead, install the svg extra as well:
+#
+#     pip install 'unifi-map[svg]'
+#
+# Without it Graphviz drops SVG artwork from the png and pdf outputs, because
+# it can only load SVG for its own svg format, and it additionally demands an
+# XML declaration on the first line. The extra rasterises the file on the way
+# in, which sidesteps both. See docs/overrides.md.
+
 [[node]]
 match = "10.0.30.22"
 name = "Network Bidet"

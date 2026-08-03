@@ -539,7 +539,7 @@ def _prune_placeholder(topo: Topology) -> None:
         topo.edges[:] = [e for e in topo.edges if UNKNOWN_UPLINK_ID not in (e.src, e.dst)]
 
 
-def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
+def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -> ApplyResult:
     """Apply *overrides* to a copy of *topo*.
 
     Order matters, in both directions. Declared devices are added first, so a
@@ -571,7 +571,7 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
         )
         result.devices_added += 1
         if device.icon is not None:
-            result.icons[device.node_id] = local_icon(device.icon)
+            result.icons[device.node_id] = local_icon(device.icon, cache_dir)
 
     # Second pass, and it has to be one. The comment here used to claim parents
     # were "resolved after every declared device exists" while resolving them
@@ -638,7 +638,7 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
             working.nodes[node_id] = replace(current, **changes)
             result.renamed += 1
         if node.icon is not None:
-            result.icons[node_id] = local_icon(node.icon)
+            result.icons[node_id] = local_icon(node.icon, cache_dir)
 
     _prune_placeholder(working)
     _refuse_cycles(working)

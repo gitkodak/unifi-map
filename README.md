@@ -160,6 +160,22 @@ are the defaults: `svg`, `pdf`, `png` and the positions inside a `drawio` file.
 `dot`, `mermaid` and `json` are written directly and need nothing installed.
 `unflatten` is optional but improves layout on large networks.
 
+### If you supply your own SVG artwork, add the `svg` extra
+
+```bash
+pip install -e ".[svg]"
+```
+
+Only relevant if you point an [override](docs/overrides.md) at an `.svg` file
+for a device's icon. Without the extra, Graphviz loads SVG artwork **only for
+the `svg` output**: `png` and `pdf` go through cairo, which has no SVG loader,
+so the icon is silently dropped from both. The tool warns when that is about to
+happen and names the file.
+
+With the extra, an SVG is rasterised to a cached PNG on the way in, so it
+reaches every format, and a file that lacks the XML declaration Graphviz
+insists on works untouched. PNG override artwork needs none of this.
+
 ### Installing it somewhere else
 
 `make build` produces a wheel and an sdist in `dist/`, which install anywhere

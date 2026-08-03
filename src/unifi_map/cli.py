@@ -408,7 +408,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     path = args.overrides or (DEFAULT_OVERRIDES if DEFAULT_OVERRIDES.is_file() else None)
     if path is not None:
         overrides = load_overrides(path)
-        result = apply_overrides(topo, overrides)
+        result = apply_overrides(topo, overrides, args.asset_cache)
         topo = result.topology
         override_icons = result.icons
         _report_displacements(result, args.obfuscate)
@@ -561,7 +561,7 @@ def cmd_overrides(args: argparse.Namespace) -> int:
     # for, which is the one outcome this command exists to prevent.
     topo = build_topology(snapshot, include_offline=args.show_offline == "yes")
     overrides = load_overrides(path)
-    result = apply_overrides(topo, overrides)
+    result = apply_overrides(topo, overrides, args.asset_cache)
     # `overrides check` has no --obfuscate: it is a local diagnostic and its
     # entire output is names already.
     _report_displacements(result, obfuscated=False)

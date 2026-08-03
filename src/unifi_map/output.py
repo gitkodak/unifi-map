@@ -136,15 +136,21 @@ def _warn_about_svg_artwork(icon_paths: set[Path], formats: list[str]) -> None:
 
     Warned here, before rendering, because Graphviz's own message names neither
     the file nor a way forward: it says `No loadimage plugin for "svg:cairo"`.
+
+    Only reached when the SVG was not rasterised, which means the `svg` extra
+    is not installed. With it, an SVG becomes a cached PNG and none of this
+    applies, so the message leads with that rather than with the workaround.
     """
     svgs = sorted(p for p in icon_paths if p.suffix.lower() == ".svg")
     affected = [f for f in _CAIRO_FORMATS if f in formats]
     if not svgs or not affected:
         return
     log.warning(
-        "%d SVG icon(s) will be missing from the %s output: Graphviz can only "
-        "load SVG artwork for its own svg format. The svg and drawio outputs "
-        "are unaffected. Convert to PNG to have it everywhere: %s",
+        "%d SVG icon(s) will be missing from the %s output: Graphviz loads SVG "
+        "artwork only for its own svg format, so cairo-backed formats drop it. "
+        "The svg and drawio outputs are unaffected. Fix it for every format "
+        "with `pip install 'unifi-map[svg]'`, which rasterises SVG artwork on "
+        "the way in, or convert the file to PNG yourself: %s",
         len(svgs),
         " and ".join(affected),
         ", ".join(str(p) for p in svgs[:3]) + (", ..." if len(svgs) > 3 else ""),

@@ -21,6 +21,13 @@ does the drawing, so those three are the formats that require it installed.
 worth knowing if you only want the source or the data. `drawio` is in between:
 the file is written here, but Graphviz computed the positions in it.
 
+**Your own SVG artwork does not reach `png` or `pdf` unless the `svg` extra is
+installed.** Graphviz loads SVG images only for its own `svg` driver; the
+cairo-backed formats drop them with a warning and carry on. `pip install
+'unifi-map[svg]'` rasterises SVG overrides to PNG on the way in, which fixes
+every format at once. This applies only to artwork *you* supply: everything
+fetched from Ubiquiti is already PNG. See [overrides](overrides.md#node).
+
 The two text formats below are the ones that need explaining.
 
 ## draw.io decides its own light and dark

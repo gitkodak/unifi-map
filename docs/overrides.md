@@ -161,26 +161,35 @@ Practical guidance:
 - **Around 256 pixels on the long edge is plenty.** Everything is scaled down to
   the box anyway, and the file is base64 embedded into every SVG you produce, so
   a large photograph inflates the output for no visible gain.
-- **SVG does not reach the `png` or `pdf` output.** Graphviz loads SVG artwork
-  only for its own `svg` driver; `png` and `pdf` go through cairo, which has no
-  SVG loader, so the image is dropped and the node draws without it. Graphviz
-  says `No loadimage plugin for "svg:cairo"` and still exits 0, which is why
-  this tool warns before rendering and names the file.
+- **SVG needs the `svg` extra to work properly.** Install it with:
 
-  The `svg` and `drawio` outputs are unaffected, so an SVG is fine if those are
-  what you use. **Convert to PNG if you want the icon in every format**, which
-  is the main reason to prefer PNG for override artwork generally.
-- **SVG works, with one caveat: it must open with an XML declaration**
-  (`<?xml version="1.0"?>`). Graphviz refuses one without it, and its way of
-  saying so is to report a file that plainly exists as missing and fail the
-  whole render, so it is refused here instead with an error naming the file and
-  the reason. Many drawing tools omit the declaration, so this is worth
-  checking first if an SVG is rejected; adding the line by hand is enough.
+  ```bash
+  pip install 'unifi-map[svg]'
+  ```
 
-  Size is taken from `width` and `height` if the `<svg>` tag has them, and from
-  its `viewBox` otherwise, which is how most tools export. Only the ratio
-  matters downstream. Dimensions are read from the `<svg>` element itself, so
-  shapes inside it do not affect the size.
+  With it, an SVG is rasterised to a cached PNG as it is read, and then behaves
+  exactly like any other artwork: it reaches every output format, and the file
+  needs nothing done to it first.
+
+  **Without it, two limitations apply**, and both are Graphviz's rather than
+  this tool's:
+
+  - The icon is **missing from `png` and `pdf`**. Graphviz loads SVG images
+    only for its own `svg` driver; those two go through cairo, which has no SVG
+    loader, so it says `No loadimage plugin for "svg:cairo"` and carries on.
+    The `svg` and `drawio` outputs are fine. You get a warning naming the file.
+  - The file **must open with an XML declaration** (`<?xml version="1.0"?>`).
+    Graphviz refuses one without it, and its way of saying so is to report a
+    file that plainly exists as missing and fail the whole render, so it is
+    refused here instead with an error naming the reason. Many drawing tools
+    omit the declaration, so check that first if an SVG is rejected.
+
+  Either way, size is taken from `width` and `height` if the `<svg>` tag has
+  them, and from its `viewBox` otherwise, which is how most tools export. Only
+  the ratio matters. Dimensions come from the `<svg>` element itself, so shapes
+  inside it do not affect the size.
+
+  **PNG needs none of this** and remains the simplest choice.
 - **Other formats** Graphviz accepts include JPEG, GIF and WebP, but none of
   them handle transparency as reliably as PNG.
 

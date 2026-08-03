@@ -866,6 +866,74 @@ class TestSvgRendersNotJustMeasures:
         with pytest.raises(AssetError):
             local_icon(icon)
 
+    def test_rasterising_makes_the_xml_declaration_irrelevant(self, tmp_path):
+        """The whole point of the `svg` extra, and it removes a workaround.
+
+        Graphviz demands the declaration; CairoSVG does not. So with the extra
+        installed a file that would otherwise be refused works untouched, and
+        nothing has to write a corrected copy into the user's own directory.
+        """
+        pytest.importorskip("cairosvg")
+        from unifi_map.assets import local_icon
+
+        icon = tmp_path / "icon.svg"
+        # No declaration, and no width/height either: refused without the extra.
+        icon.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32">'
+            '<rect width="64" height="32" fill="#888"/></svg>',
+            encoding="utf-8",
+        )
+        asset = local_icon(icon, cache_dir=tmp_path / "cache")
+        assert asset.path.suffix == ".png"
+        assert asset.path.is_file()
+
+    def test_the_raster_keeps_the_aspect_ratio(self, tmp_path):
+        pytest.importorskip("cairosvg")
+        from unifi_map.assets import local_icon
+
+        icon = tmp_path / "wide.svg"
+        icon.write_text(
+            '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" '
+            'viewBox="0 0 64 16"><rect width="64" height="16" fill="#888"/></svg>',
+            encoding="utf-8",
+        )
+        asset = local_icon(icon, cache_dir=tmp_path / "cache")
+        assert asset.width > asset.height * 3
+
+    def test_editing_the_source_produces_a_new_raster(self, tmp_path):
+        """Cached on a hash of the contents, so a stale hit is not possible."""
+        pytest.importorskip("cairosvg")
+        from unifi_map.assets import local_icon
+
+        cache = tmp_path / "cache"
+        icon = tmp_path / "icon.svg"
+        head = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" '
+        icon.write_text(head + 'viewBox="0 0 64 32"/>', encoding="utf-8")
+        first = local_icon(icon, cache_dir=cache).path
+        icon.write_text(head + 'viewBox="0 0 32 64"/>', encoding="utf-8")
+        second = local_icon(icon, cache_dir=cache).path
+        assert first != second
+
+    def test_without_the_extra_the_svg_is_used_as_is(self, tmp_path, monkeypatch):
+        """Degrades to today's behaviour rather than failing the run."""
+        import builtins
+
+        from unifi_map.assets import local_icon
+
+        real_import = builtins.__import__
+
+        def no_cairosvg(name, *args, **kwargs):
+            if name == "cairosvg":
+                raise ImportError("simulated: extra not installed")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", no_cairosvg)
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(self.HEAD + '<svg width="64" height="32"/>', encoding="utf-8")
+        asset = local_icon(icon, cache_dir=tmp_path / "cache")
+        assert asset.path == icon
+
     def test_a_viewbox_supplies_the_size_when_width_and_height_are_absent(self, tmp_path):
         """How most drawing tools export, and Graphviz renders them fine.
 

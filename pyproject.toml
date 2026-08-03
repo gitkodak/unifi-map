@@ -13,9 +13,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Rasterises user-supplied SVG override artwork so it reaches every output
+# format. Optional because it is a minority case and libcairo is not standard
+# on Windows: without it, SVG still works in the svg and drawio outputs and the
+# tool says so rather than dropping it silently.
+svg = [
+    "CairoSVG>=2.7",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.5",
+    # In dev so the rasterising path is actually exercised by the suite rather
+    # than only the fallback.
+    "CairoSVG>=2.7",
 ]
 
 [project.scripts]
