@@ -161,6 +161,15 @@ Practical guidance:
 - **Around 256 pixels on the long edge is plenty.** Everything is scaled down to
   the box anyway, and the file is base64 embedded into every SVG you produce, so
   a large photograph inflates the output for no visible gain.
+- **SVG does not reach the `png` or `pdf` output.** Graphviz loads SVG artwork
+  only for its own `svg` driver; `png` and `pdf` go through cairo, which has no
+  SVG loader, so the image is dropped and the node draws without it. Graphviz
+  says `No loadimage plugin for "svg:cairo"` and still exits 0, which is why
+  this tool warns before rendering and names the file.
+
+  The `svg` and `drawio` outputs are unaffected, so an SVG is fine if those are
+  what you use. **Convert to PNG if you want the icon in every format**, which
+  is the main reason to prefer PNG for override artwork generally.
 - **SVG works, with one caveat: it must open with an XML declaration**
   (`<?xml version="1.0"?>`). Graphviz refuses one without it, and its way of
   saying so is to report a file that plainly exists as missing and fail the

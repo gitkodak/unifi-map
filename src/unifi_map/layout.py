@@ -99,9 +99,20 @@ def run_dot(dot_source: str, output_format: str, engine: str = "dot") -> bytes:
     except subprocess.TimeoutExpired as exc:
         raise GraphvizError("Graphviz timed out after 300s.") from exc
 
+    stderr = result.stderr.decode("utf-8", errors="replace").strip()
     if result.returncode != 0:
-        stderr = result.stderr.decode("utf-8", errors="replace").strip()
         raise GraphvizError(f"Graphviz failed ({result.returncode}): {stderr}")
+    if stderr:
+        # Graphviz warns on stderr and still exits 0, and this was discarded.
+        # That is how an icon could vanish from a PNG in silence: there is no
+        # `svg:cairo` loadimage plugin, so an SVG is dropped from every
+        # cairo-backed format with nothing but a warning nobody saw.
+        #
+        # Surfaced whole rather than filtered. A warning we have not seen
+        # before is exactly the one worth reading, and deciding here which of
+        # Graphviz's messages matter is how the last one got hidden.
+        for line in stderr.splitlines():
+            log.warning("Graphviz (-T%s): %s", output_format, line.strip())
     return result.stdout
 
 

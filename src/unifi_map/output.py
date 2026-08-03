@@ -122,6 +122,35 @@ def write_output(path: Path, data: bytes | str, *, force: bool, guard: bool) -> 
     atomic_write(path, data)
 
 
+# Formats Graphviz renders through cairo, which has no SVG loader.
+_CAIRO_FORMATS = ("png", "pdf")
+
+
+def _warn_about_svg_artwork(icon_paths: set[Path], formats: list[str]) -> None:
+    """Say so when SVG artwork cannot survive into a requested format.
+
+    Graphviz loads an SVG image only for its own `svg` output driver. There is
+    no `svg:cairo` loadimage plugin, so `png` and `pdf` drop the image entirely,
+    warn on stderr and exit 0. The node still draws, without its artwork, which
+    looks like the override not working rather than like a format limitation.
+
+    Warned here, before rendering, because Graphviz's own message names neither
+    the file nor a way forward: it says `No loadimage plugin for "svg:cairo"`.
+    """
+    svgs = sorted(p for p in icon_paths if p.suffix.lower() == ".svg")
+    affected = [f for f in _CAIRO_FORMATS if f in formats]
+    if not svgs or not affected:
+        return
+    log.warning(
+        "%d SVG icon(s) will be missing from the %s output: Graphviz can only "
+        "load SVG artwork for its own svg format. The svg and drawio outputs "
+        "are unaffected. Convert to PNG to have it everywhere: %s",
+        len(svgs),
+        " and ".join(affected),
+        ", ".join(str(p) for p in svgs[:3]) + (", ..." if len(svgs) > 3 else ""),
+    )
+
+
 def write_outputs(
     dot_source: str,
     topo: Topology,
@@ -139,6 +168,8 @@ def write_outputs(
 
     # Every icon this render used, and nothing else, may be embedded.
     icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
+
+    _warn_about_svg_artwork(icon_paths, formats)
 
     # Stagger once, up front, so the SVG/PDF and the draw.io coordinates are
     # computed from byte-identical DOT and therefore agree exactly.
