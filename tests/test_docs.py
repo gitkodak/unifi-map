@@ -668,3 +668,16 @@ def test_no_document_carries_an_orphaned_generated_marker():
                 f"{path.name} has {begins} BEGIN and {ends} END for {marker}; "
                 "a marker without its pair means generated content is missing"
             )
+
+
+def test_every_docs_page_links_back_to_the_index():
+    """A reader can land on any of these directly and needs a way back.
+
+    Search results and deep links go straight to `docs/whatever.md`, which
+    carries no indication that it is one page of a set or where the set is
+    listed. Cheap to add and easy to forget on the ninth page, so it is checked
+    rather than remembered.
+    """
+    crumb = "[← Documentation index](../README.md#documentation)"
+    missing = [p.name for p in sorted(ROOT.glob("docs/*.md")) if crumb not in p.read_text("utf-8")]
+    assert not missing, f"docs pages with no link back to the index: {missing}"

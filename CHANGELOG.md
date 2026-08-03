@@ -198,6 +198,11 @@ told something untrue and may have acted on it.
 
 ### Added
 
+- **Every page under `docs/` links back to the documentation index.** A search
+  result or a shared link lands a reader on one page of a set, with nothing on
+  it saying that a set exists or where it is listed. Suggested by an external
+  documentation review, and guarded, because the convention is the sort that
+  holds across eight files and quietly lapses on the ninth.
 - **Three documentation guards, each for a class of drift the existing checks
   could not see.** The JSON example is parsed and its version and top-level keys
   compared against real output; the Mermaid example is diffed byte-for-byte

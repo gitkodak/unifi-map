@@ -1,5 +1,7 @@
 # Mapping from a support file
 
+[← Documentation index](../README.md#documentation)
+
 Reading a console support file instead of talking to a controller: what it
 needs, what it costs, and why the file itself must be treated as a secret.
 

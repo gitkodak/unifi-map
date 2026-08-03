@@ -1,5 +1,7 @@
 # Manual topology overrides
 
+[← Documentation index](../README.md#documentation)
+
 Manual corrections for the things a controller cannot tell you.
 
 ## The problem

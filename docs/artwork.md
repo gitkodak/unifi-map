@@ -1,5 +1,7 @@
 # Artwork
 
+[← Documentation index](../README.md#documentation)
+
 Where the pictures come from, what happens when there are none, and the
 licensing position.
 

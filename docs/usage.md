@@ -1,5 +1,7 @@
 # Usage
 
+[← Documentation index](../README.md#documentation)
+
 Every command and flag, and how to read what comes out of them. The reference
 at the end is generated from the argument parser, so it cannot drift from
 `--help`.

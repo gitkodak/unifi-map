@@ -1,5 +1,7 @@
 # Output formats and options
 
+[← Documentation index](../README.md#documentation)
+
 Every format `-f` accepts, and the flags that change how a run behaves rather
 than what it draws.
 

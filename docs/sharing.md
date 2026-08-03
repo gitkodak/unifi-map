@@ -1,5 +1,7 @@
 # Sharing a map, and helping upstream
 
+[← Documentation index](../README.md#documentation)
+
 Two things you might want to send somebody: a diagram of your network with
 the identifying parts removed, and a description of its shape that carries
 none of them in the first place.

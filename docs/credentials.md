@@ -1,5 +1,7 @@
 # Credentials
 
+[← Documentation index](../README.md#documentation)
+
 Everything about giving `unifi-map` access to a controller, and what that
 access amounts to.
 

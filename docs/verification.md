@@ -1,5 +1,7 @@
 # What has been checked
 
+[← Documentation index](../README.md#documentation)
+
 For anybody deciding how much to trust this. What was verified directly, what
 was not, and the limits worth knowing before you rely on a diagram.
 
