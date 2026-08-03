@@ -34,6 +34,7 @@ from typing import Any
 
 import requests
 
+from . import drawn
 from .fsio import atomic_write
 
 log = logging.getLogger(__name__)
@@ -514,6 +515,34 @@ class AssetStore:
             # No Pillow, or a bad colour: fall back to the shape renderer.
             log.debug("Could not draw the Internet icon.", exc_info=True)
             return None
+
+    def drawn_icon(self, name: str, color: str) -> IconAsset | None:
+        """One of our own device icons, drawn locally. Never fetches anything.
+
+        Used in two places: `--icons builtin`, which is the network-free mode
+        and previously drew nothing but Graphviz primitives, and as the fallback
+        inside `--icons unifi` when hardware is absent from Ubiquiti's
+        catalogue. The second is a small, deliberate step away from "`unifi`
+        shows exactly what the console shows", taken because a drawn access
+        point beats a trapezium either way.
+
+        *color* should be the theme's muted text colour, as the cloud uses, so
+        the icon tracks the theme. Each colour caches separately; sharing one
+        file would leave a dark icon on a dark canvas.
+
+        Returns None rather than raising if Pillow is missing or the colour is
+        unusable, because artwork must always degrade to the shape renderer
+        rather than failing a run.
+        """
+        cached = self.icon_dir / f"drawn-{name}-{color.lstrip('#')}-{ICON_PX}.png"
+        if cached.is_file():
+            return _measure(cached)
+        try:
+            width, height = drawn.render(name, color, cached, ICON_PX)
+        except (ImportError, OSError, ValueError):
+            log.debug("Could not draw the %s icon.", name, exc_info=True)
+            return None
+        return IconAsset(path=cached, width=width, height=height)
 
     def client_icon(self, dev_id: int | None) -> IconAsset | None:
         """Real product artwork for a fingerprinted client.

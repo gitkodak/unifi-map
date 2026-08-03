@@ -69,11 +69,6 @@ drawn from a thin one look equally authoritative.
   click a node to highlight its path to the gateway, collapse client subtrees.
   That last one addresses the problem this tool exists for. Wants a decision
   about JavaScript before it starts.
-- **Drawn device icons.** Seven Pillow-drawn shapes replacing the Graphviz
-  primitives, used in `--icons builtin` and as the fallback inside
-  `--icons unifi` for hardware absent from Ubiquiti's catalogue.
-  `_render_cloud()` already proved the approach: ours, so no network and no
-  licensing question.
 
 ## Comparing one fetch to another
 

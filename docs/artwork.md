@@ -7,7 +7,8 @@ licensing position.
 
 ## Where the artwork comes from
 
-Four sources, none of them vendored here and one of them yours:
+Six sources, in the order they are tried. None is vendored here, one is drawn
+here, and one is yours:
 
 | What | Source | Key |
 | --- | --- | --- |
@@ -15,7 +16,11 @@ Four sources, none of them vendored here and one of them yours:
 | Clients | `static.ui.com/fingerprint/0/{dev_id}_257x257.png` | fingerprint `dev_id` from `stat/sta` |
 | UniFi gear seen as a client | the same catalogue as UniFi hardware | hostname, plus a device type from another app |
 | Generic client glyphs | the controller's own icon font (`fonts/ubnt-icon`) | user/guest x wired/wireless |
+| Everything left over | [drawn here](#the-icons-we-draw-ourselves), with Pillow | node kind, or user/guest x wired/wireless for clients |
 | Anything at all | a file you supply, named by `icon` in an [overrides file](overrides.md) | whatever you point it at |
+
+Precedence runs down that list, except the last, which wins over everything: an
+icon you supplied is a decision, not a guess.
 
 The last row is the escape hatch for everything the others cannot do: hardware
 Ubiquiti has no render of, a device they identify wrongly, or a switch nothing
@@ -119,6 +124,49 @@ curl -s -H "X-API-KEY: $UNIFI_API_KEY" "$BASE/fonts/ubnt.ttf" -o ~/ubnt-icon/fon
 
 Either way the font is cached under `--asset-cache` afterwards, so the flag is
 only needed once per cache.
+
+## The icons we draw ourselves
+
+Ubiquiti's artwork covers their hardware and the clients their fingerprint
+database recognises. Everything else used to fall through to a bare Graphviz
+primitive: a trapezium for an access point, a diamond for something unplaceable.
+Readable, but plainly geometric.
+
+Nine icons are now drawn here instead, with Pillow, and used in two places:
+
+- **`--icons builtin`**, which fetches nothing at all. It previously meant "no
+  artwork exists"; it now means "artwork that is ours", which includes the
+  Internet cloud. It is a complete map with no network access whatsoever.
+- **As the fallback inside `--icons unifi`**, for hardware absent from
+  Ubiquiti's catalogue. This is a small, deliberate step away from "`unifi`
+  shows exactly what the console shows", taken because a drawn access point
+  beats a trapezium either way. Devices the catalogue *does* cover are
+  unaffected, so a normal map looks exactly as it did.
+
+Five are infrastructure, keyed on the device's role: gateway, switch, access
+point, bridge, and unknown. Four are clients, split on guest and wireless, which
+is the same four-way split the console's own icon font encodes.
+
+**Those four close a gap that had no other answer.** That font is served only by
+a controller and appears nowhere in a support file, so mapping from an archive
+without ever touching a console meant unidentified clients drew as shapes. They
+now draw as icons, which removes the last reason a support-file user needs a
+controller at all.
+
+Three things about how they are drawn, each of which is a constraint rather than
+a preference:
+
+- **The silhouette carries the meaning.** Every icon is a single colour on
+  transparency and every outline is distinguishable from the others with colour
+  discarded. Guest is *hollow* rather than a second hue, because colour is never
+  the only channel here.
+- **Aspect ratios are real.** A switch is wide and short, a handset is taller
+  than it is wide, an access point is round.
+- **Each theme colour caches separately**, or a dark icon lands on a dark
+  canvas.
+
+They are ours, so they need no network and raise no licensing question, which is
+the same reasoning behind the Internet cloud.
 
 ## Fixing a wrong icon in the console instead
 

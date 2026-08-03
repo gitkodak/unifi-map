@@ -552,6 +552,39 @@ def _resolve_icons(
     return icons
 
 
+def _apply_drawn_icons(
+    topo: Topology,
+    store: AssetStore,
+    theme,
+    icons: dict[str, IconAsset],
+    counts: dict | None = None,
+) -> int:
+    """Fill remaining nodes with icons we drew ourselves. Returns how many.
+
+    Last, deliberately. Ubiquiti's product artwork is the real picture of the
+    real hardware and the console's icon font is what the UI itself falls back
+    to; both are better answers than a generic drawing. This only covers what
+    neither could name, which previously left a bare Graphviz primitive.
+
+    The Internet node is skipped: `_resolve_icons` already gives it a brand mark
+    or our cloud, and the cloud is the drawn icon for that kind.
+    """
+    drawn_count = 0
+    for node in topo.nodes.values():
+        if node.id in icons or node.kind is Kind.INTERNET:
+            continue
+        # Clients split four ways on guest/wireless, the same split the
+        # console's icon font encodes; everything else is drawn by kind.
+        name = node.glyph_name or node.kind.value
+        asset = store.drawn_icon(name, theme.text_muted)
+        if asset is not None:
+            icons[node.id] = asset
+            drawn_count += 1
+    if counts is not None:
+        counts.update(from_drawn=drawn_count)
+    return drawn_count
+
+
 def _hardware_asset(node, store: AssetStore) -> IconAsset | None:
     """Artwork for UniFi hardware that shows up as a client.
 
@@ -699,6 +732,21 @@ def cmd_render(args: argparse.Namespace) -> int:
     if style.icons == "unifi":
         with spinner("Resolving artwork", args.progress):
             icons = _resolve_icons(topo, store, style.theme)
+    else:
+        # `builtin` means "nothing fetched", not "nothing drawn". The cloud is
+        # ours and needs no network, so the Internet node gets it here too.
+        for node in topo.nodes.values():
+            if node.kind is Kind.INTERNET:
+                cloud = store.internet_icon(style.theme.text_muted)
+                if cloud is not None:
+                    icons[node.id] = cloud
+
+    # Both modes: anything still without artwork gets one of ours rather than a
+    # bare Graphviz primitive. In `unifi` that is hardware absent from
+    # Ubiquiti's catalogue; in `builtin` it is everything.
+    drawn_count = _apply_drawn_icons(topo, store, style.theme, icons)
+    if drawn_count:
+        log.info("Artwork: %d node(s) drawn locally", drawn_count)
 
     # Artwork the user supplied wins over anything looked up for them.
     icons.update(override_icons)
@@ -1119,8 +1167,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--icons",
         choices=ICON_SETS,
         default="unifi",
-        help="unifi: real Ubiquiti product artwork, fetched and cached at runtime. "
-        "builtin: geometric shapes only, no network access (default: unifi)",
+        help="unifi: real Ubiquiti product artwork, fetched and cached at runtime, "
+        "falling back to our own drawings for hardware absent from their catalogue. "
+        "builtin: our drawings only, nothing fetched (default: unifi)",
     )
     render_flags.add_argument(
         "--layout",

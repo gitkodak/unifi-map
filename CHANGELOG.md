@@ -249,6 +249,44 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
 
 ### Added
 
+- **Nine device icons, drawn by this project rather than fetched.** Ubiquiti's
+  artwork covers their hardware and the clients their fingerprint database
+  recognises; everything else fell through to a bare Graphviz primitive, so an
+  access point was a trapezium and an unplaceable client was a diamond.
+
+  Five are infrastructure, keyed on the device's role. Four are clients, split on
+  guest and wireless, which is the same four-way split the console's own icon
+  font encodes. **Those four close a gap with no other answer**: that font is
+  served only by a controller and is absent from a support file, so mapping an
+  archive without touching a console left unidentified clients as shapes. It no
+  longer does, which removes the last reason a support-file user needs a
+  controller.
+
+  They appear in two places. `--icons builtin` no longer means "no artwork"; it
+  means artwork that is ours, the Internet cloud included, and produces a
+  complete map with no network access at all. And inside `--icons unifi` they
+  are the fallback for hardware absent from Ubiquiti's catalogue, which is a
+  small, deliberate step away from "`unifi` shows exactly what the console
+  shows": on the shipped demo it changes exactly one node. Devices the catalogue
+  covers are untouched.
+
+  One defect found before any of this shipped, recorded because it is the kind
+  that hides: `render_dot` discarded the resolved icons entirely unless the icon
+  set was `unifi`, a leftover from when `builtin` meant no artwork existed. The
+  icons drew correctly and never reached the map. The same gate had been
+  silently dropping icons supplied through an overrides file, which are not
+  fetched from anywhere either, so that is fixed too.
+
+  Drawn with Pillow, which was already a hard dependency, so nothing new is
+  required and nothing is vendored. The silhouette carries the meaning rather
+  than the colour, with guest drawn hollow rather than in a second hue, so the
+  set survives greyscale and colourblind readers. Aspect ratios are real, so a
+  switch is wide and short and a handset is taller than it is wide. Each theme
+  colour caches separately.
+
+- The shipped demo marks its guest client as one. `is_guest` is a separate fact
+  from sitting on the guest VLAN, and without it two of the nine new icons never
+  appeared in the demo at all.
 - **Every page under `docs/` links back to the documentation index.** A search
   result or a shared link lands a reader on one page of a set, with nothing on
   it saying that a set exists or where it is listed. Suggested by an external

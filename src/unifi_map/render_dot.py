@@ -239,7 +239,13 @@ def render_dot(
         if node.kind in _CLIENT_KINDS and node.network in colors:
             accent = colors[node.network]
 
-        icon = icons.get(node_id) if style.icons == "unifi" else None
+        # Whatever the caller resolved, without second-guessing it. This used to
+        # be gated on `style.icons == "unifi"`, back when `builtin` meant no
+        # artwork existed at all; now it means artwork we drew ourselves rather
+        # than artwork fetched from Ubiquiti, and there is plenty of it. The
+        # gate also silently discarded icons a user supplied through an
+        # overrides file, which were never fetched from anywhere either.
+        icon = icons.get(node_id)
         if icon is not None:
             attrs = [f"label={_icon_label(topo, node_id, theme, accent, icon)}"]
             if node.asserted:

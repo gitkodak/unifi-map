@@ -90,10 +90,11 @@ def wired(mac, name, ip, network, sw_mac=None, sw_port=None, oui=None, dev_id=No
     return entry
 
 
-def wireless(mac, name, ip, network, ap_mac, essid, radio="ng", oui=None, dev_id=None):
+def wireless(mac, name, ip, network, ap_mac, essid, radio="ng", oui=None, dev_id=None, guest=False):
     entry = {
         "mac": mac,
         "is_wired": False,
+        "is_guest": guest,
         "ip": ip,
         "network_id": network,
         "ap_mac": ap_mac,
@@ -297,8 +298,17 @@ def build() -> dict[str, dict]:
             "demo-iot",
             oui="Tuya Smart Inc.",
         ),
+        # The only guest, and flagged as one. `is_guest` is a separate fact from
+        # sitting on the guest VLAN, and it is what picks the guest icon, so a
+        # demo without it never exercises two of the nine drawn icons.
         wireless(
-            "02:00:00:00:40:01", "guest-phone", "10.0.100.20", NET_GUEST, AP_LIVING, "demo-guest"
+            "02:00:00:00:40:01",
+            "guest-phone",
+            "10.0.100.20",
+            NET_GUEST,
+            AP_LIVING,
+            "demo-guest",
+            guest=True,
         ),
     ]
 

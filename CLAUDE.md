@@ -611,42 +611,42 @@ listed twice, and ordered by fit rather than by arrival.
   support-file size caps without data from a large site, stopped being a
   decline when the caps became adjustable and the defaults dropped to 64M/128M.
 
-- **Draw our own device icons instead of falling back to Graphviz shapes.**
-  `KIND_SHAPE` currently maps each role to a primitive: `doubleoctagon` for a
-  gateway, `box3d` for a switch, `trapezium` for an AP, `diamond` for unknown.
-  Readable, but plainly geometric. `_render_cloud()` proved the approach: Pillow
-  primitives, ours, so no network and no licensing question, and Pillow is
-  already a hard dependency so nothing new is needed.
+- **We draw our own device icons. Shipped, in `drawn.py`.** Nine, not the seven
+  first planned: five infrastructure keyed on `Kind` (gateway, switch, ap,
+  bridge, unknown) and **four** clients keyed on `Node.glyph_name`, because
+  guest and wireless are separate facts and the console's own font encodes all
+  four. Drawing those four is what closed the icon-font dead end: that font is
+  served only by a controller, so a support-file user with no console now gets
+  icons rather than shapes.
 
-  Seven icons, `INTERNET` being done already: gateway, switch, AP, bridge, wired
-  client, wireless client, unknown.
+  Used in `--icons builtin`, which no longer means "no artwork" but "artwork
+  that is ours" (the Internet cloud included), and as the fallback inside
+  `--icons unifi` for hardware absent from Ubiquiti's catalogue. On the demo
+  that second case is exactly one node, the unplaceable-uplink placeholder, so
+  a normal map is unchanged.
 
-  **Decided: use them in `--icons builtin` *and* as the fallback inside
-  `--icons unifi` when a device is not in Ubiquiti's catalogue.** Today that case
-  drops to a bare shape, so this improves the default mode too. It is a small,
-  deliberate step away from "`unifi` shows exactly what the console
-  shows", taken because a drawn AP beats a trapezium either way.
+  Three constraints held, and each has a test:
 
-  What is known offline, all from the snapshot rather than any lookup:
+  - **Real aspect ratios.** A switch is wider than it is tall by more than 3:1,
+    a handset is taller than wide, an AP is square.
+  - **Silhouette carries the meaning.** Guest is *hollow*, not a second hue, and
+    it is compared as an alpha mask so colour cannot rescue it. No two icons may
+    share a silhouette.
+  - **Cached per colour**, or a dark icon lands on a dark canvas.
 
-  - `Kind`, derived from the controller's `type` (`udm`/`usw`/`uap`).
-  - `model`, the raw code (`UDMPROMAX`, `U7PRO`, `USL8LP`). Enough to vary an
-    icon by port count or form factor if that ever seems worth it.
-  - `is_guest` and `wireless` for clients, which is exactly the four-way split
-    the console's own icon font encodes (`user-wired`, `user-wireless`,
-    `guest-wired`, `guest-wireless`). **Drawing those four would close the icon
-    font dead end recorded above**, and remove the only remaining reason a
-    support-file user needs a controller.
+  **The thing that nearly shipped broken**: `render_dot` discarded the icons
+  dict entirely unless `style.icons == "unifi"`, a leftover from when `builtin`
+  meant no artwork existed. The icons drew perfectly and never reached the map.
+  That gate had also been silently dropping user-supplied override icons, which
+  are not fetched from anywhere either. Removed: the caller decides what is in
+  the dict.
 
-  Three constraints, all learned the hard way already:
+  Interior detail is punched with fully transparent pixels rather than
+  overdrawn, since `ImageDraw` writes pixels rather than compositing. That is
+  what makes a switch's ports and a hollow guest body possible in one colour.
 
-  - **Give each kind its real aspect ratio.** `IconAsset.display_size()` honours
-    it; a wide short switch forced into a square cell letterboxes.
-  - **Silhouette must keep carrying the meaning.** The existing shapes exist so
-    the map survives greyscale and deuteran vision. Colour may not become the
-    only channel.
-  - **Cache per colour, like the cloud does**, or a dark icon lands on a dark
-    canvas.
+  Not done, and cheap if ever wanted: varying an icon by `model`, which is in
+  the snapshot (`USL8LP` says eight ports) and currently unused.
 
 - **Infrastructure view.** The console has one, and it is a different diagram
   rather than the client map with clients removed, which is all `--no-clients`
