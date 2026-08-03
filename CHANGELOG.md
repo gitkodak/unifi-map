@@ -56,6 +56,8 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.9.0 - 2026-08-03
+
 ### Added
 
 - **An `svg` extra, for your own SVG override artwork.** `pip install
