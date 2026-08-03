@@ -277,6 +277,16 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
   silently dropping icons supplied through an overrides file, which are not
   fetched from anywhere either, so that is fixed too.
 
+  Nine places across the README, four pages under `docs/` and `SECURITY.md` still
+  promised "plain shapes" or "geometric shapes" for `--icons builtin` and for
+  unidentified clients. All now describe what happens. Two related corrections
+  came out of the same sweep: the artwork page presented one precedence order
+  when the implementation has three (infrastructure, clients and the Internet
+  node resolve by different code, and the ISP brand mark was missing from the
+  table entirely), and the transparency note said `builtin` nodes keep a filled
+  background of their own, which stopped being true when the fallback shapes
+  became transparent PNGs.
+
   Drawn with Pillow, which was already a hard dependency, so nothing new is
   required and nothing is vendored. The silhouette carries the meaning rather
   than the colour, with guest drawn hollow rather than in a second hue, so the

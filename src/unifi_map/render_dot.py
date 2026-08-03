@@ -5,8 +5,10 @@ Two independent choices drive the look, both exposed on the command line:
 ``icons``
     ``unifi``   real Ubiquiti product artwork, drawn bare with the label
                 beneath, the way the UniFi topology view presents devices.
-    ``builtin`` geometric shapes only. No network access, no external assets,
-                and role stays encoded in shape so it survives greyscale.
+    ``builtin`` only icons drawn by this project (see ``drawn.py``). No network
+                access, no external assets, and role stays encoded in the
+                silhouette so it survives greyscale. Bare Graphviz primitives
+                remain only as the degradation path, when drawing fails.
 
 ``layout``
     ``unifi``   left-to-right tree with orthogonal links and no port labels,

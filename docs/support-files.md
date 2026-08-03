@@ -85,7 +85,8 @@ as a client is unaffected and still draws properly.
 
 The product lookup needs Ubiquiti's published fingerprint database, which is why
 it is behind `--fetch-fingerprints` as described above. Clients with no
-fingerprint draw as plain shapes unless you also supply the glyph font, below.
+fingerprint draw with our own generic client icons, which need nothing fetched;
+supplying the glyph font swaps those for the console's own.
 
 ## Choosing a site
 
@@ -143,12 +144,17 @@ going; with `--no-progress`, or piped to a file, walking a much larger archive
 produces no output at all until it finishes, so a slow run and a hung one look
 identical.
 
-## Clients without artwork
+## Clients without product artwork
 
-Reading a support file is the case where unidentified clients most often draw as
-plain shapes, because the generic glyphs come from an icon font only a
-controller serves and a support file does not contain one. What that costs and
-the three ways around it are on the artwork page:
+Reading a support file is where unidentified clients are most common, because
+the console's own generic glyphs come from an icon font only a controller serves
+and a support file does not contain one.
+
+They are not left bare. [Icons we draw ourselves](artwork.md#the-icons-we-draw-ourselves)
+cover the same four distinctions that font encodes, guest and wired against
+wireless, and need nothing fetched, so a support-file map is complete without
+ever contacting a console. If you want the console's exact glyphs instead, the
+three routes to that font are on the artwork page:
 [the generic client glyph](artwork.md#the-generic-client-glyph-and-why-it-is-awkward).
 
 ## What a support file cannot tell you

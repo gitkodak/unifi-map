@@ -18,7 +18,7 @@ Four images, all from `examples/demo/` so no controller is involved:
 The demo *data* is committed, but the artwork is not: product renders come from
 Ubiquiti's CDN, and the generic client glyphs come from an icon font that only a
 controller serves. Regenerating on a machine without `cache/assets/ubnt-icon.ttf`
-produces the same maps with plain shapes where the glyphs are. That is why the
+produces the same maps with our own drawn client icons where the glyphs are. That is why the
 README caption says what the glyphs need rather than implying every reader sees
 them.
 

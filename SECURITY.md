@@ -214,9 +214,9 @@ render, that is a partial inventory disclosed to Ubiquiti's CDN. No hostnames,
 addresses, MAC addresses or SSIDs are included, and nothing is uploaded, but
 "nothing is uploaded" would be a misleading way to summarise it.
 
-To avoid that entirely, use `--icons builtin`, which draws geometric shapes and
-touches no external host, or `--offline`, which forbids fetching and uses only
-what is already cached.
+To avoid that entirely, use `--icons builtin`, which draws only icons this
+project renders locally and touches no external host, or `--offline`, which
+forbids fetching and uses only what is already cached.
 
 ## TLS
 

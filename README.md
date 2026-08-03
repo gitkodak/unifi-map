@@ -32,7 +32,7 @@ rest are invented, have no fingerprint, and fall back to the console's own
 generic glyphs, which is the same thing the UniFi UI does with them.
 
 Those glyphs need the icon font, which only a controller serves, so a clone of
-this repository draws plain shapes there instead until it has one. See
+this repository draws our own client icons there instead until it has one. See
 [the generic client glyph](docs/artwork.md#the-generic-client-glyph-and-why-it-is-awkward)
 for the three routes to it. Against a live network, expect nearly every client
 to reach a real product render.
@@ -57,6 +57,9 @@ reproduce both, then point it at your own controller.*
 - **Real Ubiquiti product artwork**, for your hardware *and* your clients, plus
   your ISP's brand mark on the Internet node. [Fetched at runtime and cached,
   never shipped in this repo](docs/artwork.md#artwork-licensing-and-attribution).
+  Anything it cannot identify falls back to
+  [an icon drawn by this project](docs/artwork.md#the-icons-we-draw-ourselves)
+  rather than a bare shape, so `--icons builtin` needs no network at all.
 - **Vector output that stays readable.** [SVG and PDF](#output) zoom to any
   size with crisp labels, PNG when something insists, and Graphviz `.dot` to
   tweak by hand.
@@ -177,11 +180,11 @@ deliberately real, because they are what artwork lookup joins on:
 - **A few client `dev_id` values are real** (a laptop, a phone, a TV, a
   thermostat and so on), so those clients get real artwork too.
 
-The rest of the clients are pure invention with no fingerprint, so they render as
-plain shapes. That is the demo being honest rather than a defect: made-up devices
-cannot have product artwork. The generic icon-font glyph is not available either,
-because that font comes from a live controller. Against a real controller both
-gaps close, and coverage is usually near total.
+The rest of the clients are pure invention with no fingerprint, so they render
+with our own drawn client icons. That is the demo being honest rather than a
+defect: made-up devices cannot have product artwork. The console's own glyph is
+not available either, because that font comes from a live controller. Against a
+real controller both gaps close, and coverage is usually near total.
 
 The dataset deliberately includes an offline device, four VLANs, and a client the
 controller cannot place, so those behaviours are visible too.

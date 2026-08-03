@@ -97,8 +97,9 @@ console shows you, just exportable and zoomable. The one deliberate exception is
 
 **`--icons unifi`** uses real Ubiquiti product artwork for both UniFi hardware
 *and* clients (the same images the topology view shows). Fetched on first run and
-cached. **`--icons builtin`** uses geometric shapes only: no network access, no
-external assets.
+cached, with our own drawings standing in for hardware absent from Ubiquiti's
+catalogue. **`--icons builtin`** uses only the icons we draw ourselves: no
+network access, no external assets, and still a picture on every node.
 
 **`--layout unifi`** approximates the UniFi UI: left-to-right tree, orthogonal
 links, no port labels, no title or legend chrome, canvas trimmed to the drawing.
@@ -240,7 +241,7 @@ equivalent. Command options must follow the subcommand.
 | --- | --- | --- |
 | `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
 | `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid,json}` | Output formats (default: svg drawio) | `svg drawio` |
-| `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime, falling back to our own drawings for hardware absent from their catalogue. builtin: our drawings only, nothing fetched (default: unifi) | `unifi` |
+| `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime, falling back to our own drawings for any node it cannot resolve, including unidentified clients when no icon font is cached. builtin: our drawings only, nothing fetched (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
 | `--theme` `{dark,light}` | Colour theme (default: light) | `light` |
 | `--transparent` | Draw no background, so the map sits on whatever page it is placed on. Applies to svg, pdf, png and drawio. Pick the theme to match the destination: labels are drawn straight onto the canvas with nothing behind them, so light text vanishes on a light page. |  |

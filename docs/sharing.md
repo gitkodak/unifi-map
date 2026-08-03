@@ -57,8 +57,9 @@ Two things worth understanding before you post a map publicly:
 
 - **The artwork still shows what your devices are.** A TV, a thermostat, a NAS
   and a games console are all recognisable from their pictures, and some carry
-  brand marks. If that matters, add `--icons builtin` for geometric shapes and no
-  artwork at all.
+  brand marks. If that matters, add `--icons builtin`, which draws only our own
+  generic role icons: a device still reads as a switch or a phone, but nothing
+  says whose or which model.
 - **`--title` is yours.** If you pass a title containing your name or your
   network's name, it will be rendered exactly as given. The default is a neutral
   "Network map".

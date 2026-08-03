@@ -1168,7 +1168,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=ICON_SETS,
         default="unifi",
         help="unifi: real Ubiquiti product artwork, fetched and cached at runtime, "
-        "falling back to our own drawings for hardware absent from their catalogue. "
+        "falling back to our own drawings for any node it cannot resolve, including "
+        "unidentified clients when no icon font is cached. "
         "builtin: our drawings only, nothing fetched (default: unifi)",
     )
     render_flags.add_argument(

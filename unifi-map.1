@@ -114,7 +114,7 @@ Include devices the controller lists but that are not currently connected. Defau
 Output formats (default: svg drawio)
 .TP
 \fB\-\-icons\fR \fI{unifi,builtin}\fR
-unifi: real Ubiquiti product artwork, fetched and cached at runtime, falling back to our own drawings for hardware absent from their catalogue. builtin: our drawings only, nothing fetched (default: unifi)
+unifi: real Ubiquiti product artwork, fetched and cached at runtime, falling back to our own drawings for any node it cannot resolve, including unidentified clients when no icon font is cached. builtin: our drawings only, nothing fetched (default: unifi)
 .TP
 \fB\-\-layout\fR \fI{tree,unifi}\fR
 unifi: left\-to\-right like the UniFi UI, no port labels. tree: top\-down and leaf\-staggered, with port labels, built to be readable on a busy network (default: unifi)

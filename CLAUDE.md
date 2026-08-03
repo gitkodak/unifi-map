@@ -218,8 +218,8 @@ real KeyError.
 It is deliberately not claimed to be pixel-identical to the controller UI:
 Graphviz owns the layout, so sibling order and spacing are its decisions, link
 routing differs in its corners and channels, typography and label content are
-ours, clients without a usable fingerprint fall back to shapes or a generic
-glyph rather than the console's own icon, and the output is static.
+ours, clients without a usable fingerprint fall back to the console's own glyph
+or to one we draw rather than to its real icon, and the output is static.
 `docs/usage.md` has a section spelling this out. Keep improving fidelity if you like, but do not let the documentation
 start implying an exactness that is not there.
 
@@ -305,6 +305,27 @@ do not can offer it without having to guess what is useful.
   already half exists, in that every render logs its effective `Style` before
   drawing. A config file is the alternative and shipping both would be worse
   than either.
+
+### Sweep the prose when a fallback changes
+
+Adding a capability leaves every sentence describing what used to happen without
+it, and those sentences are spread across files that the change itself does not
+touch. The drawn icons landed with nine places still promising "plain shapes" or
+"geometric shapes" for `--icons builtin` and for unfingerprinted clients, across
+`README.md`, four pages under `docs/`, and `SECURITY.md`. An external reviewer
+found six of the nine.
+
+Before handing over a rendering change, grep for the behaviour being replaced
+rather than for the feature being added:
+
+```bash
+grep -rniE "plain shapes|geometric shapes|bare shapes|falls? back to" \
+  README.md docs/*.md SECURITY.md
+```
+
+Not tested, for the reason given below about `TODO.md`: whether a sentence is
+still true is not a property a test can check. The phrase list is the useful
+part, since the failure is always that the old behaviour had a name.
 
 ### Sweep "the README" references too, for the same reason
 
@@ -847,9 +868,15 @@ Two rules follow, and they pull in different directions:
 from `manage/angular/<build>/fonts/ubnt.ttf`, a custom Ubiquiti IcoMoon build
 (note the `?6vxos8` cache-buster) served only by a controller. It is nowhere in
 a support file, and `cdn.pkg{,.dev}.svc.ui.com/unifi-network-ui/<version>/...`
-returns 403 for every path including a deliberately bogus control. So a
-support-file map without a controller draws unfingerprinted clients as shapes,
-which is the documented degradation and is fine. Do not vendor the font either.
+returns 403 for every path including a deliberately bogus control. Do not vendor
+the font either.
+
+**The consequence is now smaller than it was.** `drawn.py` draws the same four
+distinctions that font encodes, so a support-file map without a controller gets
+icons rather than the bare shapes this paragraph used to end on. What is still
+lost is the console's *exact* glyph, which matters only if the map has to match
+the UI pixel for pixel. Closing that was the reason for drawing four client
+icons rather than the two the roadmap first called for.
 
 Dead ends already checked, do not repeat: `mca-dump.fingerprints.hosts` carries
 `custom`, `ml` and `tdts` per host, but only `ml` shares the controller's id
@@ -912,9 +939,10 @@ Two of those are worth closing and are not done yet:
   from `network_table`, which is already parsed.
 
 Also note that live `fetch` caches the icon font automatically while support
-mode requires a flag, so out of the box live shows generic glyphs for
-unfingerprinted clients and support mode shows shapes. That is the opt-in
-privacy design working, not a data gap.
+mode requires a flag, so out of the box live shows the console's own glyphs for
+unfingerprinted clients and support mode shows ours. That is the opt-in privacy
+design working, not a data gap, and since `drawn.py` the difference is which
+generic icon is drawn rather than whether one is drawn at all.
 
 ## Writing output
 

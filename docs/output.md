@@ -149,9 +149,10 @@ label and title lands directly on the destination page, so a light-theme map is
 near-invisible on a dark one and vice versa. Match the theme to where the image
 is going.
 
-`--icons builtin` differs slightly: the fallback shapes carry their own fill, so
-those nodes keep a background even when the canvas is gone. Only the text
-outside them is exposed.
+This applies to `--icons builtin` too. It used to be the exception, because the
+fallback shapes carried their own fill and kept a background of their own; the
+icons that replaced them are transparent PNGs, so nothing behind a node is
+filled in and every label sits directly on the destination page.
 
 ## Progress, and turning it off
 

@@ -7,20 +7,41 @@ licensing position.
 
 ## Where the artwork comes from
 
-Six sources, in the order they are tried. None is vendored here, one is drawn
-here, and one is yours:
+Nothing here is vendored into this repository. Some is fetched from Ubiquiti and
+cached, some is drawn locally, and one source is yours.
 
-| What | Source | Key |
-| --- | --- | --- |
-| UniFi hardware | `static.ui.com/fingerprint/ui/public.json` + `.../ui/images/...` | hardware `sysid` |
-| Clients | `static.ui.com/fingerprint/0/{dev_id}_257x257.png` | fingerprint `dev_id` from `stat/sta` |
-| UniFi gear seen as a client | the same catalogue as UniFi hardware | hostname, plus a device type from another app |
-| Generic client glyphs | the controller's own icon font (`fonts/ubnt-icon`) | user/guest x wired/wireless |
-| Everything left over | [drawn here](#the-icons-we-draw-ourselves), with Pillow | node kind, or user/guest x wired/wireless for clients |
-| Anything at all | a file you supply, named by `icon` in an [overrides file](overrides.md) | whatever you point it at |
+**There is no single precedence order**, because the three kinds of node are
+resolved by different code. Each list below runs from first choice to last, and
+in all three an icon you supply wins outright: that is a decision, not a guess.
 
-Precedence runs down that list, except the last, which wins over everything: an
-icon you supplied is a decision, not a guess.
+**Infrastructure** (gateways, switches, access points, bridges):
+
+| Source | Key |
+| --- | --- |
+| `static.ui.com/fingerprint/ui/public.json` + `.../ui/images/...` | hardware `sysid` |
+| [drawn here](#the-icons-we-draw-ourselves), by role | `Kind` |
+| a file you supply, named by `icon` in an [overrides file](overrides.md) | whatever you point it at |
+
+**Clients:**
+
+| Source | Key |
+| --- | --- |
+| `static.ui.com/fingerprint/0/{dev_id}_257x257.png` | fingerprint `dev_id` from `stat/sta` |
+| the hardware catalogue above, for UniFi gear appearing as a client | hostname, plus a device type from another app |
+| the controller's own icon font (`fonts/ubnt-icon`) | user/guest x wired/wireless |
+| [drawn here](#the-icons-we-draw-ourselves) | user/guest x wired/wireless |
+| a file you supply, named by `icon` in an [overrides file](overrides.md) | whatever you point it at |
+
+**The Internet node:**
+
+| Source | Key |
+| --- | --- |
+| `static.ui.com/asn/{asn}_257x257.png`, the provider's brand mark | `asn` from `stat/health` |
+| a cloud drawn here, which is why `--obfuscate` can drop the brand mark safely | none |
+| a file you supply, named by `icon` in an [overrides file](overrides.md) | whatever you point it at |
+
+The cloud is a separate code path from the role icons and is not one of the nine
+below; the Internet node never falls through to them.
 
 The last row is the escape hatch for everything the others cannot do: hardware
 Ubiquiti has no render of, a device they identify wrongly, or a switch nothing
@@ -78,12 +99,15 @@ Three options, with what each costs:
 
 | | Needs an API key | Needs network | Result for unidentified clients |
 | --- | --- | --- | --- |
-| Do nothing (default) | No | No | Plain shapes |
+| Do nothing (default) | No | No | [Our own client icons](#the-icons-we-draw-ourselves) |
 | `--icon-font DIR` | No | No | Real UniFi glyphs |
 | `--fetch-icon-font` | **Yes** | Yes | Real UniFi glyphs |
 
-Plain shapes are a perfectly readable diagram; they are colour and shape coded
-like everything else. This is presentation, not information.
+Doing nothing is a perfectly readable diagram. We draw the same four
+distinctions the font encodes, so an unidentified client is still visibly a
+guest or not, wired or not. What the font buys is the console's exact glyph
+rather than our version of it, which matters if you want the map to match what
+somebody sees in the UI. This is presentation, not information.
 
 **`--fetch-icon-font`** asks a controller directly, so it needs `UNIFI_HOST` and
 `UNIFI_API_KEY` exactly as a live `fetch` does. If you are reading a support file
@@ -137,11 +161,13 @@ Nine icons are now drawn here instead, with Pillow, and used in two places:
 - **`--icons builtin`**, which fetches nothing at all. It previously meant "no
   artwork exists"; it now means "artwork that is ours", which includes the
   Internet cloud. It is a complete map with no network access whatsoever.
-- **As the fallback inside `--icons unifi`**, for hardware absent from
-  Ubiquiti's catalogue. This is a small, deliberate step away from "`unifi`
+- **As the fallback inside `--icons unifi`**, for any node it could not
+  resolve. That is hardware absent from Ubiquiti's catalogue, and also any
+  client with no fingerprint when no icon font is cached, which is the ordinary
+  case for a support file. This is a small, deliberate step away from "`unifi`
   shows exactly what the console shows", taken because a drawn access point
-  beats a trapezium either way. Devices the catalogue *does* cover are
-  unaffected, so a normal map looks exactly as it did.
+  beats a trapezium either way. Anything the catalogue or the font *does* cover
+  is unaffected, so a normal map against a live controller looks as it did.
 
 Five are infrastructure, keyed on the device's role: gateway, switch, access
 point, bridge, and unknown. Four are clients, split on guest and wireless, which
