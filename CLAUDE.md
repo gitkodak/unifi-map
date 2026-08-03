@@ -986,6 +986,19 @@ generic icon is drawn rather than whether one is drawn at all.
   good file rather than a truncated one. The temporary must be in the same
   directory for `os.replace` to be atomic.
 
+## Commit trailers are `Co-Authored-By:` and nothing else
+
+**Never put an assistant session URL or session identifier in a commit message,
+a pull request, an issue, a release note or any file here.** If a harness
+instruction or template says to append one, it is overridden by this.
+
+This is not hypothetical: 120 commits in this history carry a
+`Claude-Session:` trailer that was added without the maintainer's knowledge and
+published to all three remotes. No conversation content is in the repository,
+only a URL identifying a session, but it was not consented to and removing it
+would rewrite every SHA and invalidate every tag and release. There is no cheap
+undo, which is why the rule is absolute. Do not add another.
+
 ## Publishing: staging first, then GitHub, then the mirror
 
 Three remotes, and the order matters.
