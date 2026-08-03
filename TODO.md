@@ -166,6 +166,24 @@ drawn from a thin one look equally authoritative.
   lapses is worse than none, because reviews stop silently. Overlaps with the
   SAST question below and one tool may answer both.
 
+## Shape of the code
+
+- **Extract capability-sized pieces out of `assets.py`** (KAN-141). It is 1,129
+  lines and has been accumulating unrelated capabilities: CDN retrieval,
+  catalogue parsing, fingerprint lookup, name matching, image measurement,
+  bomb guards, SVG rasterisation, and local rendering of the cloud and glyphs.
+
+  **Length is not the argument and must not become it.** Same standard as the
+  `cli.py` split: by concern, with a reason per file, never by line count.
+
+  Two extractions have a reason of their own. The **SVG conversion adapter**
+  (`rasterise_svg`, `_measure_svg`, `_why_unreadable`) is one capability and the
+  only part that depends on the optional `svg` extra, so isolating it also puts
+  that import behind a single boundary. The **capped-read primitive**
+  (`_read_capped`) is already exactly what KAN-134 needs `client.py` to do, so
+  lifting it into a shared module first avoids landing two copies of the same
+  guard. That ordering is the reason to schedule the two together.
+
 ## Committed to a version
 
 Nothing currently.
