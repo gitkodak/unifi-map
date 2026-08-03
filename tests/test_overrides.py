@@ -746,3 +746,30 @@ class TestMistakesFailLoudly:
         assert result.links[0].wireless is True
         assert result.links[0].port == "24"
         assert result.nodes[0].hide is True
+
+
+class TestUnknownSections:
+    """Keys inside a block were checked; the block names were not.
+
+    Which made the gap easy to miss from the inside: `[[lnik]]` parsed fine,
+    matched nothing, and the run reported "applies cleanly" with zero links. A
+    file whose every line is ignored is the silence this feature exists to
+    refuse.
+    """
+
+    def test_a_misspelled_section_is_refused(self):
+        with pytest.raises(OverrideError, match="Unknown section"):
+            parse({"lnik": [{"from": "a", "to": "b"}]})
+
+    def test_the_error_lists_the_sections_that_exist(self):
+        with pytest.raises(OverrideError, match=r"\[\[device\]\], \[\[hosted\]\], \[\[link\]\]"):
+            parse({"lnik": [{"from": "a", "to": "b"}]})
+
+    def test_single_brackets_are_refused(self):
+        # `[link]` rather than `[[link]]` is a table, not a list of tables, and
+        # TOML accepts it happily.
+        with pytest.raises(OverrideError, match="list of tables"):
+            parse({"link": {"from": "a", "to": "b"}})
+
+    def test_the_real_sections_still_parse(self):
+        assert parse({"link": [{"from": "a", "to": "b"}]}).links

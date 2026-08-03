@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from typing import ClassVar
 
 import pytest
@@ -822,7 +823,6 @@ class TestSvgRendersNotJustMeasures:
     @pytest.mark.skipif(shutil.which("dot") is None, reason="graphviz `dot` not installed")
     def test_an_accepted_svg_actually_renders(self, tmp_path):
         from unifi_map.assets import local_icon
-        from unifi_map.layout import run_dot
 
         icon = tmp_path / "icon.svg"
         icon.write_text(self.HEAD + self.BODY, encoding="utf-8")
@@ -832,11 +832,20 @@ class TestSvgRendersNotJustMeasures:
             'digraph{n[shape=none,label=<<TABLE BORDER="0"><TR><TD>'
             f'<IMG SRC="{icon}"/></TD></TR></TABLE>>];}}'
         )
-        # Graphviz reports a rejected image as a *warning* and still exits 0,
-        # so the absence of that warning is the assertion, not the exit code.
-        out = run_dot(dot, "svg").decode("utf-8", errors="replace")
-        assert "was not found" not in out
-        assert len(out) > 0
+        # Graphviz reports a rejected image as a warning on **stderr** and
+        # still exits 0. `run_dot` returns stdout and discards stderr on
+        # success, so asserting against its return value could never fail: the
+        # first version of this test passed for a file Graphviz had refused.
+        # Run it directly so the warning is visible.
+        result = subprocess.run(
+            [shutil.which("dot"), "-Tsvg"],
+            input=dot.encode(),
+            capture_output=True,
+            check=True,
+        )
+        stderr = result.stderr.decode("utf-8", errors="replace")
+        assert "was not found" not in stderr, f"Graphviz refused the icon: {stderr.strip()}"
+        assert result.stdout
 
     @pytest.mark.parametrize(
         "body,why",
@@ -896,3 +905,22 @@ def test_an_xml_escaped_path_is_still_inlined(tmp_path):
     out = inline_svg_images(svg, [icon]).decode()
     assert "data:image/png;base64," in out
     assert "private" not in out.split("data:")[0], "the path survived alongside the data URI"
+
+
+def test_svg_dimensions_come_from_the_root_element(tmp_path):
+    """A child element must not decide the icon's size.
+
+    The pattern scanned the whole file head, so the last match won: a 64x32
+    drawing containing `<rect width="7" height="5"/>` measured as 7x5, and the
+    icon rendered at a twelfth of its intended size.
+    """
+    from unifi_map.assets import local_icon
+
+    icon = tmp_path / "icon.svg"
+    icon.write_text(
+        '<?xml version="1.0"?>\n'
+        '<svg width="64" height="32">\n  <rect width="7" height="5"/>\n</svg>',
+        encoding="utf-8",
+    )
+    asset = local_icon(icon)
+    assert (asset.width, asset.height) == (64, 32)

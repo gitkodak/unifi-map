@@ -224,6 +224,31 @@ def _icon_path(table: dict, base_dir: Path | None) -> Path | None:
     return candidate
 
 
+def _refuse_unknown_blocks(payload: dict) -> None:
+    """Reject a table this file does not define.
+
+    Keys *inside* a block were already checked, which made the gap easy to
+    miss: `[[lnik]]` parsed, matched nothing, and the run reported "applies
+    cleanly" with zero links. A file whose every line is ignored is exactly the
+    silence this feature refuses everywhere else.
+    """
+    unknown = sorted(k for k in payload if k not in _KNOWN_KEYS)
+    if unknown:
+        known = ", ".join(f"[[{k}]]" for k in sorted(_KNOWN_KEYS))
+        raise OverrideError(
+            f"Unknown section(s) {', '.join(repr(k) for k in unknown)}. This file accepts: {known}."
+        )
+    for name in _KNOWN_KEYS:
+        value = payload.get(name)
+        if value is not None and not isinstance(value, list):
+            # `[device]` rather than `[[device]]` is a single table, and TOML
+            # accepts it happily. Every block here is a list of tables.
+            raise OverrideError(
+                f"[[{name}]] must be written as a list of tables, with double "
+                f"brackets. Got a {type(value).__name__}."
+            )
+
+
 def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
     """Build :class:`Overrides` from an already-decoded TOML mapping.
 
@@ -231,6 +256,7 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
     holding the overrides file, so a config plus an assets folder can be moved
     around together.
     """
+    _refuse_unknown_blocks(payload)
     result = Overrides()
 
     seen_names: set[str] = set()

@@ -863,8 +863,14 @@ def _measure_svg(path: Path) -> IconAsset | None:
     # rendering one, not from a spec.
     if b"<?xml" not in head:
         return None
+    # Only the opening `<svg ...>` tag. Scanning the whole head let a child
+    # element win: `<rect width="7"/>` inside a 64x32 drawing measured as 7x5,
+    # because the last match replaced the first.
+    opening = re.search(rb"<svg\b[^>]*>", head, re.I | re.S)
+    if opening is None:
+        return None
     found: dict[bytes, float] = {}
-    for match in _SVG_DIM.finditer(head):
+    for match in _SVG_DIM.finditer(opening.group(0)):
         try:
             found[match.group(1).lower()] = float(match.group(2))
         except ValueError:

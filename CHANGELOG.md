@@ -253,6 +253,16 @@ in the error message.
   sections the split had moved (`CLAUDE.md`, the `--icon-font` help text, and
   the pull request checklist).
 
+- **A misspelled section name was ignored entirely.** Keys inside a block were
+  checked and the block names were not, so `[[lnik]]` parsed, matched nothing,
+  and the run reported "applies cleanly" with zero links: a file whose every
+  line was ignored, reported as a success. Writing `[link]` instead of
+  `[[link]]` is refused too, since TOML accepts it as a table and this file
+  wants a list of them.
+- **An SVG icon took its size from whatever was drawn inside it.** Dimensions
+  were read from the first 4 KiB rather than from the `<svg>` element, so a
+  64x32 drawing containing `<rect width="7" height="5"/>` measured as 7x5 and
+  rendered at a twelfth of its size.
 - **An overrides file could mean the opposite of what it said.** `wireless =
   "false"` and `hide = "false"` both read as true, because `bool("false")` is
   true and TOML has real booleans that are easy to quote by accident. `port =
