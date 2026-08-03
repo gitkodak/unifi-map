@@ -211,7 +211,8 @@ def _read_members(
                     raise SupportFileError(
                         f"{path} expands to more than {_human(max_archive)}. That is "
                         "far larger than any real support file, and reading further "
-                        "would cost time without reading anything useful."
+                        "would cost time without reading anything useful. Raise it "
+                        "with --support-max-archive if yours is legitimately bigger."
                     )
                 if len(found) == len(MEMBERS):
                     break

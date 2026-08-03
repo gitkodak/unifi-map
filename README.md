@@ -143,8 +143,10 @@ sudo apt install graphviz          # provides `dot` and `unflatten`
 python3 -m venv .venv && .venv/bin/pip install -e .
 ```
 
-Requires Python 3.11+. Graphviz is required; `unflatten` is optional but
-improves layout on large networks.
+Requires Python 3.11+. Graphviz is required for the graphical formats, which
+are the defaults: `svg`, `pdf`, `png` and the positions inside a `drawio` file.
+`dot`, `mermaid` and `json` are written directly and need nothing installed.
+`unflatten` is optional but improves layout on large networks.
 
 A man page is committed as `unifi-map.1`, so it works straight from a clone
 without installing anything:

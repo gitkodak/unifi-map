@@ -31,15 +31,12 @@ dependency.
 
 from __future__ import annotations
 
-import logging
 import tomllib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .assets import IconAsset, local_icon
 from .model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology
-
-log = logging.getLogger(__name__)
 
 
 class OverrideError(ValueError):
@@ -275,6 +272,21 @@ def load(path: Path) -> Overrides:
     return parse(payload, base_dir=path.parent)
 
 
+@dataclass(frozen=True)
+class Displaced:
+    """A link the controller reported that an override replaced.
+
+    Carried out to the caller rather than logged from here, for the same reason
+    `hidden` is: the labels are identifying, and only the caller knows whether
+    `--obfuscate` is in force. Logging it in place scrubbed the diagram while
+    printing real names into the terminal the diagram was produced in.
+    """
+
+    context: str
+    node: str
+    parent: str
+
+
 @dataclass
 class ApplyResult:
     """What `apply` did, so the caller can report it rather than guess."""
@@ -283,6 +295,7 @@ class ApplyResult:
     icons: dict[str, IconAsset] = field(default_factory=dict)
     renamed: int = 0
     hidden: list[str] = field(default_factory=list)
+    displaced: list[Displaced] = field(default_factory=list)
     links_added: int = 0
     hosted_applied: int = 0
     devices_added: int = 0
@@ -372,30 +385,41 @@ def _children(topo: Topology, node_id: str) -> list[str]:
     return [e.src for e in topo.edges if e.dst == node_id]
 
 
-def _drop_parent_edges(topo: Topology, node_id: str, context: str) -> None:
+def _drop_parent_edges(
+    topo: Topology, node_id: str, context: str, result: ApplyResult | None = None
+) -> None:
     """Detach *node_id* from its parent so an asserted edge can replace it.
 
-    Says so when the edge being replaced was a real observation. Reparenting is
-    the documented purpose of `[[hosted]]` (a VM is genuinely reported on a
-    switch port, and moving it under its hypervisor is the whole point), so this
-    cannot be an error. But displacing something the controller reported is not
-    the same as tidying up the "uplink not reported" placeholder, and the design
-    rule here is that an override contradicting the controller says so rather
-    than quietly preferring itself.
+    Records the displacement when the edge being replaced was a real
+    observation. Reparenting is the documented purpose of `[[hosted]]` (a VM is
+    genuinely reported on a switch port, and moving it under its hypervisor is
+    the whole point), so this cannot be an error. But displacing something the
+    controller reported is not the same as tidying up the "uplink not reported"
+    placeholder, and the rule here is that an override contradicting the
+    controller says so rather than quietly preferring itself.
 
-    Silent was the previous behaviour, on the assumption written into the call
-    site that anything being linked had been unplaceable. Nothing enforced that,
-    and `[[hosted]]` breaks it by design.
+    Two edges are excluded, and both were wrong in the first version:
+
+    - the `UNKNOWN_UPLINK_ID` placeholder, which is an absence of information
+      rather than an observation, and
+    - anything already `asserted`, which came from an earlier override in the
+      same file. Reporting that as controller-reported would have this function
+      telling exactly the lie it exists to prevent.
     """
-    displaced = [e.dst for e in topo.edges if e.src == node_id and e.dst != UNKNOWN_UPLINK_ID]
-    for parent in displaced:
-        label = topo.nodes[parent].label if parent in topo.nodes else parent
-        log.warning(
-            "%s: %s was reported by the controller under %s; the override replaces that link.",
-            context,
-            topo.nodes[node_id].label if node_id in topo.nodes else node_id,
-            label,
-        )
+    displaced = [
+        e.dst
+        for e in topo.edges
+        if e.src == node_id and e.dst != UNKNOWN_UPLINK_ID and not e.asserted
+    ]
+    if result is not None:
+        for parent in displaced:
+            result.displaced.append(
+                Displaced(
+                    context=context,
+                    node=topo.nodes[node_id].label if node_id in topo.nodes else node_id,
+                    parent=topo.nodes[parent].label if parent in topo.nodes else parent,
+                )
+            )
     topo.edges[:] = [e for e in topo.edges if e.src != node_id]
 
 
@@ -464,7 +488,7 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
         target = resolve(link.target, working)
         if source == target:
             raise OverrideError(f"[[link]] {link.source!r} and {link.target!r} are the same node")
-        _drop_parent_edges(working, source, f"[[link]] {link.source!r}")
+        _drop_parent_edges(working, source, f"[[link]] {link.source!r}", result)
         label = link.label or link.note
         working.edges.append(
             Edge(src=source, dst=target, label=label, wireless=link.wireless, asserted=True)
@@ -476,7 +500,7 @@ def apply(topo: Topology, overrides: Overrides) -> ApplyResult:
         host = resolve(entry.host, working)
         if guest == host:
             raise OverrideError(f"[[hosted]] {entry.guest!r} cannot host itself")
-        _drop_parent_edges(working, guest, f"[[hosted]] {entry.guest!r}")
+        _drop_parent_edges(working, guest, f"[[hosted]] {entry.guest!r}", result)
         working.edges.append(Edge(src=guest, dst=host, label=entry.note or "hosted", asserted=True))
         result.hosted_applied += 1
 

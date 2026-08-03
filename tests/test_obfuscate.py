@@ -397,3 +397,61 @@ def test_nothing_identifying_reaches_the_log_either(identifying, tmp_path, caplo
     text = caplog.text.lower()
     leaked = [s for s in identifying["secrets"] if len(s) > 5 and s.lower() in text]
     assert not leaked, f"identifying values reached the log: {leaked}"
+
+
+@needs_graphviz
+def test_an_override_warning_does_not_leak_under_obfuscate(identifying, tmp_path, caplog):
+    """The same promise, on the one path that renders *with* an overrides file.
+
+    The test above renders without overrides, so it never reached the code that
+    reports a displaced link, and that code named the node and its old parent
+    unconditionally. An ordinary obfuscated run therefore scrubbed the diagram
+    and printed real labels into the terminal beside it.
+
+    Kept separate rather than folded in: this needs a valid overrides file
+    against this fixture, and the point of the other test is that a plain run
+    leaks nothing.
+    """
+    import logging
+
+    from unifi_map.cli import main
+
+    cache = tmp_path / "cache"
+    Snapshot(payloads=identifying["snapshot"].payloads).write(cache)
+
+    # Reparents a client the controller reported under a switch, which is what
+    # produces the warning.
+    overrides = tmp_path / "overrides.toml"
+    overrides.write_text(
+        '[[hosted]]\nguest = "secret-laptop"\nhost = "Core Switch"\n', encoding="utf-8"
+    )
+
+    with caplog.at_level(logging.INFO):
+        code = main(
+            [
+                "--cache-dir",
+                str(cache),
+                "--out-dir",
+                str(tmp_path / "out"),
+                "--asset-cache",
+                str(tmp_path / "assets"),
+                "render",
+                "--obfuscate",
+                "--icons",
+                "builtin",
+                "--offline",
+                "-f",
+                "svg",
+                "--name",
+                "t",
+                "--overrides",
+                str(overrides),
+            ]
+        )
+    assert code == 0
+
+    # The warning must still happen; it is the names that must not.
+    assert "replaced by overrides" in caplog.text
+    text = caplog.text.lower()
+    leaked = [s for s in identifying["secrets"] if len(s) > 5 and s.lower() in text]
+    assert not leaked, f"identifying values reached the log: {leaked}"

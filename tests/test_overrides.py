@@ -6,7 +6,6 @@ stub is not untested dead code.
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 import pytest
@@ -179,7 +178,27 @@ class TestApplyLinks:
         assert UNKNOWN_UPLINK_ID not in result.topology.nodes
         assert not any(UNKNOWN_UPLINK_ID in (e.src, e.dst) for e in result.topology.edges)
 
-    def test_displacing_an_observed_parent_says_so(self, topo, caplog):
+    def test_an_asserted_parent_is_not_called_controller_reported(self, topo):
+        """A second override displacing the first must not blame the controller.
+
+        `_drop_parent_edges` excluded only the unplaceable-client placeholder,
+        so an edge an earlier override had asserted counted as an observation.
+        Two `[[link]]` blocks naming the same node therefore produced "was
+        reported by the controller under gateway" about a link the file itself
+        had just created: this function telling exactly the lie it exists to
+        prevent.
+        """
+        result = apply(
+            topo,
+            parse(
+                {"link": [{"from": "nas", "to": "gateway"}, {"from": "nas", "to": "Core Switch"}]}
+            ),
+        )
+        # One real observation displaced, not two.
+        assert len(result.displaced) == 1
+        assert result.displaced[0].parent != "gateway"
+
+    def test_displacing_an_observed_parent_says_so(self, topo):
         """Replacing a real observation is not the same as tidying a placeholder.
 
         The design rule is that an override contradicting the controller says
@@ -188,19 +207,17 @@ class TestApplyLinks:
         being linked had been unplaceable. Nothing enforced that, and
         `[[hosted]]` breaks it deliberately.
         """
-        with caplog.at_level(logging.WARNING):
-            apply(topo, parse({"link": [{"from": "nas", "to": "gateway"}]}))
-        assert any("replaces that link" in r.getMessage() for r in caplog.records)
+        result = apply(topo, parse({"link": [{"from": "nas", "to": "gateway"}]}))
+        assert [(d.node, d.parent) for d in result.displaced] == [("nas", "Core Switch")]
 
-    def test_tidying_the_placeholder_stays_quiet(self, unplaced_topo, caplog):
+    def test_tidying_the_placeholder_stays_quiet(self, unplaced_topo):
         """The documented case is not a contradiction, so it must not warn.
 
         Warning here would put a line in front of every user doing exactly what
         the feature is for, which is how a warning stops being read.
         """
-        with caplog.at_level(logging.WARNING):
-            apply(unplaced_topo, parse({"link": [{"from": "vm-host", "to": "Core Switch"}]}))
-        assert not [r for r in caplog.records if "replaces that link" in r.getMessage()]
+        result = apply(unplaced_topo, parse({"link": [{"from": "vm-host", "to": "Core Switch"}]}))
+        assert result.displaced == []
 
     def test_a_node_ends_up_with_exactly_one_parent(self, topo):
         result = apply(topo, parse({"link": [{"from": "nas", "to": "gateway"}]}))

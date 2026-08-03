@@ -127,13 +127,13 @@ unifi-map all --support-file support-XXXX.tgz \
 ```
 
 The sizes accept a plain byte count or a `K`, `M` or `G` suffix, and every one
-of the three errors names the flag to raise.
+of the four errors names the flag to raise.
 
 The defaults come from a single 154M archive off a UDM Pro Max, whose largest
 relevant member was 400K and which held about 2,500 entries. That is one sample
 of one small network, so treat the headroom as a guess rather than a measured
 safety margin: it says nothing about how any of these numbers grow with site
-size. All three are therefore adjustable. If you hit one legitimately, please
+size. All four are therefore adjustable. If you hit one legitimately, please
 open an issue saying so, because a second data point would be worth more than
 the reasoning that picked these.
 

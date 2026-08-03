@@ -225,8 +225,8 @@ it too.
 
 ## Where `note` shows up
 
-`note` behaves differently per block, which is worth stating because three of
-the four accept it and only two draw it.
+`note` behaves differently per block, which is worth stating because all four
+accept it and only two draw it.
 
 | Block | Effect |
 | --- | --- |

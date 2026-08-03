@@ -196,6 +196,34 @@ told something untrue and may have acted on it.
   naming two shipped features; it points at `TODO.md`, which exists precisely
   because `CLAUDE.md` is written for agents.
 
+- **Two defects in the override-displacement warning added earlier in this same
+  unreleased cycle**, both found by an external review before either reached a
+  release:
+  - It leaked under `--obfuscate`. Overrides are applied before obfuscation, so
+    an ordinary obfuscated render logged the node's real label, its old parent's
+    real label and the selector, contradicting the promise that log output is
+    scrubbed too. The scrubbed diagram was the whole point, and a terminal
+    beside it naming the nodes defeats it. Displacements are now carried out on
+    `ApplyResult` for the caller to report, exactly as hidden nodes already
+    were, so the policy sits with the code that knows about the flag. Under
+    `--obfuscate` the warning survives as a count with no names.
+  - It could call an asserted link controller-reported. Only the "uplink not
+    reported" placeholder was excluded, so when two overrides reparented the
+    same node, the second warning described the first override's own link as
+    something the controller had reported: the exact misattribution the warning
+    exists to prevent.
+- `--support-max-archive` was the one cap whose error did not name the flag that
+  raises it, which is the worst of the four to omit it from, since it is the one
+  a legitimately large site is most likely to hit. Now tested for all four.
+- Smaller documentation corrections: the support-file page called its four
+  adjustable limits "three" twice; the overrides page said three of the four
+  block types accept `note` when all four do; the JSON example said everything
+  but `nodes` and `edges` was complete while abridging `networks` too; the
+  README said Graphviz was required outright, when `dot`, `mermaid` and `json`
+  need nothing installed; and three cross-references still pointed at README
+  sections the split had moved (`CLAUDE.md`, the `--icon-font` help text, and
+  the pull request checklist).
+
 ### Added
 
 - **Every page under `docs/` links back to the documentation index.** A search

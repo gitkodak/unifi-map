@@ -39,8 +39,9 @@ snapshot is a full controller dump; this is the graph, and it honours
 `--obfuscate`, overrides and `--per-network` exactly as the diagram does, so
 whatever cleaning was applied to the picture applies here.
 
-Every top-level key, from the shipped demo. `nodes` and `edges` are abridged to
-one entry each; the rest is complete:
+Every top-level key, from the shipped demo. `networks`, `nodes` and `edges` are
+abridged to one entry each; `schema`, `generator`, `title` and `counts` are
+complete:
 
 ```json
 {
@@ -62,7 +63,7 @@ one entry each; the rest is complete:
 ```
 
 `counts` covers the whole map rather than the abridged arrays above, so it does
-not add up to the one node shown.
+not add up to the single node shown. The demo has four networks, not one.
 
 Edges are named `child` and `parent` rather than `src` and `dst`, because a
 reader should not have to guess which way round they point. Facts that are not

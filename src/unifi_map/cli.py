@@ -176,6 +176,33 @@ def _unique_names(names: list[str]) -> dict[str, str]:
     return resolved
 
 
+def _report_displacements(result, obfuscated: bool) -> None:
+    """Say when an override replaced a link the controller actually reported.
+
+    Names both ends normally, because "which link did I overwrite?" is the whole
+    question. Under `--obfuscate` it reports only that it happened and how
+    often: the labels are exactly what that flag exists to keep out of a
+    terminal, a CI log or a pasted transcript, and a scrubbed diagram beside a
+    log naming the nodes is no use at all.
+    """
+    if not result.displaced:
+        return
+    if obfuscated:
+        log.warning(
+            "%d link(s) the controller reported were replaced by overrides. "
+            "Re-run without --obfuscate to see which.",
+            len(result.displaced),
+        )
+        return
+    for item in result.displaced:
+        log.warning(
+            "%s: %s was reported by the controller under %s; the override replaces that link.",
+            item.context,
+            item.node,
+            item.parent,
+        )
+
+
 def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
     """Say that the placeholder node is fixable, at the moment it appears.
 
@@ -647,6 +674,7 @@ def cmd_render(args: argparse.Namespace) -> int:
         result = apply_overrides(topo, overrides)
         topo = result.topology
         override_icons = result.icons
+        _report_displacements(result, args.obfuscate)
         # Names of hidden nodes are useful confirmation normally, and a leak
         # under --obfuscate: the diagram would be scrubbed while the terminal
         # or CI log it was produced in still carried real labels.
@@ -777,6 +805,9 @@ def cmd_overrides(args: argparse.Namespace) -> int:
     topo = build_topology(snapshot, include_offline=args.show_offline == "yes")
     overrides = load_overrides(path)
     result = apply_overrides(topo, overrides)
+    # `overrides check` has no --obfuscate: it is a local diagnostic and its
+    # entire output is names already.
+    _report_displacements(result, obfuscated=False)
 
     log.info("%s applies cleanly against %s.", path, args.cache_dir)
     log.info(
@@ -1014,7 +1045,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="DIR",
         help="Load the client glyph font from a directory you copied off a "
         "controller yourself (needs its style.css and .ttf). Needs no "
-        "credentials and no network. See the README.",
+        "credentials and no network. See docs/artwork.md.",
     )
     shared.add_argument(
         "--support-max-archive",

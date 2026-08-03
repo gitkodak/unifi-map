@@ -224,7 +224,7 @@ equivalent. Command options must follow the subcommand.
 | `--support-max-entries` `N` | How many archive entries to walk before giving up (default 100000). Separate from the size caps because entry count does not follow the bytes decoded. | `100000` |
 | `--fetch-fingerprints` | Allow downloading Ubiquiti's client fingerprint database, which is what gives clients real product artwork when reading a support file. Off by default: reading a support file otherwise contacts nothing. |  |
 | `--fetch-icon-font` | With --support-file, also fetch the generic client glyph font from a controller. This one DOES need UNIFI_HOST and UNIFI_API_KEY, because Ubiquiti publish no copy of that font. Off by default. |  |
-| `--icon-font` `DIR` | Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See the README. |  |
+| `--icon-font` `DIR` | Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See docs/artwork.md. |  |
 | `--support-max-archive` `SIZE` | Total uncompressed bytes to walk in a support archive, counting files that are skipped (default 4G). This is what stops a small archive that expands enormously; the other caps only measure what is decoded. | `4G` |
 | `--no-progress` | Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading. |  |
 | `--out-dir` | Where diagrams are written (default: out) | `out` |

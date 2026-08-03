@@ -11,8 +11,9 @@
       or device addresses
 - [ ] No Ubiquiti artwork vendored into the repository
 - [ ] No `cache/` or `out/` contents committed
-- [ ] If this changes what gets drawn, the legend and README still describe it
-      accurately
+- [ ] If this changes what gets drawn, the legend and the docs still describe
+      it accurately (`docs/usage.md` for layouts and reading the diagram,
+      `docs/output.md` for formats)
 
 ## Anything you are unsure about
 

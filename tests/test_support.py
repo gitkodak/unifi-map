@@ -771,6 +771,18 @@ class TestArchiveWorkIsCapped:
         path = self._bomb(tmp_path, 1_000)
         assert load_support_file(path, max_archive=10 * 1024 * 1024).get("device")
 
+    def test_the_error_names_the_flag_that_raises_it(self, tmp_path):
+        """Every cap is adjustable, so every cap's error must say how.
+
+        The other three said so and this one did not, which is the worst case
+        to omit it from: it is the cap most likely to be hit by a legitimately
+        large site rather than by an attack, and its message otherwise reads as
+        a flat refusal.
+        """
+        path = self._bomb(tmp_path, 200_000)
+        with pytest.raises(SupportFileError, match="--support-max-archive"):
+            load_support_file(path, max_archive=50_000)
+
 
 class TestMalformedLinesDoNotCrash:
     def test_a_neighbour_line_ending_in_lladdr_is_skipped(self):
