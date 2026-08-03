@@ -26,6 +26,68 @@ Tests never touch the network. Fixtures in `tests/conftest.py` are synthetic
 payloads with invented MACs; `tests/test_assets.py` writes a catalog straight
 into a temp cache so `AssetStore` reads from disk.
 
+## Mistakes that have actually happened here
+
+Each of these cost real time or shipped a real defect. They are listed because
+every one of them looked fine at the moment it was made.
+
+### `make check | tail` throws away the exit status
+
+A pipeline reports the status of its *last* command, so `make check | tail`
+succeeds whenever `tail` succeeds, which is always. Three commits went in on a
+failing check that way. Redirect and branch instead:
+
+```bash
+make check > /tmp/check.log 2>&1 && echo PASSED || { echo FAILED; tail -40 /tmp/check.log; }
+```
+
+The same trap applies to `| head`, `| grep` and `| sed`. If the exit status
+matters, do not put the command on the left of a pipe.
+
+### Mutation-test any guard before believing it
+
+Two tests were written that could not fail. One asserted on a string (`IMG SRC`)
+that the renderer never emits. One asserted on stdout when Graphviz warns on
+stderr and `run_dot` discards stderr on success. Both read as reasonable and
+both were worthless.
+
+**Break the thing the test protects and confirm the test goes red.** A guard
+that has never been seen to fail is not a guard.
+
+The same failure has a second form: a test that passes for the wrong reason
+because state leaked from an earlier case. A hook chaining test "passed" while
+proving nothing, because a file staged by the previous case tripped a different
+check first and the chaining code was never reached. Start from clean state per
+case, and if a test passes on the first try, be suspicious enough to check *why*.
+
+### Fix the class, not the instance in front of you
+
+This recurred all through one session. Per-block override keys were validated
+but block *names* were not. The pixel cap was added to `_measure` but not
+`_downscale`. The SVG href pattern was widened but its media type was left as
+PNG. In each case the reported symptom was fixed and its sibling was not.
+
+When a fix lands, grep for the same shape elsewhere before calling it done.
+
+### `stat` without `-L` reports the symlink, not the target
+
+Symlink mode bits are always `777`, so `stat` on a symlinked credential file
+raises a false "world-readable key" alarm. The file was `600` throughout. Use
+`stat -L`, or `ls -laL`, when the thing you care about is the target.
+
+### A repeated `-f` overwrites rather than appends
+
+`-f` is `nargs="+"`, so `-f svg -f png` silently yields **png only**, not both.
+Pass them together: `-f svg pdf png`. This is a property of the tool's own CLI
+and worth remembering before concluding a format failed to render.
+
+### Do not use `git commit --no-verify`
+
+`core.hooksPath` is set globally on the maintainer's machine to hooks that refuse
+assistant session URLs and identifiers in commit messages and in staged file
+content. See the commit-trailer section below for why. If a hook fires, the
+message or the file is wrong. Rephrase it; do not reach for the flag.
+
 ## Pipeline
 
 Each stage owns one concern; nothing downstream of `model.py` sees raw
