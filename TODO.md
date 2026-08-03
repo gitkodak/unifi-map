@@ -159,6 +159,18 @@ drawn from a thin one look equally authoritative.
 
 ## Tooling
 
+- **A read-only way to show resolved configuration** (KAN-142). There is no way
+  to ask where anything ended up. The only route is `-v` on a real render, which
+  writes output and may download artwork just to report a path. That matters
+  because the three directory variables can be set in the credential file, so
+  they are invisible from the shell.
+
+  Worth showing: the resolved directories and which layer supplied each, which
+  credential file was actually read, whether the `svg` extra is importable, and
+  whether Graphviz was found. **Never the API key**, not even a prefix: a config
+  display is exactly what ends up pasted into a bug report, which is the same
+  reasoning that makes `unifi-map shape` allowlist-built.
+
 - **An automated review tool that stays free** (KAN-136). Greptile is connected
   but reports a 14-day trial rather than the open-source licence applied for.
   The requirement is not that tool specifically: it is pull-request review that
