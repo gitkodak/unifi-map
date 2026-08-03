@@ -342,10 +342,9 @@ class AssetStore:
         except requests.RequestException as exc:
             self._unreachable = True
             log.warning(
-                "Cannot reach Ubiquiti's asset CDN: %s. Continuing without "
-                "downloaded artwork; devices will draw as shapes. Re-run when "
-                "you have connectivity, or pass --offline to skip this "
-                "entirely.",
+                "Cannot reach Ubiquiti's asset CDN: %s. Continuing with our own "
+                "icons instead of product artwork. Re-run when you have "
+                "connectivity, or pass --offline to skip the attempt.",
                 describe_network_error(exc),
             )
             return None
@@ -861,9 +860,9 @@ def _why_unreadable(path: Path) -> str:
         return ""
     if b"<?xml" not in head:
         return (
-            ". The SVG has no <?xml ...?> declaration on the first line. "
-            "Graphviz refuses those, reporting the file as missing, so it is "
-            "rejected here where the message can name it."
+            ". The SVG needs an <?xml ...?> declaration on the first line. Add "
+            "one, or install the svg extra (`pip install 'unifi-map[svg]'`), "
+            "which does not require it."
         )
     if re.search(rb"<svg\b[^>]*>", head, re.I | re.S) is None:
         return ". No opening <svg> tag was found in the first 4 KiB."

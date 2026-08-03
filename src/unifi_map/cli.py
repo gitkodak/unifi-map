@@ -167,9 +167,8 @@ class _FormatsAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
         if getattr(namespace, _FORMATS_SEEN, False):
             parser.error(
-                f"{option_string} was given more than once, and only the last "
-                "would have counted. Pass the formats together instead: "
-                "-f svg pdf png"
+                f"{option_string} was given more than once. Pass the formats "
+                "together instead: -f svg pdf png"
             )
         setattr(namespace, _FORMATS_SEEN, True)
         setattr(namespace, self.dest, values)
