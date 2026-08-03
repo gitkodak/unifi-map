@@ -119,6 +119,24 @@ class Snapshot:
             body = json.dumps(payload, indent=2, sort_keys=True)
             atomic_write(cache_dir / f"{name}.json", body)
 
+        # A snapshot is one generation. `read()` loads every recognised file it
+        # finds, so an optional endpoint that succeeded last time and failed
+        # this time would otherwise leave its old file behind to be read beside
+        # fresh devices and clients: a map built from two different moments,
+        # looking exactly like one built from one. Switching a cache directory
+        # between a live fetch and a support file did the same thing.
+        #
+        # Only names this tool writes are removed, and only from a directory it
+        # was pointed at as a cache.
+        for name in (*ENDPOINTS, *EXTRA_ENDPOINTS):
+            if name in self.payloads:
+                continue
+            stale = cache_dir / f"{name}.json"
+            with contextlib.suppress(OSError):
+                if stale.is_file():
+                    stale.unlink()
+                    log.debug("Removed %s, absent from this fetch.", stale)
+
     @classmethod
     def read(cls, cache_dir: Path) -> Snapshot:
         if not cache_dir.is_dir():

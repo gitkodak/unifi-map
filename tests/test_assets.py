@@ -668,3 +668,52 @@ class TestFetchDoesNotDependOnRequestsInternals:
         Fetched(status_code=200, content=b"", url="u").raise_for_status()
         with pytest.raises(requests.RequestException):
             Fetched(status_code=404, content=b"", url="u").raise_for_status()
+
+
+class TestColdCacheDownload:
+    """The successful download path, which nothing exercised.
+
+    Every existing catalogue test either seeded the cache or simulated a
+    transport failure, so the one branch a new user hits first, a reachable CDN
+    and an empty cache, was never run. It was broken: `_fetch` returns
+    `Fetched`, which is not a `requests.Response` and has no `json()`, and the
+    resulting AttributeError was not caught by the surrounding clause.
+    """
+
+    def _store(self, tmp_path, payload: bytes, monkeypatch):
+        from unifi_map import assets
+
+        store = assets.AssetStore(cache_dir=tmp_path)
+        monkeypatch.setattr(
+            assets.AssetStore,
+            "_fetch",
+            lambda self, url, **kw: assets.Fetched(status_code=200, content=payload, url=url),
+        )
+        return store
+
+    def test_a_reachable_cdn_and_an_empty_cache_produces_a_catalogue(self, tmp_path, monkeypatch):
+        import json as _json
+
+        payload = _json.dumps({"devices": [{"sysid": "ea11", "shortnames": ["X"]}]}).encode()
+        store = self._store(tmp_path, payload, monkeypatch)
+        # Keyed by sysid as an int; 0xea11 is 59921. Reaching this at all is
+        # the point: it used to raise AttributeError before returning.
+        assert store.catalog() == {59921: {"sysid": "ea11", "shortnames": ["X"]}}
+
+    def test_the_download_is_cached_for_next_time(self, tmp_path, monkeypatch):
+        import json as _json
+
+        payload = _json.dumps({"devices": []}).encode()
+        store = self._store(tmp_path, payload, monkeypatch)
+        store.catalog()
+        assert store.catalog_path.is_file(), "nothing was written to the cache"
+
+    def test_a_catalogue_that_is_not_an_object_is_refused(self, tmp_path, monkeypatch):
+        # A JSON array parses fine and is not a catalogue. Artwork degrades
+        # rather than failing the run, so this is an empty map, not an error.
+        store = self._store(tmp_path, b"[1, 2, 3]", monkeypatch)
+        assert store.catalog() == {}
+
+    def test_malformed_json_degrades_rather_than_raising(self, tmp_path, monkeypatch):
+        store = self._store(tmp_path, b"{not json", monkeypatch)
+        assert store.catalog() == {}

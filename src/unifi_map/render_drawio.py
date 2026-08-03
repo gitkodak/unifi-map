@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import html
+import mimetypes
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -41,8 +42,15 @@ def _cell_id(raw: str) -> str:
 
 
 def _drawio_data_uri(path: Path) -> str:
-    """draw.io expects `data:image/png,<base64>` (comma, no `;base64`)."""
-    return "data:image/png," + base64.b64encode(path.read_bytes()).decode("ascii")
+    """draw.io expects `data:<type>,<base64>`: a comma, and no `;base64`.
+
+    The media type is derived rather than assumed. Everything looked up is PNG,
+    but an `icon` in an overrides file may be an SVG, and labelling those bytes
+    `image/png` produced a shape draw.io could not draw.
+    """
+    guessed, _ = mimetypes.guess_type(path.name)
+    media = guessed if (guessed or "").startswith("image/") else "image/png"
+    return f"data:{media}," + base64.b64encode(path.read_bytes()).decode("ascii")
 
 
 # Artwork box inside a draw.io shape, in points. Matches the DOT renderer so the

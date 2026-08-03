@@ -132,6 +132,9 @@ def _split_plain(line: str) -> list[str]:
     current: list[str] = []
     in_quotes = False
     escaped = False
+    # An empty quoted field is still a field. Without this, `""` produced no
+    # column at all and silently shifted every column after it.
+    quoted = False
     for char in line:
         if escaped:
             current.append(char)
@@ -140,13 +143,15 @@ def _split_plain(line: str) -> list[str]:
             escaped = True
         elif char == '"':
             in_quotes = not in_quotes
+            quoted = True
         elif char.isspace() and not in_quotes:
-            if current:
+            if current or quoted:
                 fields.append("".join(current))
                 current = []
+                quoted = False
         else:
             current.append(char)
-    if current:
+    if current or quoted:
         fields.append("".join(current))
     return fields
 
@@ -175,12 +180,19 @@ def parse_plain(plain: str) -> Layout:
 
     nodes: dict[str, Placed] = {}
     for name, (x, y, w, h) in raw.items():
-        width = w * POINTS_PER_INCH
-        height = h * POINTS_PER_INCH
+        # `scale` applies to every coordinate on the drawing, not only to the
+        # canvas. Applying it to the canvas alone put draw.io shapes in the
+        # wrong places relative to a page sized from the same numbers. Graphviz
+        # emits 1.0 unless `size` or `ratio` forces a fit, and this renderer
+        # sets neither, so today this is a latent difference rather than a
+        # visible one. It is still wrong, and it would be invisible until
+        # somebody added a `size` attribute.
+        width = w * POINTS_PER_INCH * scale
+        height = h * POINTS_PER_INCH * scale
         # x,y is the node centre; draw.io geometry is the top-left corner.
         nodes[name] = Placed(
-            x=x * POINTS_PER_INCH - width / 2.0,
-            y=(graph_h - y) * POINTS_PER_INCH - height / 2.0,
+            x=x * POINTS_PER_INCH * scale - width / 2.0,
+            y=(graph_h - y) * POINTS_PER_INCH * scale - height / 2.0,
             width=width,
             height=height,
         )

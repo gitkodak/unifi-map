@@ -16,7 +16,9 @@ from unifi_map.render_mermaid import SHAPES, render_mermaid
 
 
 def _ids(source: str) -> set[str]:
-    return set(re.findall(r"^\s+(n[A-Za-z0-9]+)[\[({]", source, re.M))
+    # Underscores included: ids replace punctuation with `_` rather than
+    # deleting it, so that `asserted-a-b` and `asserted-ab` stay distinct.
+    return set(re.findall(r"^\s+(n\w+)[\[({]", source, re.M))
 
 
 def test_it_declares_every_node(snapshot: Snapshot):
@@ -92,7 +94,8 @@ def test_direction_follows_the_layout(snapshot: Snapshot):
 
 def test_a_title_becomes_front_matter(snapshot: Snapshot):
     source = render_mermaid(build_topology(snapshot), title="Demo network")
-    assert source.startswith("---\ntitle: Demo network\n---\n")
+    # Quoted, because this is YAML and a title is user-supplied.
+    assert source.startswith('---\ntitle: "Demo network"\n---\n')
 
 
 def test_no_title_means_no_front_matter(snapshot: Snapshot):

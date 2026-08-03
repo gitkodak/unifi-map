@@ -86,7 +86,13 @@ def mkdir_private(directory: Path) -> None:
         return
 
     try:
-        directory.mkdir(parents=True)
+        # Top-down, each level created 0700 rather than created at the umask
+        # default and tightened a moment later. The old order left a window in
+        # which a directory whose filenames are derived from network names was
+        # world-readable. `mkdir(mode=...)` is still subject to the umask, which
+        # can only clear bits, so the chmod below stays as the backstop.
+        for level in reversed(missing):
+            level.mkdir(mode=0o700)
     except FileExistsError:
         # Created by somebody else between the check and here. Not ours, so not
         # ours to tighten.

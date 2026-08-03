@@ -141,8 +141,21 @@ def obfuscate(topo: Topology) -> Topology:
             asn=None,
         )
 
+    # `asserted` travels with the edge. Nodes keep theirs for free because they
+    # are rebuilt with `replace()`; edges are constructed field by field, so a
+    # new field has to be added here or it is silently dropped. It was, and the
+    # effect was that obfuscating a map redrew every override-asserted link as
+    # though a controller had reported it. That is the one distinction this
+    # project promises never to blur, and `--obfuscate` is precisely the mode
+    # where the reader cannot check.
     edges = [
-        Edge(src=ids[e.src], dst=ids[e.dst], label=e.label, wireless=e.wireless)
+        Edge(
+            src=ids[e.src],
+            dst=ids[e.dst],
+            label=e.label,
+            wireless=e.wireless,
+            asserted=e.asserted,
+        )
         for e in topo.edges
         if e.src in ids and e.dst in ids
     ]
@@ -153,6 +166,9 @@ def obfuscate(topo: Topology) -> Topology:
             name=networks.get(net.name, net.name),
             vlan=net.vlan,
             subnet=f"10.{net_index.get(networks.get(net.name, net.name), 0)}.0.0/24",
+            # Whether a network is for guests says nothing about whose network
+            # it is, and the node-level `is_guest` already survives obfuscation.
+            is_guest=net.is_guest,
         )
         for key, net in topo.networks.items()
     }

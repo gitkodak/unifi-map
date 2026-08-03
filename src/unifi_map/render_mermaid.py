@@ -25,6 +25,10 @@ from .model import Edge, Kind, Node, Topology
 
 # Mermaid node ids may not contain punctuation that means something to it, and a
 # MAC is mostly punctuation.
+# Replaced with `_`, not deleted. Deleting collapsed `asserted-device-1` and
+# `asserted-device1` onto the same identifier, which silently merges two nodes
+# into one and is exactly the kind of quiet wrongness this project refuses
+# elsewhere.
 _ID = re.compile(r"[^A-Za-z0-9]")
 
 # Shape per kind, as `(open, close)`. Mermaid has no notion of an icon, so this
@@ -43,7 +47,21 @@ SHAPES: dict[Kind, tuple[str, str]] = {
 
 def _ident(raw: str) -> str:
     """A Mermaid-safe node id. Prefixed, because an id may not start a digit."""
-    return "n" + _ID.sub("", raw)
+    return "n" + _ID.sub("_", raw)
+
+
+def _flatten(text: str) -> str:
+    """Make *text* safe to sit inside a quoted Mermaid label.
+
+    Two separate problems. `"` ends the label and Mermaid has no escape for it,
+    so it is replaced. And a newline ends the *statement*, so a device name
+    containing one would let the rest of that name be read as Mermaid source.
+    Names come from a controller or, worse, from a support file, which this
+    project treats as hostile input throughout, so neither is hypothetical
+    enough to leave.
+    """
+    collapsed = " ".join(text.split())
+    return collapsed.replace('"', "'")
 
 
 def _label(node: Node) -> str:
@@ -56,7 +74,7 @@ def _label(node: Node) -> str:
     parts = [node.label]
     if node.ip:
         parts.append(node.ip)
-    return " · ".join(p.replace('"', "'") for p in parts)
+    return " · ".join(_flatten(p) for p in parts)
 
 
 def _edge(edge: Edge) -> str:
@@ -73,8 +91,9 @@ def _edge(edge: Edge) -> str:
     else:
         arrow = "-->"
     if edge.label:
-        # Pipes delimit an edge label, so one inside it would end the label.
-        return f"{arrow}|{edge.label.replace('|', '/')}|"
+        # Pipes delimit an edge label, so one inside it would end the label,
+        # and a newline would end the statement carrying it.
+        return f"{arrow}|{_flatten(edge.label).replace('|', '/')}|"
     return arrow
 
 
@@ -88,7 +107,9 @@ def render_mermaid(topo: Topology, title: str | None = None, direction: str = "L
     if title:
         # A YAML front-matter title is rendered by Mermaid 10+ and ignored
         # harmlessly by older versions, which is the right way round.
-        lines += ["---", f"title: {title}", "---"]
+        # Quoted and flattened: this is YAML, so a newline or a stray colon in
+        # a user-supplied `--title` would end the scalar or start a new key.
+        lines += ["---", 'title: "{}"'.format(_flatten(title).replace('"', "'")), "---"]
     lines.append(f"flowchart {direction}")
 
     for node in topo.nodes.values():

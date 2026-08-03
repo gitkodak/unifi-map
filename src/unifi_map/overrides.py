@@ -360,24 +360,49 @@ def _refuse_cycles(topo: Topology) -> None:
     Only reachable through overrides. A controller cannot report one, so this
     runs at the end of `apply()` rather than in `model.py`.
     """
-    parents: dict[str, str] = {}
+    # Every parent, not just the first. Collapsing to one parent per node was
+    # exact only because nothing here currently produces a second one, which is
+    # an invariant of the callers rather than of this function. A cycle reachable
+    # only through a second parent would have gone undetected, and this check
+    # exists precisely for the case where the input is wrong.
+    parents: dict[str, list[str]] = {}
     for edge in topo.edges:
-        # Edges are stored child to parent. A node with several parents is not a
-        # cycle and is left alone; the first is enough to walk.
-        parents.setdefault(edge.src, edge.dst)
+        # Edges are stored child to parent.
+        parents.setdefault(edge.src, []).append(edge.dst)
 
+    def label(node_id: str) -> str:
+        return topo.nodes[node_id].label if node_id in topo.nodes else node_id
+
+    # Iterative depth-first search, so a long chain cannot exhaust the stack on
+    # a graph that is by definition already malformed. `settled` stops the whole
+    # search being redone for every node in a shared chain.
+    settled: set[str] = set()
     for start in parents:
-        seen = [start]
-        node = start
-        while (node := parents.get(node)) is not None:
-            if node in seen:
-                loop = [*seen[seen.index(node) :], node]
-                labels = " -> ".join(topo.nodes[n].label if n in topo.nodes else n for n in loop)
+        if start in settled:
+            continue
+        stack: list[tuple[str, int]] = [(start, 0)]
+        path: list[str] = [start]
+        on_path: set[str] = {start}
+        while stack:
+            node, index = stack[-1]
+            options = parents.get(node, ())
+            if index >= len(options):
+                stack.pop()
+                settled.add(node)
+                on_path.discard(path.pop())
+                continue
+            stack[-1] = (node, index + 1)
+            parent = options[index]
+            if parent in on_path:
+                loop = [*path[path.index(parent) :], parent]
                 raise OverrideError(
-                    f"These overrides make a loop: {labels}. Something is its own "
-                    "uplink, which is not a network a cable can make."
+                    f"These overrides make a loop: {' -> '.join(label(n) for n in loop)}. "
+                    "Something is its own uplink, which is not a network a cable can make."
                 )
-            seen.append(node)
+            if parent not in settled:
+                stack.append((parent, 0))
+                path.append(parent)
+                on_path.add(parent)
 
 
 def _children(topo: Topology, node_id: str) -> list[str]:

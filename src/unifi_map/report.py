@@ -162,6 +162,23 @@ def _records(payload: Any) -> list[dict[str, Any]]:
     return [r for r in payload if isinstance(r, dict)]
 
 
+# Payloads that are a single normalised object rather than a list of records.
+# `_records` cannot detect this from shape, and must not try: a support file's
+# site-keyed `devices.json` has the identical shape, and guessing wrong there
+# would print the site names a user chose. So the allowance is by name, and the
+# names are ours.
+_SINGLE_OBJECT = frozenset({"topology"})
+
+
+def _records_for(name: str, payload: Any) -> list[dict[str, Any]]:
+    """The records to describe for *name*."""
+    if name in _SINGLE_OBJECT and isinstance(payload, dict) and "data" not in payload:
+        # Reported as zero records before, which made every field of the
+        # topology graph read as absent on every controller.
+        return [payload]
+    return _records(payload)
+
+
 def _wrapped(label: str, names: list[str]) -> list[str]:
     """One labelled field list, wrapped so the report pastes without reflowing."""
     if not names:
@@ -226,7 +243,8 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
         f" {kinds[Kind.AP]} ap, {kinds[Kind.BRIDGE]} bridge)",
         f"  clients             {wireless + wired}"
         f"   ({wireless} wireless, {wired} wired, {guests} guest)",
-        f"  client networks     {len(topo.networks)}",
+        f"  client networks     {len({n.network for n in topo.nodes.values() if n.network})}"
+        f"   (of {len(topo.networks)} configured)",
     ]
     if extras.sites_seen is not None:
         out.append(f"  sites in source     {extras.sites_seen}")
@@ -273,7 +291,7 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
 
     out += ["", "SCHEMA   (field names only; no values are read or shown)"]
     for name in sorted(payloads):
-        out += _field_report(name, _records(payloads[name]))
+        out += _field_report(name, _records_for(name, payloads[name]))
 
     if extras.notes:
         out += ["", "NOTES"] + [f"  {n}" for n in extras.notes]

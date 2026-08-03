@@ -805,3 +805,37 @@ def test_the_archive_cap_is_raisable_like_the_others(tmp_path):
     path = tmp_path / "ok.tgz"
     _write_archive(path, _default_members())
     assert load_support_file(path, max_archive=64 * 1024 * 1024).get("device")
+
+
+class TestSnapshotGenerations:
+    """A cached snapshot is one moment, not an accumulation of several."""
+
+    def test_an_endpoint_that_stops_returning_leaves_nothing_behind(self, tmp_path):
+        """`read()` loads every recognised file it finds, so a stale one from an
+        earlier fetch would be read beside fresh devices and clients: a map
+        assembled from two different moments, indistinguishable from one built
+        from a single moment.
+
+        Also the live-fetch-then-support-file case in one cache directory.
+        """
+        from unifi_map.client import Snapshot
+
+        Snapshot(payloads={"device": {"data": [1]}, "health": {"data": ["old"]}}).write(tmp_path)
+        assert (tmp_path / "health.json").is_file()
+
+        Snapshot(payloads={"device": {"data": [2]}}).write(tmp_path)
+        assert not (tmp_path / "health.json").exists(), "stale payload survived a new fetch"
+        assert Snapshot.read(tmp_path).get("health") is None
+        assert Snapshot.read(tmp_path).get("device") == {"data": [2]}
+
+    def test_unrecognised_files_in_the_cache_are_left_alone(self, tmp_path):
+        """Only names this tool writes are removed. A cache directory is still
+        somebody's directory, and deleting things we did not create is not ours
+        to do."""
+        from unifi_map.client import Snapshot
+
+        stray = tmp_path / "notes.txt"
+        Snapshot(payloads={"device": {"data": []}}).write(tmp_path)
+        stray.write_text("mine", encoding="utf-8")
+        Snapshot(payloads={"device": {"data": []}}).write(tmp_path)
+        assert stray.read_text(encoding="utf-8") == "mine"

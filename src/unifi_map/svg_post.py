@@ -17,7 +17,16 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 # Matches xlink:href="..." and href="..." on <image> elements.
-_HREF = re.compile(rb'(?P<attr>(?:xlink:)?href=")(?P<path>[^"]+\.png)(?P<tail>")')
+#
+# Every image extension, not just PNG. Looked-up artwork is always PNG, but an
+# `icon` in an overrides file can be anything Graphviz will load, and SVG is
+# documented as working. Matching only PNG left those as absolute filesystem
+# paths in the output, which is the exact disclosure this function exists to
+# prevent: the path usually contains a username.
+_HREF = re.compile(
+    rb'(?P<attr>(?:xlink:)?href=")(?P<path>[^"]+\.(?:png|svg|jpe?g|gif|webp))(?P<tail>")',
+    re.IGNORECASE,
+)
 
 
 def inline_svg_images(svg: bytes, allowed: Iterable[Path] = ()) -> bytes:

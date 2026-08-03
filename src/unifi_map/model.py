@@ -109,6 +109,12 @@ class Network:
     name: str
     vlan: int | None
     subnet: str | None
+    # `rest/networkconf` reports this and the JSON export already tried to emit
+    # it, through a `getattr` that could never succeed because the field did not
+    # exist. Carried properly rather than dropping the export: which networks
+    # are guest networks is exactly the sort of thing a consumer of the JSON
+    # wants and cannot derive.
+    is_guest: bool = False
 
 
 @dataclass
@@ -327,6 +333,7 @@ def build_networks(snapshot: Snapshot) -> dict[str, Network]:
             name=str(entry.get("name") or "unnamed"),
             vlan=vlan,
             subnet=entry.get("ip_subnet"),
+            is_guest=bool(entry.get("is_guest")),
         )
     return networks
 

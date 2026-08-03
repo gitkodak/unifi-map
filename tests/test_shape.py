@@ -35,7 +35,7 @@ _PROSE = " ".join(
         "site network names appear above by construction not Linux Darwin Windows",
         "cached snapshot support file live fetch graphviz depth offline devices",
         "ARTWORK how often the joins onto Ubiquiti catalogues succeed by sysid",
-        "resolved product UniFi hardware generic glyph found",
+        "resolved product UniFi hardware generic glyph found configured",
     ]
 )
 

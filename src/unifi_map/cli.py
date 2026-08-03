@@ -23,6 +23,7 @@ import logging
 import re
 import shutil
 import sys
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from . import __version__
@@ -135,13 +136,32 @@ def _bytes_arg(raw: str) -> int:
     if multiplier != 1:
         text = text[:-1]
     try:
-        value = int(float(text) * multiplier)
-    except ValueError:
+        value = int(Decimal(text) * multiplier)
+    except (InvalidOperation, ValueError, OverflowError):
+        # Decimal rather than float: `1e999` is a finite Decimal but an infinite
+        # float, and `int(inf)` raises OverflowError, which argparse does not
+        # treat as a bad argument and so reported as a traceback.
         raise argparse.ArgumentTypeError(
             f"{raw!r} is not a size. Use a number, optionally with K, M or G."
         ) from None
     if value <= 0:
         raise argparse.ArgumentTypeError("Size must be positive.")
+    return value
+
+
+def _positive_int(raw: str) -> int:
+    """A count that must be at least one.
+
+    `type=int` alone accepted `0` and `-3`, which cannot mean anything: a cap of
+    zero entries refuses every archive, and a negative one is a typo that would
+    have done so silently.
+    """
+    try:
+        value = int(raw)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{raw!r} is not a whole number.") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError("Must be at least 1.")
     return value
 
 
@@ -722,6 +742,11 @@ def cmd_render(args: argparse.Namespace) -> int:
             len(result.hidden),
             hidden,
         )
+        # Recounted, because overrides add declared devices and hide nodes. The
+        # log above deliberately reports what was fetched; the subtitle drawn on
+        # the diagram has to describe the diagram, and it was still quoting the
+        # pre-override numbers.
+        tally = topo.counts()
 
     # After overrides, not before: the whole point is to report what is *still*
     # unplaced, and running first counts the clients an override just placed.
@@ -1063,7 +1088,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     shared.add_argument(
         "--support-max-entries",
-        type=int,
+        type=_positive_int,
         default=argparse.SUPPRESS,
         metavar="N",
         help=f"How many archive entries to walk before giving up (default "

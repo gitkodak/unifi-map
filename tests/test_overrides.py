@@ -12,12 +12,13 @@ import pytest
 
 from unifi_map.assets import AssetError
 from unifi_map.client import Snapshot
-from unifi_map.model import UNKNOWN_UPLINK_ID, Kind, build_topology
+from unifi_map.model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology, build_topology
 from unifi_map.overrides import (
     Hosted,
     Link,
     OverrideError,
     Overrides,
+    _refuse_cycles,
     apply,
     load,
     parse,
@@ -665,3 +666,38 @@ parent = "A"
         payloads = {p.stem: json.loads(p.read_text()) for p in demo.glob("*.json")}
         topo = build_topology(Snapshot(payloads=payloads), include_offline=False)
         apply(topo, load(demo / "overrides.toml"))
+
+
+class TestCycleRefusal:
+    def _topo(self, edges):
+        return Topology(
+            nodes={k: Node(id=k, label=k.upper(), kind=Kind.SWITCH) for k in "abc"},
+            edges=edges,
+            networks={},
+        )
+
+    def test_a_cycle_reachable_only_through_a_second_parent_is_caught(self):
+        """The walk used to keep one parent per node and follow only that.
+
+        Exact for every graph this project currently builds, since each node
+        ends up with one parent, but that is a property of the callers rather
+        than of the check. A check that exists for malformed input should not
+        assume the input is well formed.
+        """
+        topo = self._topo(
+            [
+                Edge(src="a", dst="b"),  # followed first, and innocent
+                Edge(src="a", dst="c"),
+                Edge(src="c", dst="a"),  # the loop, reachable only via the second
+            ]
+        )
+        with pytest.raises(OverrideError, match="make a loop"):
+            _refuse_cycles(topo)
+
+    def test_a_plain_tree_is_accepted(self):
+        _refuse_cycles(self._topo([Edge(src="a", dst="b"), Edge(src="c", dst="b")]))
+
+    def test_a_shared_chain_is_not_a_cycle(self):
+        # Two children of one parent revisit the same ancestors; revisiting is
+        # only a loop when the node is still on the current path.
+        _refuse_cycles(self._topo([Edge(src="a", dst="b"), Edge(src="c", dst="b")]))

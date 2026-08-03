@@ -247,6 +247,55 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
   sections the split had moved (`CLAUDE.md`, the `--icon-font` help text, and
   the pull request checklist).
 
+- **A fresh install could not fetch the hardware catalogue at all.** `_fetch`
+  returns a small `Fetched` object rather than a `requests.Response`, and the
+  catalogue loader called `.json()` on it, which does not exist. The resulting
+  `AttributeError` was not caught by the surrounding handler, so the very first
+  render on a machine with an empty cache and a reachable CDN crashed. Every
+  test either seeded the cache or simulated a network failure, so the ordinary
+  success path was the one thing never exercised; it is now.
+- **`--obfuscate` erased the difference between an asserted link and an observed
+  one.** Edges are rebuilt field by field during obfuscation and `asserted` was
+  not carried, so a link stated in an overrides file came out drawn exactly like
+  one the controller reported. That distinction is the project's central promise
+  and `--obfuscate` is the mode where a reader is least able to check it. A test
+  now walks the dataclass, so a field added to `Edge` or `Network` fails until it
+  is either carried through obfuscation or deliberately exempted.
+- **A cached snapshot could mix two fetches.** `write()` only wrote the payloads
+  it had while `read()` loads every recognised file present, so an endpoint that
+  succeeded once and failed later left its old file to be read beside fresh
+  data. Switching one cache directory between a live fetch and a support file
+  did the same. A snapshot is now a complete generation: recognised files absent
+  from the new fetch are removed, and nothing else in the directory is touched.
+- **The diagram's own subtitle counted the wrong things.** It was computed
+  before overrides were applied, so a map that declared devices or hid nodes
+  stated the pre-override totals underneath itself.
+- **An override could not be trusted to catch every loop.** The cycle check kept
+  one parent per node and followed only that, which is exact for the graphs this
+  tool builds today but is a property of its callers rather than of the check. A
+  cycle reachable only through a second parent went undetected. Now a full
+  depth-first search, iterative so a malformed graph cannot exhaust the stack.
+- **A user-supplied SVG or JPEG icon left an absolute path in the output.** The
+  SVG post-pass inlined only `.png`, so other formats stayed as filesystem
+  references, disclosing a local path (usually containing a username) in a file
+  whose purpose is to be shared. draw.io export had the matching bug from the
+  other side, labelling every icon `image/png` whatever it was.
+- **The image size cap was not a cap.** Pillow warns at `MAX_IMAGE_PIXELS` and
+  only raises at roughly twice it, so an image up to double the limit decoded
+  anyway, and the error it eventually raises was not among those caught.
+- Mermaid identifiers deleted punctuation rather than replacing it, so
+  `asserted-a-b` and `asserted-ab` became the same node. Labels and titles now
+  also survive a newline, which previously ended the statement carrying them and
+  let the rest of a device name be read as Mermaid source.
+- `unifi-map shape` counted configured networks as "client networks", including
+  ones no client is on, and reported every field of the topology graph as absent
+  because that payload is a single object rather than a list of records.
+- Smaller: a size argument that overflows a float is now a clean error rather
+  than a traceback, `--support-max-entries` refuses zero and negatives, private
+  directories are created private rather than tightened a moment later, and
+  `Network` carries `is_guest`, which the JSON export had been trying to read
+  through a `getattr` that could never succeed.
+
 ### Added
 
 - **Nine device icons, drawn by this project rather than fetched.** Ubiquiti's

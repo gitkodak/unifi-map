@@ -455,3 +455,49 @@ def test_an_override_warning_does_not_leak_under_obfuscate(identifying, tmp_path
     text = caplog.text.lower()
     leaked = [s for s in identifying["secrets"] if len(s) > 5 and s.lower() in text]
     assert not leaked, f"identifying values reached the log: {leaked}"
+
+
+def test_obfuscation_keeps_every_model_field_it_does_not_deliberately_change():
+    """Rebuilt objects lose fields silently; `replace()`d ones do not.
+
+    `Edge` and `Network` are constructed field by field in `obfuscate()`, so
+    anything added to those dataclasses is dropped unless somebody remembers.
+    Something was: `asserted` was lost, which redrew every override-asserted
+    link as though a controller had reported it, in the one mode where the
+    reader has no way to check. Nodes were fine, because they go through
+    `replace()`.
+
+    Written against the dataclass rather than against a list of fields, so a
+    new field fails here until it is either carried or deliberately exempted.
+    """
+    import dataclasses
+
+    from unifi_map.model import Edge, Kind, Network, Node, Topology
+    from unifi_map.obfuscate import obfuscate
+
+    # Fields obfuscation is *supposed* to change, with why.
+    exempt = {
+        "Edge": {"src", "dst"},  # ids are remapped, that is the point
+        "Network": {"id", "name", "subnet"},  # renamed and renumbered
+    }
+
+    topo = Topology(
+        nodes={
+            "a": Node(id="a", label="A", kind=Kind.SWITCH, asserted=True),
+            "b": Node(id="b", label="B", kind=Kind.SWITCH),
+        },
+        edges=[Edge(src="a", dst="b", label="port 1", wireless=True, asserted=True)],
+        networks={"n1": Network(id="n1", name="lan", vlan=7, subnet="10.0.0.0/24", is_guest=True)},
+    )
+    after = obfuscate(topo)
+
+    for name, before_obj, after_obj in (
+        ("Edge", topo.edges[0], after.edges[0]),
+        ("Network", topo.networks["n1"], next(iter(after.networks.values()))),
+    ):
+        for field in dataclasses.fields(before_obj):
+            if field.name in exempt[name]:
+                continue
+            assert getattr(after_obj, field.name) == getattr(before_obj, field.name), (
+                f"obfuscate() dropped {name}.{field.name}; carry it or exempt it here"
+            )

@@ -28,6 +28,7 @@ import base64
 import json
 import logging
 import re
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -623,12 +624,22 @@ class AssetStore:
             return None
         try:
             response.raise_for_status()
-            payload = response.json()
+            # `json.loads`, not `response.json()`. `_fetch` returns `Fetched`,
+            # which carries only what callers use and has never had a `json()`
+            # method; calling it raised AttributeError, which the clause below
+            # does not catch. That made a successful catalogue download on a
+            # cold cache crash the run, the single most ordinary first-use path
+            # there is. Every test either seeded the cache or simulated a
+            # transport failure, so nothing exercised success.
+            payload = json.loads(response.content)
         except (requests.RequestException, ValueError) as exc:
             log.warning(
                 "Could not read the UniFi device catalog: %s. Icons disabled.",
                 describe_network_error(exc),
             )
+            return None
+        if not isinstance(payload, dict):
+            log.warning("The UniFi device catalog is not an object; icons disabled.")
             return None
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -770,6 +781,11 @@ def _pillow_image():
     # Applied on every use rather than once at import, since Pillow is imported
     # lazily and a caller could have relaxed it.
     Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    # The threshold alone is not a limit. Pillow *warns* at MAX_IMAGE_PIXELS and
+    # only raises at roughly twice it, so an image between the two was decoded
+    # anyway. Promoted to an error so the number means what it says. Scoped to
+    # this category, so nothing else about the caller's warning filters changes.
+    warnings.simplefilter("error", Image.DecompressionBombWarning)
     return Image
 
 
@@ -861,7 +877,12 @@ def _render_glyph(font_path: Path, codepoint: int, color: str, dest: Path, box: 
         cropped.thumbnail((box, box), Image.LANCZOS)
         cropped.save(dest, format="PNG", optimize=True)
         return IconAsset(path=dest, width=cropped.width, height=cropped.height)
-    except (OSError, ValueError) as exc:
+    except (
+        OSError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ) as exc:
         raise AssetError(f"Could not render glyph U+{codepoint:04X}: {exc}") from exc
 
 
@@ -888,7 +909,12 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
             image.save(buffer, format="PNG", optimize=True)
             _cache_write(dest, buffer.getvalue())
             return IconAsset(path=dest, width=image.width, height=image.height)
-    except (OSError, ValueError) as exc:
+    except (
+        OSError,
+        ValueError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ) as exc:
         raise AssetError(f"Could not process artwork: {exc}") from exc
 
 
