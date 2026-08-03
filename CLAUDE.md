@@ -446,6 +446,18 @@ not the routine.
 would look: this file is written for agents and runs to hundreds of lines, and
 Jira needs an account.
 
+**Sweep all three or none.** The handover rule below covered `TODO.md` and this
+file and said nothing about Jira, so Jira drifted furthest: a reconciliation on
+2026-08-03 found the JSON export still open months after it shipped, and two
+tickets each covering one shipped thing and one unstarted thing (`overrides
+check` with the candidates generator, the Mermaid export with the HTML viewer).
+Splitting a ticket when half of it ships is not optional bookkeeping; a ticket
+that is half done reads as untouched.
+
+The reconciliation also found five `TODO.md` items with no ticket at all, so the
+drift runs both ways. Nothing syncs these, and nothing can: only a person knows
+whether a line is worth a ticket.
+
 **It has no test behind it, deliberately.** A first version was guarded by two,
 and they were wrong in kind: they asserted the file contained a particular
 heading, which meant the test dictated the structure rather than the accuracy.

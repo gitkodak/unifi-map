@@ -119,6 +119,16 @@ drawn from a thin one look equally authoritative.
 
 ---
 
+## Correctness
+
+- **Refuse a repeated `-f` instead of silently honouring the last one**
+  (KAN-131). `-f` is `nargs="+"`, so `-f svg -f png` writes png only and says
+  nothing, which reads as a format that failed to render. Both spellings look
+  equally reasonable to somebody who has not read the flag table. Forbidding the
+  repeat is preferred over making it append: an error states what happened,
+  whereas appending would quietly change what an existing invocation produces.
+  The message should name the working form, `-f svg pdf png`.
+
 ## Shape of the code
 
 - **Move the pipeline code out of `cli.py`.** It is the largest module at ~1350
