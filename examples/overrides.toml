@@ -59,15 +59,16 @@ port = 9
 # an assets folder travel together. Nothing is downloaded for it.
 
 #
-# PNG is the simplest choice and needs nothing extra. If you point `icon` at an
-# .svg instead, install the svg extra as well:
+# PNG needs nothing extra. If you point `icon` at an .svg instead, Graphviz
+# drops it from the png and pdf outputs (it loads SVG only for its own svg
+# format) and additionally demands an XML declaration on the first line.
 #
-#     pip install 'unifi-map[svg]'
+# Two ways round that, and either is fine:
 #
-# Without it Graphviz drops SVG artwork from the png and pdf outputs, because
-# it can only load SVG for its own svg format, and it additionally demands an
-# XML declaration on the first line. The extra rasterises the file on the way
-# in, which sidesteps both. See docs/overrides.md.
+#     pip install 'unifi-map[svg]'    # rasterises the SVG on the way in
+#
+# or convert the file to PNG once, with whatever drew it, and add no
+# dependency. See docs/overrides.md.
 
 [[node]]
 match = "10.0.30.22"

@@ -161,15 +161,24 @@ Practical guidance:
 - **Around 256 pixels on the long edge is plenty.** Everything is scaled down to
   the box anyway, and the file is base64 embedded into every SVG you produce, so
   a large photograph inflates the output for no visible gain.
-- **SVG needs the `svg` extra to work properly.** Install it with:
+- **An SVG needs one of two things done, and either is fine.**
+
+  **Install the extra**, and an SVG is rasterised to a cached PNG as it is read,
+  then behaves exactly like any other artwork: every output format, and the file
+  needs nothing done to it first.
 
   ```bash
   pip install 'unifi-map[svg]'
   ```
 
-  With it, an SVG is rasterised to a cached PNG as it is read, and then behaves
-  exactly like any other artwork: it reaches every output format, and the file
-  needs nothing done to it first.
+  **Or convert the file to PNG yourself**, once, with whatever drew it. That
+  adds no dependency and leaves nothing to install on the next machine. It is
+  the answer on Windows, which has no system libcairo for the extra to build
+  against, and the better one if the artwork is finished and not going to
+  change.
+
+  Prefer the extra if you are still editing the artwork, or have several SVGs,
+  or would rather keep the source file as the thing you maintain.
 
   **Without it, two limitations apply**, and both are Graphviz's rather than
   this tool's:
@@ -189,7 +198,8 @@ Practical guidance:
   the ratio matters. Dimensions come from the `<svg>` element itself, so shapes
   inside it do not affect the size.
 
-  **PNG needs none of this** and remains the simplest choice.
+  **PNG needs none of this**, which is why converting once is a real answer
+  rather than a consolation prize.
 - **Other formats** Graphviz accepts include JPEG, GIF and WebP, but none of
   them handle transparency as reliably as PNG.
 

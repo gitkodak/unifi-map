@@ -160,7 +160,9 @@ are the defaults: `svg`, `pdf`, `png` and the positions inside a `drawio` file.
 `dot`, `mermaid` and `json` are written directly and need nothing installed.
 `unflatten` is optional but improves layout on large networks.
 
-### If you supply your own SVG artwork, add the `svg` extra
+### If you supply your own SVG artwork
+
+Either install the extra:
 
 ```bash
 pip install -e ".[svg]"
@@ -174,7 +176,13 @@ happen and names the file.
 
 With the extra, an SVG is rasterised to a cached PNG on the way in, so it
 reaches every format, and a file that lacks the XML declaration Graphviz
-insists on works untouched. PNG override artwork needs none of this.
+insists on works untouched.
+
+**Converting the file to PNG yourself does the same job and needs no
+dependency.** Either answer is fine. The extra is worth it if you keep editing
+the artwork or have several of them; a one-off conversion is worth it if you
+would rather not add a dependency, and is the answer on Windows, which has no
+system libcairo. PNG override artwork needs none of this either way.
 
 ### Installing it somewhere else
 
