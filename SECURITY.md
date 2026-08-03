@@ -303,10 +303,11 @@ Stated plainly, since it bears on how much you should trust this: most of the
 code was written by an AI assistant under the maintainer's direction and testing.
 `AI_DISCLOSURE.md` covers that in full.
 
-**Six independent reviews have been performed**, by three AI systems working
-from the source, none of them the assistant that wrote the code: two security
-audits, two documentation reviews, a code review and an architectural review.
-They raised around forty-five findings between them, overlapping heavily.
+**Independent review is ongoing rather than a finished audit**, by several AI
+systems working from the source, none of them the assistant that wrote the code:
+security audits, documentation reviews, code reviews and architectural reviews,
+more than one of each. They overlap heavily. Reviews run when a substantial
+change lands, so treat this as a practice rather than as a total.
 Everything raised is fixed except one item declined with its reason recorded
 in `CLAUDE.md`: no hashed dependency lock file, on the grounds that it is real
 ongoing maintenance for a dev-only benefit while Dependabot and the advisory

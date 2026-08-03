@@ -212,6 +212,20 @@ told something untrue and may have acted on it.
     same node, the second warning described the first override's own link as
     something the controller had reported: the exact misattribution the warning
     exists to prevent.
+- **The documentation no longer counts its own external reviews.** `README.md`,
+  `SECURITY.md` and `AI_DISCLOSURE.md` each claimed a specific number of
+  independent AI reviews, plus a total number of findings and a per-review
+  breakdown. Reviews happen whenever a substantial change lands, so every one of
+  those numbers was stale within days of being written and three files had to be
+  edited in step to keep them honest. They now describe the practice: security,
+  documentation, code and architectural review, more than one of each, by more
+  than one system. Nothing else about the claim changed, including that every
+  pass so far has found something its predecessors missed and that one finding
+  stands declined with its reason recorded.
+
+  While removing them, `AI_DISCLOSURE.md` said two findings were declined and
+  later done anyway where `SECURITY.md` and `CLAUDE.md` both say one. Corrected
+  to one, and it now names which.
 - The overrides guide said the displaced-link warning names both ends. It does,
   except under `--obfuscate`, where the fix above deliberately reduces it to a
   count. The exception is now stated where the guarantee is.

@@ -113,10 +113,10 @@ from my direction, review, and testing against my own network. I decided what it
 should do and what "good" looked like; it wrote nearly every line.
 
 It works well for me. It has tests, the design decisions have reasons behind
-them, and it has been through six independent reviews by other AI systems —
-security, documentation, code and architecture — whose findings are fixed or
-recorded. It has not been audited line by
-line by a human, and I am not going to pretend otherwise.
+them, and it goes through regular independent review by other AI systems
+covering security, documentation, code and architecture, whose findings are
+fixed or recorded. It has not been audited line by line by a human, and I am
+not going to pretend otherwise.
 
 It only ever reads from your controller, and there is no code path here that
 changes anything on it. It does want admin credentials, so read `client.py` if

@@ -38,22 +38,18 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
   listed below, was exercised against
   a live UniFi console and, where relevant, a real support file. Claims in the
   documentation that carry numbers were measured rather than estimated.
-- **Six independent reviews**, by three AI systems, none of them the assistant
-  that wrote the code:
+- **Regular independent review**, by several AI systems, none of them the
+  assistant that wrote the code. Security audits, documentation reviews, code
+  reviews and architectural reviews, more than one of each and by more than one
+  system. They run against the source whenever a substantial change lands
+  rather than once at some milestone, so a count here would be out of date by
+  the time you read it, and keeping one accurate was its own small chore.
 
-  | Review | Findings |
-  | --- | --- |
-  | Security audit | 11 |
-  | Security audit, different system | 7 |
-  | Documentation review | 2 |
-  | Documentation review, different system | 13 |
-  | Code review | 8 |
-  | Code and architecture review | 4 |
-
-  Around forty-five findings. Everything raised is fixed except one item
-  declined with its reason recorded in `CLAUDE.md`: no hashed dependency lock
-  file. Two others were declined at the time and then done anyway, once the
-  reasoning behind the refusal turned out to be weaker than it sounded.
+  Everything raised is fixed except one item declined with its reason recorded
+  in `CLAUDE.md`: no hashed dependency lock file. One other was declined at
+  the time and then done anyway, once the reasoning behind the refusal turned
+  out to be weaker than it sounded: the support-file size caps, which became
+  adjustable instead.
 
   **The pattern across them is the useful result, not any single review.** Each
   one found something every previous reviewer had missed, and they were not
@@ -64,8 +60,9 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
   silently tightened to 0700, locking out anyone else, in code whose own comment
   said it must not do that.
 
-  Six competent passes, and the sixth still found four things. That is worth
-  weighing against any single review, including the ones above and this document.
+  Every competent pass so far has still found something, the most recent ones
+  included. That is worth weighing against any single review, including the ones
+  above and this document.
 
 ## What has not been verified
 
