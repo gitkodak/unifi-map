@@ -178,11 +178,10 @@ With the extra, an SVG is rasterised to a cached PNG on the way in, so it
 reaches every format, and a file that lacks the XML declaration Graphviz
 insists on works untouched.
 
-**Converting the file to PNG yourself does the same job and needs no
-dependency.** Either answer is fine. The extra is worth it if you keep editing
-the artwork or have several of them; a one-off conversion is worth it if you
-would rather not add a dependency, and is the answer on Windows, which has no
-system libcairo. PNG override artwork needs none of this either way.
+**Or convert the file to PNG, which needs no dependency at all.** Either answer
+is fine: the extra if you keep editing the artwork or have several of them, a
+conversion if you would rather not add one. PNG override artwork needs none of
+this either way.
 
 ### Installing it somewhere else
 

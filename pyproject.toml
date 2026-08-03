@@ -14,9 +14,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # Rasterises user-supplied SVG override artwork so it reaches every output
-# format. Optional because it is a minority case and libcairo is not standard
-# on Windows: without it, SVG still works in the svg and drawio outputs and the
-# tool says so rather than dropping it silently.
+# format. Optional because it is a minority case and pulls in a C library:
+# without it, SVG still works in the svg and drawio outputs and the tool says
+# so rather than dropping it silently.
 svg = [
     "CairoSVG>=2.7",
 ]

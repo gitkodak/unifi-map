@@ -67,8 +67,7 @@ port = 9
 #
 #     pip install 'unifi-map[svg]'    # rasterises the SVG on the way in
 #
-# or convert the file to PNG once, with whatever drew it, and add no
-# dependency. See docs/overrides.md.
+# or convert the file to PNG, which adds no dependency. See docs/overrides.md.
 
 [[node]]
 match = "10.0.30.22"

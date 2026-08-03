@@ -171,11 +171,9 @@ Practical guidance:
   pip install 'unifi-map[svg]'
   ```
 
-  **Or convert the file to PNG yourself**, once, with whatever drew it. That
-  adds no dependency and leaves nothing to install on the next machine. It is
-  the answer on Windows, which has no system libcairo for the extra to build
-  against, and the better one if the artwork is finished and not going to
-  change.
+  **Or convert the file to PNG.** That adds no dependency and leaves nothing to
+  install on the next machine, and is the better answer if the artwork is
+  finished and not going to change.
 
   Prefer the extra if you are still editing the artwork, or have several SVGs,
   or would rather keep the source file as the thing you maintain.
