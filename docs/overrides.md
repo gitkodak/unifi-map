@@ -208,9 +208,25 @@ Relative `icon` paths resolve against **the overrides file's directory**, not th
 working directory, so a config and its assets folder can be moved together and
 still work regardless of where you run the tool from.
 
-Artwork you supply is never fetched or cached; it is read from where you put it,
-every time you render. It is embedded into the SVG the same way fetched artwork
-is, so the output stays a single portable file and no local path appears in it.
+Your artwork is embedded into the SVG the same way fetched artwork is, so the
+output stays a single portable file and no local path appears in it.
+
+**An SVG leaves a copy on disk.** With the `svg` extra installed, an SVG
+override is rasterised to PNG once and that PNG is kept under
+`<asset-cache>/user-svg/`, named after a hash of the source file's contents.
+Editing your SVG produces a new entry rather than replacing the old one, and
+nothing removes either automatically, so copies accumulate.
+
+They carry the same private permissions as the rest of the artwork cache, so
+this is not a disclosure to anyone else on the machine. It does mean **deleting
+your original SVG does not delete the rendered copy**. To remove them:
+
+```bash
+rm -rf "$UNIFI_ASSET_CACHE/user-svg"      # or cache/assets/user-svg by default
+```
+
+PNG and other raster overrides are not copied anywhere; only SVG rasterisation
+writes to the cache.
 
 ### Selectors
 

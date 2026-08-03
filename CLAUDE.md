@@ -846,16 +846,33 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   **Measuring** coverage is not declined, only gating on it. A report nobody is
   graded on can point at a module worth a second look.
 
-- **No static type checker** (KAN-135). Annotations are used throughout and
-  nothing verifies them, so they drift, and the confidence they appear to give
-  during a refactor is not actually there. The `artwork.py`/`output.py` split is
-  the concrete case: mechanical, suite green, and a checker would have been the
-  cheapest confirmation the moved signatures still matched their callers.
+- **Static type checking is declined.** Jason's decision, 2026-08-03. Do not add
+  mypy or pyright to `pyproject.toml`, the Makefile, the CI workflow or a
+  pre-commit hook.
 
-  Raised independently by two external reviews, which is most of the argument
-  for it. Not yet adopted because it is the same shape of cost as the lock file
-  above, and because an advisory checker gets ignored: see KAN-132 for what
-  happens to a CI job nobody has to satisfy.
+  **Type annotations stay and are not the thing being declined.** They are for
+  readers and editors: `from __future__ import annotations`, the dataclasses and
+  the explicit signatures make this legible and drive autocomplete. Enforcement
+  is what is refused.
+
+  The reasoning is the lock file's shape: permanent maintenance for a benefit
+  nobody has measured here. It is sharper than that, though, and the sharper
+  form is the one to keep. A checker strict enough to be worth running wants
+  annotations on the boundaries that deliberately accept whatever a controller
+  sends — and that tolerance is a design property, not an oversight. `unwrap()`
+  absorbs both envelope shapes and returns `[]` on anything unexpected precisely
+  so a controller upgrade thins a diagram instead of raising. Typing those
+  payloads would write down shapes this project refuses to rely on, which is the
+  same argument that declined `TypedDict` for them. A checker loose enough to
+  skip all that finds little.
+
+  **Raised by three external reviews across two rounds**, which is why it is
+  recorded here at length rather than left to be re-proposed a fourth time. A
+  repeated suggestion is evidence that it is a common practice, not that it fits
+  this project. Note also what happened when one of those reviewers was told the
+  decision: it edited a checked-in `CLAUDE.md` unasked and had to be reverted.
+  Recording a decision is Jason's call, not a reviewer's, and not one to make
+  from a remark in conversation.
 
 - **We draw our own device icons. Shipped, in `drawn.py`.** Nine, not the seven
   first planned: five infrastructure keyed on `Kind` (gateway, switch, ap,
@@ -958,6 +975,16 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   on it, which is a commitment rather than a chore. Do not record it as decided
   again without Jason saying so; he has an account-recovery queue in front of
   him and has said explicitly he is not ready for the commitment regardless.
+
+  **"Not happening any time soon", stated 2026-08-03.** A timing position rather
+  than a permanent decline, which is why the question stays open in `TODO.md`
+  instead of moving to the declined section. Practically: publishing workflows,
+  trusted publishing, Sigstore and SLSA attestations, and PyPI-shaped packaging
+  metadata are all out of scope. Reviewers suggest these regularly, since they
+  are what a published package would want; do not add any of them speculatively.
+  Local `make build` artifacts are the whole of the packaging story for now, and
+  the incomplete wheel metadata an external review flagged is only worth fixing
+  on the day that changes.
 
   **The lock-file decline stands.** It was briefly reopened here on the argument
   that "the benefit stops being dev-only once people install this", which only

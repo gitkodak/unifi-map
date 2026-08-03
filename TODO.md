@@ -137,29 +137,6 @@ drawn from a thin one look equally authoritative.
 
 ## Correctness
 
-- **The `pip-audit` CI job has never worked** (KAN-132). It installs the local
-  package and runs `pip-audit --strict`; `unifi-map` is not on PyPI, so the
-  audit reports it cannot be audited, `--strict` makes that a failure, and
-  `continue-on-error` swallows it. A real CVE and a clean tree produce the same
-  ignored red. Audit an exported dependency list instead, and keep it
-  non-gating. No known vulnerability is hiding behind it: a scan excluding the
-  project itself found none. The instrument is broken, not the result.
-
-- **An interrupted venv build leaves `make check` broken** (KAN-133). The
-  virtual environment directory is the make target, and `python3 -m venv`
-  creates it before `pip install` runs, so a failed install leaves a directory
-  newer than `pyproject.toml`. Make then skips the recipe forever after and the
-  suite fails with `No module named ruff`, which does not resemble its cause.
-  Fix is a stamp file written only on success.
-
-- **Refuse a repeated `-f` instead of silently honouring the last one**
-  (KAN-131). `-f` is `nargs="+"`, so `-f svg -f png` writes png only and says
-  nothing, which reads as a format that failed to render. Both spellings look
-  equally reasonable to somebody who has not read the flag table. Forbidding the
-  repeat is preferred over making it append: an error states what happened,
-  whereas appending would quietly change what an existing invocation produces.
-  The message should name the working form, `-f svg pdf png`.
-
 - **Author the `.drawio` light whatever `--theme` says** (KAN-140). draw.io
   re-themes on load, inverting a diagram to contrast with its own appearance
   setting, so a light-authored file is right in both of its modes and a
@@ -181,13 +158,6 @@ drawn from a thin one look equally authoritative.
   threat model that justified stripping the API key across a redirect.
 
 ## Tooling
-
-- **A static type checker** (KAN-135). Annotations are used throughout and
-  nothing verifies them, so they drift and the confidence they offer during a
-  refactor is not actually there. Raised independently by two external reviews,
-  which is most of the argument. Decide mypy or pyright, how strict to start,
-  and whether it gates; an advisory checker will be ignored, on the evidence of
-  KAN-132 above.
 
 - **An automated review tool that stays free** (KAN-136). Greptile is connected
   but reports a 14-day trial rather than the open-source licence applied for.
@@ -244,6 +214,13 @@ help and what not to send.
   breaking a published version once somebody depends on it. Nothing about the
   local build commits you to it, which is the point of splitting them.
 
+  **Not happening any time soon**, stated 2026-08-03. It stays here rather than
+  moving to the declined section below, because the position is about timing
+  rather than merit and could change. Treat proposals that assume a PyPI
+  release — publishing workflows, trusted publishing, Sigstore or SLSA
+  attestations, PyPI-shaped packaging metadata — as out of scope until that
+  changes, and do not add any of them speculatively.
+
   Also still open, and cheap either way: whether a release should *attach* the
   built artifacts to its GitHub Release. That gets `pip install <url>` without
   owning anything.
@@ -251,6 +228,22 @@ help and what not to send.
 ## Considered and not planned
 
 Recorded so they are not re-proposed as oversights.
+
+- **A static type checker.** Raised by three external reviews across two
+  rounds; **declined 2026-08-03**, and the repetition is why it is written down
+  here rather than left to be re-proposed a fourth time.
+
+  Annotations stay. They are for readers and editors: `from __future__ import
+  annotations`, dataclasses and explicit signatures make the code legible and
+  drive autocomplete. What is declined is *enforcement* — no mypy, no pyright,
+  in the Makefile, the CI workflow or a pre-commit hook.
+
+  The reasoning is the same shape as the lock file below: real, permanent
+  maintenance for a benefit nobody has measured on this project. A checker
+  strict enough to catch anything demands annotations on boundaries that
+  deliberately accept whatever a controller sends, which is a design property
+  here rather than an oversight; `unwrap()` is tolerant on purpose. A checker
+  loose enough to avoid that finds little.
 
 - **A coverage threshold.** Suggested by an external review, declined 2026-08-03.
 
