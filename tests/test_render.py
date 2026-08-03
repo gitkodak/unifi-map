@@ -634,6 +634,59 @@ class TestDrawioGeometryIsAddressable:
         assert list(ET.fromstring(self._render()).iter("mxGeometry"))
 
 
+class TestDrawioLabelsStayInsideTheirCell:
+    """A node's caption must render within the box Graphviz sized for it.
+
+    Graphviz measures each node to hold the artwork *and* the text, which is
+    what the SVG draws. `verticalLabelPosition=bottom` puts draw.io's label
+    below the cell bounds instead, so the box carries dead space and the
+    caption lands on whatever the layout placed underneath. On a dense map that
+    is every icon in a column wearing its neighbour's caption, which is what it
+    did until it was reported from a real network.
+
+    Only reproducible by opening the file, so the style string is asserted
+    directly. That is pinning an implementation detail on purpose: it is the
+    detail, and nothing else here would notice it changing.
+    """
+
+    def _render(self, tmp_path):
+        from unifi_map.assets import IconAsset
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Kind, Node, Topology
+        from unifi_map.render_drawio import _cell_id, render_drawio
+        from unifi_map.theme import LIGHT
+
+        png = tmp_path / "icon.png"
+        png.write_bytes(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00"
+            b"\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        topo = Topology()
+        topo.add(Node(id="a", label="a", kind=Kind.SWITCH, ip="10.0.0.1"))
+        # Keyed by cell id, not node id: `render_drawio` looks the layout up by
+        # `_cell_id()`, so a raw id here silently takes the unplaced-node
+        # fallback and the test stops exercising a positioned cell.
+        layout = Layout(
+            nodes={_cell_id("a"): Placed(x=0.0, y=0.0, width=174.0, height=69.0)},
+            width=174.0,
+            height=69.0,
+        )
+        icons = {"a": IconAsset(path=png, width=64, height=64)}
+        return render_drawio(topo, layout, "t", LIGHT, icons)
+
+    def test_the_label_is_not_pushed_outside_the_cell(self, tmp_path):
+        xml = self._render(tmp_path)
+        assert "verticalLabelPosition=middle" in xml
+        assert "verticalLabelPosition=bottom" not in xml
+
+    def test_the_icon_cell_really_was_produced(self, tmp_path):
+        # Guards the assertion above from passing vacuously: with no icon the
+        # style is never emitted and "bottom" is absent for the wrong reason.
+        xml = self._render(tmp_path)
+        assert "imageVerticalAlign=top" in xml
+
+
 class TestStaggerIsAppliedOnceToBothRenderers:
     """The SVG and the draw.io coordinates must come from byte-identical DOT.
 

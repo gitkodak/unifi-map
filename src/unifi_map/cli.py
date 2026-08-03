@@ -962,9 +962,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "render", parents=[shared, render_flags], help="Render diagrams from cache"
     ).set_defaults(func=cmd_render)
-    sub.add_parser("all", parents=[shared, render_flags], help="Fetch then render").set_defaults(
-        func=cmd_all
-    )
+    # "all" means both stages, and reads to a newcomer as "all output formats".
+    # Spelled out here because that is where the misreading actually happens.
+    sub.add_parser(
+        "all",
+        parents=[shared, render_flags],
+        help="Fetch then render (both stages; not all formats, see -f)",
+    ).set_defaults(func=cmd_all)
     shape = sub.add_parser(
         "shape",
         parents=[shared],

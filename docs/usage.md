@@ -27,6 +27,18 @@ unifi-map render -f svg pdf drawio dot      # pick formats
 adjusting style without hammering the controller, and each cached snapshot is a
 record of what the network looked like at that moment.
 
+**`all` means both stages, not all output formats.** It is `fetch` then
+`render`, and it writes the same default two files any `render` would: an SVG
+and a draw.io file. If you want the others, ask for them:
+
+```bash
+unifi-map all -f svg pdf png dot drawio mermaid json
+```
+
+The default is two rather than seven because those two answer the common cases,
+one to look at and one to edit, and the rest cost time and disk on every run.
+[Every format and what it is for](output.md).
+
 ### What actually touches the network
 
 Worth being precise about, because there are two caches and they behave

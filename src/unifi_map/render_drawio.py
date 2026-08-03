@@ -73,11 +73,18 @@ def _node_style(node, theme: Theme, accent: str, icon: IconAsset | None) -> str:
         # shape=label keeps the text alongside the image, unlike shape=image.
         parts.insert(0, "shape=label;rounded=1;arcSize=8;")
         img_w, img_h = icon.display_size(DRAWIO_ICON_W, DRAWIO_ICON_H)
+        # The label stays *inside* the cell. `verticalLabelPosition=bottom` puts
+        # it below the cell bounds instead, and that is wrong here for a
+        # specific reason: Graphviz sized this node to hold the artwork and the
+        # text together, which is what the SVG draws. Moving the text outside
+        # leaves dead space in the box and lands the label on whatever the
+        # layout placed underneath, so on a dense map every icon in a column
+        # wore its neighbour's caption.
         parts.append(
             f"image={_drawio_data_uri(icon.path)};"
             "imageAlign=center;imageVerticalAlign=top;"
             f"imageWidth={img_w};imageHeight={img_h};"
-            "verticalLabelPosition=bottom;verticalAlign=bottom;spacingBottom=4;"
+            "verticalLabelPosition=middle;verticalAlign=bottom;spacingBottom=4;"
         )
     else:
         parts.insert(0, _SHAPE_STYLE[node.kind])
