@@ -56,6 +56,12 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+**This is 0.8.0 when it ships, not 0.7.3.** Two entries below make it a minor
+rather than a patch, and both are easy to miss in a long section: `overrides
+check` gained `--show-offline`, and its default changed, so an overrides file
+naming an offline device passed the check before and fails it now. The policy
+above calls for minor on a new flag and, pre-1.0, on a changed default.
+
 ### Changed
 
 - **The documentation is split into `docs/`, and links into the README have
