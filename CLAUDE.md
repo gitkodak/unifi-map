@@ -261,6 +261,34 @@ Graphviz included, and `pdf` is a printing format where dark costs real ink.
 Note that neither theme is safe to embed: both set `bgcolor`, so an SVG is an
 opaque block against the opposite-mode page.
 
+**`--theme` does not survive into draw.io, and that is not a bug to fix.**
+Reported from a real network 2026-08-03, after being misdiagnosed twice on the
+way: draw.io inverts a diagram to contrast with its own appearance setting,
+because its dark mode assumes diagrams are authored light. A file we authored
+dark is inverted a second time and displays light. Confirmed with one unchanged
+`--theme dark` file: draw.io in dark or Automatic mode renders it light, and
+draw.io in light mode renders it dark.
+
+Nothing is broken when this happens, which is why it took three passes to
+identify. The inversion is holistic, so cells, text and baked icon colours flip
+together and the file stays coherent; it just reads as the other theme. Two
+earlier explanations were wrong and are recorded so they are not tried again:
+that the two files had been swapped, and that draw.io was ignoring our
+`background` attribute. The attribute is written correctly for both themes,
+verified against the reporter's own files on disk.
+
+The guidance is in `docs/output.md`: render `.drawio` with `--theme light` and
+let draw.io darken it, or set the appearance in draw.io explicitly rather than
+leaving it on Automatic. **Do not "fix" this by forcing `.drawio` light and
+ignoring the flag.** That was considered and rejected: silently discarding an
+explicit instruction is worse than an interaction somebody can read about, and
+it is out of step with how the rest of this tool treats what the user asked for.
+
+The general shape is the same as the `bgcolor` note above. Where we produce the
+final pixels, `--theme` means what it says. Where the output is handed to
+another application, that application gets the last word, and `svg` or `pdf` is
+the answer for anybody who needs colours that cannot be re-themed.
+
 The screenshots stay dark because they read better on the README's own page,
 and every one is now committed in both themes so a reader can see what the
 default actually produces rather than inferring it from a caption. A caption

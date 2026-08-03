@@ -10,7 +10,7 @@ than what it draws.
 | `svg` | Vector. Zoom to any size, labels stay crisp. Artwork is embedded, so it's one portable file. |
 | `pdf` | Vector, for printing. |
 | `png` | Raster, when something insists on it. |
-| `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net). Lucid documents `.drawio` import but does not work; see [below](#lucid-does-not-import-these-files). |
+| `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net), which [re-themes it on load](#drawio-decides-its-own-light-and-dark). Lucid documents `.drawio` import but does not work; see [below](#lucid-does-not-import-these-files). |
 | `dot` | Graphviz source, to tweak styling by hand. |
 | `mermaid` | Text that GitHub, GitLab and most wikis draw in place. No artwork; shape only. [More below](#mermaid-for-documentation). |
 | `json` | The normalised topology, for programs rather than people. [More below](#json-for-programs). |
@@ -22,6 +22,45 @@ worth knowing if you only want the source or the data. `drawio` is in between:
 the file is written here, but Graphviz computed the positions in it.
 
 The two text formats below are the ones that need explaining.
+
+## draw.io decides its own light and dark
+
+`--theme` reaches every other format intact, because we produce the final
+pixels. A `.drawio` file is different: it is handed to an application that
+themes it on load, and that application gets the last word.
+
+**draw.io inverts a diagram to contrast with its own appearance setting.** Its
+dark mode assumes diagrams are authored light and flips them so they stay
+readable. A diagram already authored dark is flipped a second time and comes
+back out light. Observed with one unchanged `--theme dark` file:
+
+| draw.io appearance | how the dark file renders |
+| --- | --- |
+| Dark, or Automatic on a dark desktop | **Light** |
+| Light | **Dark** |
+
+Nothing is corrupted when this happens. The inversion is holistic, so cells,
+text and artwork all flip together and the file stays internally coherent. It
+simply reads as the theme you did not ask for.
+
+Two ways to get what you wanted, and neither is better than the other:
+
+- **Render `.drawio` with `--theme light`** and let draw.io darken it. That is
+  the convention its dark mode is built around, so a dark-mode reader gets a
+  dark diagram. Worth doing when the file is going to somebody whose setup you
+  do not know.
+- **Change the appearance in draw.io.** Under Extras, set the theme explicitly
+  rather than leaving it on Automatic. Better when the file is for you and you
+  already know how your own editor is configured.
+
+If you want a dark diagram whose colours are fixed and cannot be re-themed by a
+viewer, use `svg` or `pdf` instead. Those we control completely.
+
+**This is not something this tool can fix.** The re-theming happens inside
+draw.io, after the file is written, and there is no attribute we can set that is
+known to opt out of it. Documenting the interaction is the honest option;
+quietly ignoring `--theme` for this one format would trade a surprise you can
+now read about for one you could not.
 
 ## Lucid does not import these files
 
