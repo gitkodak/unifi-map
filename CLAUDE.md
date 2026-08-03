@@ -600,6 +600,33 @@ listed twice, and ordered by fit rather than by arrival.
   `session.get` being the only HTTP verb in the source is a headline property,
   and creating or updating objects in somebody else's system would end it.
 
+### Splitting `cli.py`, and the reason that is not about length
+
+Raised by both external reviewers, twice, as "it is ~1350 lines". Length is the
+symptom and a poor criterion: splitting a long file by line count produces
+`commands.py` and `writers.py` that nobody can predict the contents of.
+
+The real complaint is layering. `_resolve_icons`, `_apply_drawn_icons` and
+`_write_outputs` are pipeline stages, not command-line concerns, and the pipeline
+section at the top of this file does not mention them because they are not in a
+pipeline module. The tell arrived during the drawn-icon work: a rendering test
+had to `from unifi_map.cli import _apply_drawn_icons`, which is a test reaching
+through the CLI to get at the renderer.
+
+So the split worth doing is by concern and probably one module: artwork
+resolution and output writing move out, and `cli.py` keeps argument parsing,
+credential resolution, logging setup and the `cmd_*` functions that sequence
+them. Do not do the three-way `cli/` package the reviews suggest without a
+reason per file.
+
+Two cautions. This file's pipeline section is a map of module responsibilities
+and has to move with the code. And `cli.py` is where `GLOBAL_DEFAULTS` and the
+`_Parser` subclass live, which are subtle enough that they have their own
+warnings here; leave them together and leave them where they are.
+
+**Not urgent.** Nothing is blocked on it and it is churn on a file two reviewers
+are actively reading.
+
 ### Gaps worth considering
 
 - **Provenance and confidence.** `Edge.asserted` marks an override-supplied link

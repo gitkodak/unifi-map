@@ -118,6 +118,14 @@ drawn from a thin one look equally authoritative.
 
 ---
 
+## Shape of the code
+
+- **Move the pipeline code out of `cli.py`.** It is the largest module at ~1350
+  lines, but length is the symptom. Artwork resolution and output writing are
+  not command-line concerns and live there anyway, which is why a test had to
+  import `_apply_drawn_icons` from `unifi_map.cli` to exercise rendering.
+  Splitting on that boundary is principled; splitting on a line count is not.
+
 ## Committed to a version
 
 Nothing currently.
@@ -168,3 +176,15 @@ Recorded so they are not re-proposed as oversights.
 - **An `AbstractRenderer` protocol.** Two renderers exist, both already pure
   functions from `Topology` to text. A protocol over two implementations is a
   layer to maintain before it has been shown to be needed.
+- **A shared `UnifiMapError` base class.** Proposed so a library consumer could
+  catch everything with one `except`. There is no library consumer, and the one
+  caller that exists wants the opposite: `main()` maps `ConfigError` and
+  `OverrideError` to exit 2 and `GraphvizMissing` to exit 3, so it needs the
+  distinctions a base class would let people discard. Cheap to add later if
+  somebody imports this as a library and asks.
+- **`TypedDict` for the controller payloads.** Declined for what it would
+  assert. `unwrap()` is deliberately tolerant because UniFi's schemas move
+  between versions, and the design is that a changed payload thins the diagram
+  rather than raising. Typing those dicts would write down shapes this project
+  specifically refuses to rely on, and a strict checker would then enforce them.
+  The normalised model is already typed, and that is the part that is stable.
