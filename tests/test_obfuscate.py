@@ -93,6 +93,18 @@ def identifying(devices: dict, clients: dict, networkconf: dict) -> dict:
         "test-wifi",
         "test-iot",
     ]
+    # A configured network nothing is connected to. It never reaches a node, so
+    # every alias built from the nodes missed it and it survived into the JSON
+    # with its real name and its real id.
+    networkconf["data"].append(
+        {
+            "_id": "mongo-secret-id",
+            "name": "Secret Management",
+            "vlan": 99,
+            "ip_subnet": "10.99.0.1/24",
+        }
+    )
+    secrets += ["Secret Management", "mongo-secret-id"]
     return {"snapshot": snapshot, "secrets": secrets}
 
 
@@ -104,10 +116,19 @@ def test_nothing_leaks_into_any_output_format(identifying):
     topo = obfuscate(build_topology(identifying["snapshot"]))
     dot_source = render_dot(topo, "Network map", STYLE, subtitle="a subtitle")
 
+    # Every format, which the name of this test already promised. JSON and
+    # Mermaid were absent, and JSON was the one leaking: a configured network
+    # with no active clients kept its real name, because aliases were built
+    # from the networks nodes referenced rather than from the configured list.
+    from unifi_map.render_json import render_json
+    from unifi_map.render_mermaid import render_mermaid
+
     outputs = {
         "dot": dot_source.encode(),
         "svg": run_dot(dot_source, "svg"),
         "drawio": render_drawio(topo, compute_layout(dot_source), "map", LIGHT).encode(),
+        "json": render_json(topo, title="Network map").encode(),
+        "mermaid": render_mermaid(topo, title="Network map").encode(),
     }
 
     failures = []

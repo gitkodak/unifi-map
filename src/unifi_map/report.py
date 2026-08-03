@@ -24,17 +24,22 @@ to describe a payload would therefore leak site names, on precisely the
 multi-site archives most worth seeing. Container keys are never read; only
 records inside them, and only their field names.
 
-Unrecognised field names *are* reported, which is the one judgement call. Field
-names are controller schema and identical across installations, and discovering
-one nobody here has seen is half the point on an unfamiliar version. They are
-filtered to schema-shaped tokens (`_SCHEMA_TOKEN`) so that a value cannot arrive
-disguised as a key.
+Unrecognised keys are **counted, never printed**. An earlier version printed
+them, filtered to "schema-shaped" tokens, on the reasoning that a field name is
+controller schema and discovering an unfamiliar one is half the point of running
+this elsewhere. That filter did not work and could not: `10.0.0.5`, `nas`,
+`secretssid` and `branch-office` all satisfy it, because a short lowercase token
+is what a hostname, an SSID, an address and a site name look like. A payload
+keyed by any of them would have been reproduced verbatim under a heading saying
+that could not happen.
+
+So the allowlist is now total: every name in the output comes from
+`KNOWN_FIELDS`, and anything else contributes a number.
 """
 
 from __future__ import annotations
 
 import platform
-import re
 import statistics
 import sys
 import textwrap
@@ -104,11 +109,6 @@ KNOWN_FIELDS: dict[str, tuple[str, ...]] = {
     ),
     "topology": ("vertices", "edges", "has_unknown_switch"),
 }
-
-# A field name is lowercase-ish, short, and has no spaces. A hostname, an SSID or
-# a site name would not survive this, which is the point: it is a shape filter,
-# not a content filter, so it cannot be argued into letting something through.
-_SCHEMA_TOKEN = re.compile(r"^[a-z0-9][a-z0-9_.\-]{0,39}$")
 
 # Wide enough for the header, narrow enough to paste anywhere.
 _WIDTH = 74
@@ -195,19 +195,25 @@ def _field_report(name: str, records: list[dict[str, Any]]) -> list[str]:
 
     present = [f for f in known if f in seen]
     absent = [f for f in known if f not in seen]
-    # Reported so an unfamiliar controller version is visible, shape-filtered so
-    # nothing that looks like a value can arrive here.
-    unknown = sorted(f for f in seen - set(known) if _SCHEMA_TOKEN.match(f))
-    rejected = len(seen - set(known)) - len(unknown)
+    # **Counted, never named.** Naming these was the one judgement call in this
+    # file and it was wrong. The filter that was supposed to keep values out
+    # accepted `10.0.0.5`, `nas`, `secretssid` and `branch-office`, because a
+    # short lowercase token is exactly what a hostname, an SSID, an address and
+    # a site name all look like. A payload keyed by any of those would have had
+    # this report reproduce them under a heading promising the opposite.
+    #
+    # The cost is real: discovering a field name nobody here has seen was half
+    # the reason to run this against an unfamiliar controller. It is not worth
+    # a document that claims to be publishable and is not. If that discovery
+    # matters later it needs its own mode, which says plainly that its output
+    # is not safe to paste anywhere.
+    unknown = len(seen - set(known))
 
     lines = [f"  {name}: {len(records)} record(s)"]
     lines += _wrapped("present", present)
     lines += _wrapped("absent", absent)
     if unknown:
-        lines += _wrapped("unknown", unknown)
-    if rejected:
-        # Counted rather than named: these did not look like field names.
-        lines.append(f"    ({rejected} further key(s) not reported: not schema-shaped)")
+        lines.append(f"    unknown  {unknown} further key(s), not named: see the note below")
     return lines
 
 
@@ -299,8 +305,10 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
     out += [
         "",
         "-" * _WIDTH,
-        "Counts, field names and versions only. No addresses, MACs, hostnames,",
-        "SSIDs, site names or network names appear above, by construction.",
+        "Counts, versions, and field names chosen in advance. Keys this tool does",
+        "not recognise are counted but never printed, because a key can hold a",
+        "value: no addresses, MACs, hostnames, SSIDs, site or network names appear",
+        "above, by construction.",
         "-" * _WIDTH,
     ]
     return "\n".join(out) + "\n"

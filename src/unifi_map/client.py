@@ -132,10 +132,21 @@ class Snapshot:
             if name in self.payloads:
                 continue
             stale = cache_dir / f"{name}.json"
-            with contextlib.suppress(OSError):
+            try:
                 if stale.is_file():
                     stale.unlink()
                     log.debug("Removed %s, absent from this fetch.", stale)
+            except OSError:
+                # Said out loud rather than suppressed: the point of removing it
+                # is that a later read must not mix generations, so failing to
+                # remove it means exactly the thing this guards against is still
+                # possible. Not fatal, because the rest of the snapshot is
+                # written and usable.
+                log.warning(
+                    "Could not remove %s, which is left over from an earlier fetch. "
+                    "It will be read alongside this one; delete it by hand.",
+                    stale,
+                )
 
     @classmethod
     def read(cls, cache_dir: Path) -> Snapshot:

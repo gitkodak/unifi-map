@@ -23,7 +23,7 @@ import logging
 import re
 import shutil
 import sys
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException
 from pathlib import Path
 
 from . import __version__
@@ -137,7 +137,7 @@ def _bytes_arg(raw: str) -> int:
         text = text[:-1]
     try:
         value = int(Decimal(text) * multiplier)
-    except (InvalidOperation, ValueError, OverflowError):
+    except (DecimalException, ValueError, OverflowError):
         # Decimal rather than float: `1e999` is a finite Decimal but an infinite
         # float, and `int(inf)` raises OverflowError, which argparse does not
         # treat as a bad argument and so reported as a traceback.

@@ -717,3 +717,83 @@ class TestColdCacheDownload:
     def test_malformed_json_degrades_rather_than_raising(self, tmp_path, monkeypatch):
         store = self._store(tmp_path, b"{not json", monkeypatch)
         assert store.catalog() == {}
+
+
+class TestOversizedImagesAndNonPngArtwork:
+    """Two things a user-supplied override file can be."""
+
+    def _bomb(self, tmp_path):
+        """A small file that decodes to more than MAX_IMAGE_PIXELS."""
+        from PIL import Image
+
+        from unifi_map import assets
+
+        path = tmp_path / "bomb.png"
+        side = int(assets.MAX_IMAGE_PIXELS**0.5) + 2000
+        # Solid colour, so it compresses to almost nothing on disk.
+        Image.new("RGBA", (side, side), (0, 0, 0, 0)).save(path, "PNG")
+        return path
+
+    def test_an_oversized_image_is_refused_rather_than_raising(self, tmp_path):
+        """`MAX_IMAGE_PIXELS` alone is a warning threshold, not a limit: Pillow
+        raises only at roughly twice it, and neither bomb type derives from
+        OSError or ValueError, so both escaped `_measure` uncaught."""
+        from unifi_map.assets import _measure
+
+        assert _measure(self._bomb(tmp_path)) is None
+
+    def test_the_size_guard_does_not_leak_into_global_warning_state(self, tmp_path):
+        """Scoped with `catch_warnings`. A bare `simplefilter` is process-global
+        and would change warning behaviour for anything else in the process."""
+        import warnings
+
+        from unifi_map.assets import _measure
+
+        with warnings.catch_warnings(record=True) as seen:
+            warnings.simplefilter("always")
+            _measure(self._bomb(tmp_path))
+            # Filters restored, so this one is still merely recorded.
+            warnings.warn("ordinary", UserWarning, stacklevel=1)
+        assert any(w.category is UserWarning for w in seen)
+
+    def test_an_svg_override_is_usable(self, tmp_path):
+        """`docs/overrides.md` documents SVG as acceptable artwork. It was not:
+        measuring went through Pillow, which does not decode SVG, so every SVG
+        was rejected before Graphviz ever saw it."""
+        from unifi_map.assets import local_icon
+
+        path = tmp_path / "icon.svg"
+        path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="64px" height="32px"></svg>',
+            encoding="utf-8",
+        )
+        asset = local_icon(path)
+        assert (asset.width, asset.height) == (64, 32)
+
+    def test_an_svg_without_explicit_dimensions_is_refused(self, tmp_path):
+        """Graphviz silently ignores one with only a `viewBox`, so refusing it
+        here turns a blank node into an error naming the file."""
+        from unifi_map.assets import AssetError, local_icon
+
+        path = tmp_path / "icon.svg"
+        path.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"></svg>',
+            encoding="utf-8",
+        )
+        with pytest.raises(AssetError):
+            local_icon(path)
+
+    def test_inlined_artwork_declares_its_real_media_type(self, tmp_path):
+        """The href pattern was widened to every image type while the data URI
+        still said PNG, so a JPEG or SVG was embedded correctly and labelled
+        wrongly."""
+        from unifi_map.svg_post import inline_svg_images
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="8px" height="8px"/>', "utf-8"
+        )
+        svg = f'<image href="{icon}"/>'.encode()
+        out = inline_svg_images(svg, [icon]).decode()
+        assert "data:image/svg+xml;base64," in out
+        assert str(icon) not in out, "the absolute path survived, which is the disclosure"

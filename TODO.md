@@ -70,6 +70,17 @@ drawn from a thin one look equally authoritative.
   That last one addresses the problem this tool exists for. Wants a decision
   about JavaScript before it starts.
 
+## Cache integrity
+
+- **Make a snapshot an atomic generation.** A fetch now removes recognised
+  files it did not write, so an uninterrupted run leaves one coherent set. What
+  it is not is atomic: several file replacements followed by deletions, so an
+  interruption, a full disk or two concurrent fetches can still leave a mix of
+  old and new, and a failed deletion is currently suppressed. The fix is a
+  generation directory with a pointer switched at the end, or a manifest that
+  `read()` validates before accepting the set. Worth doing before anything
+  reads snapshots as history, which `diff` below would.
+
 ## Comparing one fetch to another
 
 - **A `diff` subcommand** (KAN-117). What changed between two snapshots: devices

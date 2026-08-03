@@ -25,6 +25,7 @@ the plain shape renderer rather than failing the run.
 from __future__ import annotations
 
 import base64
+import contextlib
 import json
 import logging
 import re
@@ -781,22 +782,82 @@ def _pillow_image():
     # Applied on every use rather than once at import, since Pillow is imported
     # lazily and a caller could have relaxed it.
     Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-    # The threshold alone is not a limit. Pillow *warns* at MAX_IMAGE_PIXELS and
-    # only raises at roughly twice it, so an image between the two was decoded
-    # anyway. Promoted to an error so the number means what it says. Scoped to
-    # this category, so nothing else about the caller's warning filters changes.
-    warnings.simplefilter("error", Image.DecompressionBombWarning)
     return Image
 
 
+@contextlib.contextmanager
+def _bomb_guard(Image):
+    """Make `MAX_IMAGE_PIXELS` an actual limit, for the duration of one call.
+
+    The threshold alone is not one: Pillow *warns* at `MAX_IMAGE_PIXELS` and
+    only raises at roughly twice it, so an image between the two decoded
+    anyway. Promoting the warning closes that gap.
+
+    Scoped with `catch_warnings` rather than a bare `simplefilter`, which is
+    process-global and would have changed warning behaviour for anything else
+    importing this, including the caller's own code. An earlier version claimed
+    to be scoped and was not.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", Image.DecompressionBombWarning)
+        yield
+
+
 def _measure(path: Path) -> IconAsset | None:
+    """Dimensions of an image already on disk, or None if it cannot be read.
+
+    Everything reaches this: cached downloads, and artwork a user supplied in
+    an overrides file. So the size guard has to be here too, and its exceptions
+    caught: neither Pillow bomb type derives from OSError or ValueError, so an
+    oversized cached or user-supplied image escaped as an uncaught exception.
+    """
+    if path.suffix.lower() == ".svg":
+        return _measure_svg(path)
     try:
         Image = _pillow_image()
-        with Image.open(path) as image:
+        with _bomb_guard(Image), Image.open(path) as image:
             return IconAsset(path=path, width=image.width, height=image.height)
-    except (AssetError, OSError, ValueError):
+    except (
+        AssetError,
+        OSError,
+        ValueError,
+        _bomb_types()[0],
+        _bomb_types()[1],
+    ):
         log.debug("Could not measure %s", path, exc_info=True)
         return None
+
+
+def _bomb_types() -> tuple[type[BaseException], type[BaseException]]:
+    from PIL import Image as _Image
+
+    return (_Image.DecompressionBombError, _Image.DecompressionBombWarning)
+
+
+# `width="64px"`, `height="32"`. Deliberately a regex rather than an XML parser:
+# this file may be attacker-supplied through an overrides file, and an XML
+# parser is an entity-expansion surface that nothing here needs.
+_SVG_DIM = re.compile(rb"""\b(width|height)\s*=\s*["\']\s*([0-9.]+)\s*(?:px)?\s*["\']""", re.I)
+
+
+def _measure_svg(path: Path) -> IconAsset | None:
+    """Dimensions of an SVG, which Pillow cannot open.
+
+    `docs/overrides.md` documents SVG as usable artwork, and it was not: every
+    SVG was rejected at this function, because measuring went through Pillow.
+    Graphviz will only load an SVG that declares explicit pixel dimensions
+    anyway, so requiring them here refuses exactly what Graphviz would refuse,
+    and with a better message.
+    """
+    try:
+        head = path.read_bytes()[:4096]
+    except OSError:
+        return None
+    found = {m.group(1).lower(): float(m.group(2)) for m in _SVG_DIM.finditer(head)}
+    width, height = found.get(b"width"), found.get(b"height")
+    if not width or not height:
+        return None
+    return IconAsset(path=path, width=int(width), height=int(height))
 
 
 def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:

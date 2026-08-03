@@ -36,6 +36,8 @@ _PROSE = " ".join(
         "cached snapshot support file live fetch graphviz depth offline devices",
         "ARTWORK how often the joins onto Ubiquiti catalogues succeed by sysid",
         "resolved product UniFi hardware generic glyph found configured",
+        "Keys this tool does not recognise are counted but never printed",
+        "because a key can hold a value chosen in advance see the note below",
     ]
 )
 
@@ -79,19 +81,31 @@ class TestNothingIdentifyingEscapes:
         }
         assert not stray, f"words in the report from no known source: {sorted(stray)}"
 
-    def test_a_hostile_field_name_is_counted_rather_than_printed(self):
-        """A key that is not shaped like a field name is never echoed.
+    @pytest.mark.parametrize(
+        "secret",
+        [
+            "Jasons iPhone 14 Pro",  # obviously not a field name
+            "10.0.0.5",  # an address
+            "nas",  # a hostname
+            "secretssid",  # an SSID
+            "branch-office",  # a site name
+        ],
+    )
+    def test_no_unrecognised_key_is_ever_echoed(self, secret):
+        """Not "no key that *looks* like a value". No unrecognised key at all.
 
-        Field names are reported so an unfamiliar controller version is
-        visible. That is only safe while a *value* cannot arrive disguised as a
-        key, so anything failing the shape filter is counted instead.
+        The earlier version printed unrecognised keys that passed a shape
+        filter, so that an unfamiliar controller's new fields would be visible.
+        Every example below satisfied that filter: a short lowercase token is
+        exactly what an address, a hostname, an SSID and a site name look like.
+        A payload keyed by one of those would have been reproduced under a
+        heading promising it could not be.
         """
         from unifi_map.report import _field_report
 
-        secret = "Jasons iPhone 14 Pro"
         lines = "\n".join(_field_report("device", [{"mac": "x", secret: 1}]))
         assert secret not in lines
-        assert "not schema-shaped" in lines
+        assert "1 further key(s), not named" in lines
 
     def test_container_keys_are_never_read(self):
         """A support file's devices.json is keyed by site name, which users pick.

@@ -247,6 +247,22 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
   sections the split had moved (`CLAUDE.md`, the `--icon-font` help text, and
   the pull request checklist).
 
+- **`unifi-map shape` could print the values it promises never to print.**
+  Unrecognised keys were named, filtered to "schema-shaped" tokens on the
+  reasoning that a field name is controller schema worth seeing on an unfamiliar
+  version. That filter accepted `10.0.0.5`, `nas`, `secretssid` and
+  `branch-office`, because a short lowercase token is exactly what an address, a
+  hostname, an SSID and a site name look like, so a payload keyed by any of them
+  was reproduced under a heading stating that could not happen. Unrecognised
+  keys are now counted and never named. That loses the discovery of new field
+  names, which was half the reason to run it elsewhere; a document claiming to
+  be publishable has to be publishable first.
+- **`--obfuscate` left real network names and ids in the JSON export.** Aliases
+  were built from the networks nodes referenced, so a configured network with no
+  active clients was missed and kept its real name, and every network kept its
+  real controller id regardless. The leakage test excluded JSON and Mermaid
+  despite being named for every output format; it now covers both, and the
+  fixture carries an unused network with an identifying name.
 - **A fresh install could not fetch the hardware catalogue at all.** `_fetch`
   returns a small `Fetched` object rather than a `requests.Response`, and the
   catalogue loader called `.json()` on it, which does not exist. The resulting
@@ -282,7 +298,16 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
   other side, labelling every icon `image/png` whatever it was.
 - **The image size cap was not a cap.** Pillow warns at `MAX_IMAGE_PIXELS` and
   only raises at roughly twice it, so an image up to double the limit decoded
-  anyway, and the error it eventually raises was not among those caught.
+  anyway, and neither exception it raises derives from those being caught. The
+  guard is now scoped to each operation with `catch_warnings` rather than
+  changing the whole process's warning filters, and covers `_measure`, which
+  every cached and user-supplied image passes through.
+- **SVG artwork in an overrides file never worked**, though it is documented as
+  working: measuring went through Pillow, which does not decode SVG, so every
+  SVG was refused before Graphviz saw it. Dimensions are now read from the file,
+  by regex rather than an XML parser, since this is a file somebody else may
+  have written. An SVG with only a `viewBox` is still refused, because Graphviz
+  ignores those silently and a named error beats a blank node.
 - Mermaid identifiers deleted punctuation rather than replacing it, so
   `asserted-a-b` and `asserted-ab` became the same node. Labels and titles now
   also survive a newline, which previously ended the statement carrying them and

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import mimetypes
 import re
 from collections.abc import Iterable
 from pathlib import Path
@@ -66,7 +67,12 @@ def inline_svg_images(svg: bytes, allowed: Iterable[Path] = ()) -> bytes:
             return match.group(0)
 
         encoded = base64.b64encode(path.read_bytes())
-        uri = b"data:image/png;base64," + encoded
+        # Derived, not assumed. The pattern above was widened to every image
+        # type this tool can be handed while this line still declared PNG, so a
+        # JPEG or SVG override was embedded correctly and labelled wrongly.
+        guessed, _ = mimetypes.guess_type(path.name)
+        media = guessed if (guessed or "").startswith("image/") else "image/png"
+        uri = b"data:" + media.encode("ascii") + b";base64," + encoded
         cache[raw] = uri
         return match.group("attr") + uri + match.group("tail")
 

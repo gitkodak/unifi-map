@@ -57,7 +57,19 @@ def _sorted_nodes(topo: Topology) -> list[Node]:
 
 
 def _network_names(topo: Topology) -> dict[str, str]:
-    real = sorted({n.network for n in topo.nodes.values() if n.network})
+    """Every network name to a pseudonym, whether or not anything is on it.
+
+    Built from the configured list as well as from the nodes. Taking only the
+    names in use looked equivalent and was not: a network with no active
+    clients still appears in `Topology.networks`, and so still reached the JSON
+    export and the legend, where it fell through to its real name. "Secret
+    Management" is exactly the sort of thing somebody names a VLAN and exactly
+    the sort of thing they would expect `--obfuscate` to remove.
+    """
+    real = sorted(
+        {n.network for n in topo.nodes.values() if n.network}
+        | {net.name for net in topo.networks.values() if net.name}
+    )
     return {name: f"network-{i}" for i, name in enumerate(real, start=1)}
 
 
@@ -160,9 +172,27 @@ def obfuscate(topo: Topology) -> Topology:
         if e.src in ids and e.dst in ids
     ]
 
+    # Keyed and identified by the pseudonym too. The id is the controller's own
+    # (a Mongo ObjectId in practice, but a support file can carry whatever the
+    # site set), it is exported in the JSON, and leaving it in place kept a
+    # stable handle on a network whose name had just been removed.
+    # Derived from the *name* pseudonym rather than numbered separately, so a
+    # network's id and its name agree. Numbering them independently sorted the
+    # two lists differently and handed id `network-1` to the network named
+    # `network-2`, which reads like a bug in the export.
+    #
+    # Two networks may legitimately share a name, so a repeat gets a suffix
+    # rather than two entries silently collapsing into one.
+    network_ids: dict[str, str] = {}
+    taken: dict[str, int] = {}
+    for key in sorted(topo.networks):
+        base = networks.get(topo.networks[key].name, "network")
+        seen = taken.get(base, 0)
+        taken[base] = seen + 1
+        network_ids[key] = base if seen == 0 else f"{base}-dup{seen + 1}"
     renamed_networks = {
-        key: Network(
-            id=key,
+        network_ids[key]: Network(
+            id=network_ids[key],
             name=networks.get(net.name, net.name),
             vlan=net.vlan,
             subnet=f"10.{net_index.get(networks.get(net.name, net.name), 0)}.0.0/24",
