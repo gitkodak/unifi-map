@@ -48,7 +48,8 @@ alongside every other one, so you can see what an unmodified run produces.*
 aspect ratio reasonable, port numbers on the links, and a title block and legend. On a
 busy network this is usually the one worth handing to somebody else.
 ([Light version](docs/images/example-tree-light.png).) Run `make demo` to
-reproduce both, then point it at your own controller.*
+reproduce both; [Install](#install) is what you need before pointing it at your
+own controller.*
 
 ## Features
 
@@ -92,18 +93,19 @@ reproduce both, then point it at your own controller.*
   produces clean text with no escape sequences and no `--no-progress` to
   remember.
 
-Quickest look, no credentials and no controller:
+Quickest look, no credentials and no controller. From a clone, with Graphviz
+and Python 3.11+ present ([Install](#install) covers both):
 
 ```bash
 make demo
 ```
 
-Then against your own network:
+That builds its own virtual environment and renders the shipped dataset into
+`out/demo/`.
 
-```bash
-install -m 600 .env.example .env    # host + API key, readable only by you
-unifi-map all
-```
+**To run it against your own network, start at [Install](#install).** You need
+the tool on your `PATH` and a credential file holding your host and API key,
+and neither exists yet at this point.
 
 Two things carry risk and are worth reading first: an API key is
 [broader than this tool needs](docs/credentials.md#unifi_api_key), and a support file is
@@ -144,7 +146,14 @@ and `json` for programs. [What each is for](docs/output.md).
 ```bash
 sudo apt install graphviz          # provides `dot` and `unflatten`
 python3 -m venv .venv && .venv/bin/pip install -e .
+source .venv/bin/activate          # puts `unifi-map` on your PATH
 ```
+
+**That last line matters.** Installing into a virtual environment puts the
+command at `.venv/bin/unifi-map` and nowhere else, so without activating it
+every `unifi-map ...` example here and under `docs/` is a `command not found`.
+Either activate it, as above, or spell the path out in full. The `make` targets
+are unaffected; they call the venv's copy directly.
 
 Requires Python 3.11+. Graphviz is required for the graphical formats, which
 are the defaults: `svg`, `pdf`, `png` and the positions inside a `drawio` file.

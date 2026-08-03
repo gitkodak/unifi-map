@@ -6,6 +6,11 @@ Every command and flag, and how to read what comes out of them. The reference
 at the end is generated from the argument parser, so it cannot drift from
 `--help`.
 
+Every example below assumes `unifi-map` is on your `PATH`. If you installed into
+a virtual environment, that means activating it (`source .venv/bin/activate`) or
+writing `.venv/bin/unifi-map` in full. See
+[Install](../README.md#install).
+
 ```bash
 unifi-map all                              # fetch + render
 unifi-map fetch                            # snapshot the controller into cache/
