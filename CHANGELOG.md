@@ -56,11 +56,17 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-**This is 0.8.0 when it ships, not 0.7.3.** Two entries below make it a minor
-rather than a patch, and both are easy to miss in a long section: `overrides
-check` gained `--show-offline`, and its default changed, so an overrides file
-naming an offline device passed the check before and fails it now. The policy
-above calls for minor on a new flag and, pre-1.0, on a changed default.
+**This is 0.8.0 when it ships, not 0.7.3**, and three separate entries below
+would each be enough on their own. `overrides check` gained `--show-offline` and
+changed its default. `--icons builtin` draws icons where it used to draw
+geometric shapes. And overrides now refuse input they used to accept.
+
+**Read that last one before upgrading if you keep an overrides file.** A file
+containing `wireless = "false"`, `hide = "false"`, a fractional `port`, or a
+misspelled key used to render; it now stops the run with an error naming the
+problem. Those files were never doing what they said, which is why this changed,
+but the failure is new and it is at the point of use. The fix in every case is
+in the error message.
 
 ### Changed
 
@@ -256,6 +262,11 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
   unknown-key error lists what the block does accept. This is the rule the
   feature already claimed: a stale or mistyped override fails loudly rather than
   quietly doing something else.
+
+  **This will stop a run that used to work**, for anyone whose file contains one
+  of those. That is the point rather than a side effect: a map drawn from a file
+  meaning the opposite of what it says is worse than a run that stops and says
+  where. Every message names the block, the key and what was expected.
 - **SVG artwork was accepted and then broke the render.** Graphviz refuses an
   SVG with no XML declaration, reporting it as a file that "was not found",
   which fails the whole run; measuring it here and letting it through turned a
