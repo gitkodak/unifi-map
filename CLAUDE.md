@@ -93,10 +93,12 @@ message or the file is wrong. Rephrase it; do not reach for the flag.
 Each stage owns one concern; nothing downstream of `model.py` sees raw
 controller JSON.
 
-1. **`config.py`** is the only module that reads `os.environ`. Accepts `UNIFI_*`
-   and `UDM_*` names. Keep it that way: it's what makes a future Vault/OpenBao
-   backend a single-file change. Credentials are `UNIFI_HOST` plus
-   `UNIFI_API_KEY`, and nothing else.
+1. **`config.py`** is the only module that reads `os.environ`. Keep it that way:
+   it's what makes a future Vault/OpenBao backend a single-file change.
+   Credentials are `UNIFI_HOST` plus `UNIFI_API_KEY`, and nothing else. The
+   `UDM_*` aliases were removed in 0.9.0; `layout.py` still strips
+   `UDM_API_KEY` from Graphviz's environment, which is deliberate and explained
+   there.
 2. **`client.py`** is the only module that talks to the controller. Auth is an
    `X-API-KEY` header set once in the constructor; there is no login, session or
    CSRF token. Network application paths are prefixed `/proxy/network`. `unwrap()` absorbs both the v1 `{"data": [...]}`
@@ -674,32 +676,38 @@ listed twice, and ordered by fit rather than by arrival.
   `session.get` being the only HTTP verb in the source is a headline property,
   and creating or updating objects in somebody else's system would end it.
 
-### Splitting `cli.py`, and the reason that is not about length
+### Splitting `cli.py`. Done, and the reason was never length
 
-Raised by both external reviewers, twice, as "it is ~1350 lines". Length is the
+Raised by both external reviewers, twice, as "it is ~1350 lines". Length was the
 symptom and a poor criterion: splitting a long file by line count produces
 `commands.py` and `writers.py` that nobody can predict the contents of.
 
-The real complaint is layering. `_resolve_icons`, `_apply_drawn_icons` and
-`_write_outputs` are pipeline stages, not command-line concerns, and the pipeline
-section at the top of this file does not mention them because they are not in a
-pipeline module. The tell arrived during the drawn-icon work: a rendering test
-had to `from unifi_map.cli import _apply_drawn_icons`, which is a test reaching
-through the CLI to get at the renderer.
+The real complaint was layering, and the tell arrived during the drawn-icon
+work: a rendering test had to `from unifi_map.cli import _apply_drawn_icons`,
+which is a test reaching through the CLI to get at the renderer.
 
-So the split worth doing is by concern and probably one module: artwork
-resolution and output writing move out, and `cli.py` keeps argument parsing,
-credential resolution, logging setup and the `cmd_*` functions that sequence
-them. Do not do the three-way `cli/` package the reviews suggest without a
-reason per file.
+Split in 0.9.0 into **two** modules, not the one this section previously
+guessed at:
 
-Two cautions. This file's pipeline section is a map of module responsibilities
-and has to move with the code. And `cli.py` is where `GLOBAL_DEFAULTS` and the
+- **`artwork.py`** resolves nodes to images. Knows about `AssetStore` and the
+  three-source fallback order; imports no renderer.
+- **`output.py`** writes files. Knows about paths, atomic replacement and the
+  overwrite guard; imports every renderer.
+
+One module holding both would have been a bag of things that happened to leave
+`cli.py` together. They share nothing, so "a reason per file" is satisfied,
+which was the actual criterion here rather than the module count. `cli.py` keeps
+argument parsing, credential resolution, logging setup and the `cmd_*` functions
+that sequence them, and went 1367 → 1027 lines.
+
+`obtain_icon_font()` also stopped taking an `argparse.Namespace` and now takes
+the three settings it actually reads. That is the layering fix in miniature: a
+pipeline function should be callable without constructing a parser.
+
+Still true and still worth heeding: `cli.py` is where `GLOBAL_DEFAULTS` and the
 `_Parser` subclass live, which are subtle enough that they have their own
-warnings here; leave them together and leave them where they are.
-
-**Not urgent.** Nothing is blocked on it and it is churn on a file two reviewers
-are actively reading.
+warnings here. Leave them together and leave them where they are. Do not go on
+to the three-way `cli/` package the reviews suggested without a reason per file.
 
 ### Gaps worth considering
 
@@ -817,27 +825,39 @@ are actively reading.
   notion of (head and tail labels are the closest), and whether this becomes a
   third `--layout` or a separate output.
 
-- **Decide whether a release should produce an artifact.** `RELEASING.md` now
-  documents the process that exists, which is a tag plus a changelog entry, and
-  says plainly that there is no published package. The open question is whether
-  `pip install unifi-map` should work. That means owning a PyPI name and never
-  breaking a published artifact, so it is a commitment rather than a chore. The
-  entry point and build backend already exist; CI would need a `tags:` trigger.
+- **A release should produce an installable artifact. Decided 2026-08-03, and
+  committed to 0.9.0** (KAN-132). `pip install unifi-map` is going to work.
+  `RELEASING.md` documents the process that exists, a tag plus a changelog
+  entry, and says plainly that there is no published package; that sentence has
+  to change on the day this ships, along with the same claim in
+  `AI_DISCLOSURE.md` if it repeats it.
 
-- **Finish retiring the `UDM_*` environment aliases.** The warning is in:
-  `config.py` collects legacy names as it resolves them and emits one line
-  naming each replacement, and the `docs/credentials.md` section is marked
-  deprecated. What
-  remains is deleting them.
+  The entry point and build backend already exist. What is missing is a `tags:`
+  trigger in CI, the man page installed where `man` will find it rather than
+  only sitting in the repository, and a choice between trusted publishing and an
+  API token.
 
-  **No removal version is promised, on purpose.** Naming 1.0 would be a promise
-  made to sound organised, and the versioning policy already says anything may
-  change before then. Drop them whenever it suits.
+  **It is a commitment rather than a chore**, which is why it sat undecided for
+  so long: a published version cannot be withdrawn once somebody depends on it.
 
-  Before deleting: Jason's own credential file under `~/Development/envfiles/`
-  uses `UDM_*` exclusively, so it has to be renamed first rather than have the
-  breakage discovered by a failing fetch. It also still carries `UDM_USER` and
-  `UDM_PASS`, dead since password auth was removed and read by nothing.
+  **This reopens the lock-file decline**, whose stated reason was that hashed
+  constraints are ongoing maintenance for a dev-only benefit. That reason stops
+  holding the moment people install this rather than clone it, and it is the
+  declined security-review finding that `SECURITY.md` and `AI_DISCLOSURE.md`
+  both point at. Reverse it and those two need updating with it.
+
+- **The `UDM_*` environment aliases are gone**, removed in 0.9.0 after warning
+  since 0.7.0. `config.py` reads one name per setting and `_warn_deprecated` is
+  deleted along with the alias tuples. A `UDM_*`-only credential file now gets
+  the ordinary missing-configuration error naming the variable to set, which is
+  the right failure: by that point the old name is not part of the interface.
+
+  **`layout.py` still strips `UDM_API_KEY`** from Graphviz's environment, and
+  that asymmetry is deliberate rather than an oversight. Not reading a variable
+  does nothing about somebody who still exports one, and an unread variable
+  holding a real key is exactly as worth withholding from a child process as a
+  read one. There is a test asserting it stays in `_CREDENTIAL_VARS`, because
+  the obvious tidy-up when removing an alias is to remove every mention of it.
 
 **The man page is done**, as `unifi-map.1`, generated by
 `scripts/generate_manpage.py` and checked for staleness like the flag

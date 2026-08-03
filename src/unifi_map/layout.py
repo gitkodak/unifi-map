@@ -46,6 +46,12 @@ class Layout:
 # Names a credential can arrive under. Stripped from any child's environment:
 # `config.py` keeps a key read from a file out of `os.environ` entirely, but a
 # user is free to export one, and Graphviz is resolved from PATH.
+#
+# `UDM_API_KEY` outlives its retirement from `config.py` on purpose. We stopped
+# *reading* it in 0.9.0, which does nothing about somebody who still exports it
+# and has not cleaned up. An unread variable holding a real key is exactly as
+# worth withholding from a child process as a read one, and the asymmetry costs
+# a string.
 _CREDENTIAL_VARS = ("UNIFI_API_KEY", "UDM_API_KEY")
 
 

@@ -100,8 +100,6 @@ drawn from a thin one look equally authoritative.
   from the defaults need not retype them. Weighed against reproducibility
   between machines; a config file is the alternative and shipping both would be
   worse than either.
-- **Retiring the `UDM_*` environment names.** They warn already. No removal
-  version promised, on purpose.
 
 ## Overrides
 
@@ -129,20 +127,21 @@ drawn from a thin one look equally authoritative.
   whereas appending would quietly change what an existing invocation produces.
   The message should name the working form, `-f svg pdf png`.
 
-## Shape of the code
-
-- **Move the pipeline code out of `cli.py`.** It is the largest module at ~1350
-  lines, but length is the symptom. Artwork resolution and output writing are
-  not command-line concerns and live there anyway, which is why a test had to
-  import `_apply_drawn_icons` from `unifi_map.cli` to exercise rendering.
-  Splitting on that boundary is principled; splitting on a line count is not.
-
 ## Committed to a version
-
-Nothing currently.
 
 A commitment means a version named in the code, the tests and the changelog, so
 this section stays empty unless something has actually been promised to users.
+
+- **0.9.0 will be installable** (KAN-132). `pip install unifi-map` should work,
+  which means owning the name on PyPI, never breaking a published artifact, and
+  putting the man page where `man` will find it. The entry point and the build
+  backend already exist; what is missing is a `tags:` trigger in CI and the
+  decision itself, which is now made. It is a commitment rather than a chore
+  because a published version cannot be withdrawn once somebody depends on it.
+
+  This also reopens the lock-file question below, whose stated reason to decline
+  was that the benefit is dev-only. That stops being true the moment people
+  install this.
 
 ## Waiting on a network nobody here has
 
@@ -167,10 +166,8 @@ help and what not to send.
 
 ## Undecided, rather than unstarted
 
-- **Whether a release should produce an artifact.** Today it is a tag and a
-  changelog entry. `pip install unifi-map` would mean owning the name, never
-  breaking a published build, and placing the man page in `share/man/man1`. A
-  commitment rather than a chore.
+Nothing currently. Whether a release should produce an installable artifact used
+to sit here; it is decided and has moved up to "Committed to a version".
 
 ## Considered and not planned
 

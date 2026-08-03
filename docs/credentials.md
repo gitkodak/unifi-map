@@ -100,17 +100,20 @@ UNIFI_HOST=192.168.1.1
 UNIFI_VERIFY_TLS=false
 ```
 
-### Legacy variable names, deprecated
+### `UDM_*` names were removed in 0.9.0
 
-Every variable also answers to a `UDM_*` spelling: `UDM_HOST`, `UDM_API_KEY`,
-`UDM_SITE`, `UDM_VERIFY_TLS`. If both are set, the `UNIFI_*` one wins.
+Every variable used to answer to a `UDM_*` spelling as well: `UDM_HOST`,
+`UDM_API_KEY`, `UDM_SITE`, `UDM_VERIFY_TLS`. They existed only because that is
+what the author had called things before this tool did, they warned from 0.7.0,
+and they are gone.
 
-These exist only because that is what the author had called things before this
-tool did. **They still work and will be removed in a future version**, so rename
-them when convenient. Using one prints a warning naming the replacement.
+If you are still on them, rename them to the `UNIFI_*` spellings above. Nothing
+subtle happens if you do not: the tool reports the missing variable by name and
+exits, the same as it would on a fresh install.
 
-No removal version is promised. Everything about this interface may change
-before 1.0.
+Two `UDM_*` variables were already dead before this and are worth deleting from
+any credential file that still carries them: `UDM_USER` and `UDM_PASS`, unread
+since password authentication was removed.
 
 `UNIFI_MAP_ENV` is not read from the credential file itself; it is the
 environment variable that says *where* the credential file is.

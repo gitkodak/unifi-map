@@ -268,8 +268,9 @@ the name field was the wrong place for the explanation at all.
 
 He also caught `--layout sane`, which I had never questioned in months of
 writing about it. Renamed to `tree`, with a removal version promised, and his
-reason for promising one where `UDM_*` deliberately has none was that this is a
-single flag value anyone can change in seconds.
+reason for promising one where `UDM_*` deliberately had none was that this is a
+single flag value anyone can change in seconds. (The `UDM_*` names were removed
+in 0.9.0 in the end, without a version ever having been promised for them.)
 
 **Tone is tiered, and the tiering is his.** `SECURITY.md` takes none of the
 loose register; the README is allowed a voice but less than this file and

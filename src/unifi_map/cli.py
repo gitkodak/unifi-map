@@ -11,6 +11,13 @@ the network looked like at that moment.
 
 `fetch --support-file` fills the same cache from a support file archive rather
 than a controller, so everything downstream behaves identically.
+
+What lives here is argument parsing, credential and directory resolution,
+logging setup, and the `cmd_*` functions that sequence a run. What does not is
+anything a caller without a command line would still need: resolving nodes to
+artwork is `artwork.py` and writing files is `output.py`. The split is by
+concern rather than by length; the symptom that prompted it was a rendering
+test importing a private function from this module to exercise the renderer.
 """
 
 from __future__ import annotations
@@ -18,7 +25,6 @@ from __future__ import annotations
 import argparse
 import contextlib
 import datetime as dt
-import hashlib
 import logging
 import re
 import shutil
@@ -27,11 +33,11 @@ from decimal import Decimal, DecimalException
 from pathlib import Path
 
 from . import __version__
-from .assets import AssetError, AssetStore, IconAsset, read_icon_font_dir
+from .artwork import apply_drawn_icons, obtain_icon_font, resolve_icons
+from .assets import AssetError, AssetStore, IconAsset
 from .client import Snapshot, UniFiClient, UniFiError
 from .config import ConfigError, directory_defaults, load_config, source_date
-from .fsio import atomic_write, mkdir_private
-from .layout import GraphvizError, GraphvizMissing, compute_layout, run_dot, stagger
+from .layout import GraphvizError, GraphvizMissing
 from .model import (
     UNKNOWN_UPLINK_ID,
     Kind,
@@ -41,21 +47,18 @@ from .model import (
     filter_by_network,
 )
 from .obfuscate import id_map, obfuscate
+from .output import OutputExistsError, safe_name, unique_names, write_outputs
 from .overrides import OverrideError
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
 from .render_dot import ICON_SETS, LAYOUTS, Style, render_dot
-from .render_drawio import render_drawio
-from .render_json import render_json
-from .render_mermaid import render_mermaid
 from .report import CONSENT, Extras, build_report
 from .support import MAX_ARCHIVE_BYTES as SUPPORT_MAX_ARCHIVE
 from .support import MAX_ARCHIVE_ENTRIES as SUPPORT_MAX_ENTRIES
 from .support import MAX_MEMBER_BYTES as SUPPORT_MAX_MEMBER
 from .support import MAX_TOTAL_BYTES as SUPPORT_MAX_TOTAL
 from .support import SupportFileError, load_support_file
-from .svg_post import inline_svg_images
 from .theme import THEMES, get_theme
 
 log = logging.getLogger("unifi_map")
@@ -173,37 +176,6 @@ def _positive_int(raw: str) -> int:
     if value < 1:
         raise argparse.ArgumentTypeError("Must be at least 1.")
     return value
-
-
-def _safe_name(text: str) -> str:
-    keep = [c if (c.isalnum() or c in "-_") else "-" for c in text]
-    return "".join(keep).strip("-").lower() or "network"
-
-
-def _unique_names(names: list[str]) -> dict[str, str]:
-    """Map each network name to a filename stem no other network shares.
-
-    `_safe_name` is not injective: "IoT A", "IoT-A" and "IoT/A" all become
-    "iot-a". Written straight out, the second network overwrote the first, and
-    silently, because the file it replaced carried this tool's own provenance
-    marker and so passed the overwrite guard.
-
-    Collisions get a short digest of the original name rather than a counter, so
-    a given network keeps its filename whatever order the networks arrive in.
-    """
-    slugs: dict[str, list[str]] = {}
-    for name in names:
-        slugs.setdefault(_safe_name(name), []).append(name)
-
-    resolved: dict[str, str] = {}
-    for slug, colliding in slugs.items():
-        if len(colliding) == 1:
-            resolved[colliding[0]] = slug
-            continue
-        for name in colliding:
-            digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:6]
-            resolved[name] = f"{slug}-{digest}"
-    return resolved
 
 
 def _report_displacements(result, obfuscated: bool) -> None:
@@ -345,7 +317,12 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
             "afterwards). Nothing else here touches the network."
         )
 
-    _obtain_icon_font(args, store)
+    obtain_icon_font(
+        store,
+        icon_font_dir=args.icon_font,
+        fetch=args.fetch_icon_font,
+        env_file=args.env_file,
+    )
 
     with spinner(f"Reading {args.support_file.name}", args.progress):
         snapshot = load_support_file(
@@ -362,100 +339,6 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
     for name, payload in sorted(snapshot.payloads.items()):
         log.info("  %-14s %s", name, _describe(payload))
     return 0
-
-
-class OutputExistsError(RuntimeError):
-    """Raised rather than overwrite a file this tool did not write."""
-
-
-# Both editable formats carry this already: the DOT opens `digraph unifi` and
-# the draw.io file opens `<mxfile host="unifi-map"`. Only the first few KiB are
-# searched, which is where a header lives in either.
-_PROVENANCE = ("unifi-map", "digraph unifi")
-
-
-def _is_ours(path: Path) -> bool:
-    try:
-        # Read 4 KiB, rather than reading the file and slicing 4 KiB off it.
-        with path.open("rb") as handle:
-            head = handle.read(4096).decode("utf-8", errors="replace")
-    except OSError:
-        # Unreadable is not proof it is ours, so treat it as somebody else's.
-        return False
-    return any(marker in head for marker in _PROVENANCE)
-
-
-def _write_output(path: Path, data: bytes | str, *, force: bool, guard: bool) -> None:
-    """Write *data* to *path*, atomically, without eating anyone's work.
-
-    Two separate problems, both real.
-
-    *guard* is set for the formats a person plausibly hand-edits: `.drawio`,
-    which is advertised as editable and is the whole point of that output, and
-    `.dot`, which exists to be tweaked. Re-rendering must stay cheap, since
-    `fetch` and `render` are split precisely so render can be run over and over,
-    so this refuses only when the existing file carries none of our markers.
-    Overwriting our own previous output needs no ceremony. The raster and PDF
-    outputs are not guarded: nothing hand-authors those at exactly this path,
-    and they carry nowhere convenient to put a marker.
-
-    The write itself goes to a temporary file beside the target and is renamed
-    over it, so an interrupt or a full disk leaves the previous good file in
-    place rather than a truncated one. `os.replace` is atomic within a
-    filesystem, and the temporary is created in the destination directory to
-    guarantee that.
-
-    Mode is set on the temporary *before* the rename, so the file is never
-    briefly readable by others. Renders are as sensitive as the snapshot they
-    came from: labels carry hostnames, addresses, VLAN names and the WAN
-    address, and the SVG holds all of it as selectable text. `0600` restricts
-    who can read it on this machine; it does not stop you sending it to anyone.
-    """
-    if guard and not force and path.exists() and not _is_ours(path):
-        raise OutputExistsError(
-            f"{path} was not written by unifi-map, so it is being left alone. "
-            "Pass --force to overwrite it, or use --name or --out-dir to write "
-            "somewhere else."
-        )
-
-    atomic_write(path, data)
-
-
-def _obtain_icon_font(args: argparse.Namespace, store: AssetStore) -> None:
-    """Get the generic client glyph font, if the user asked for it and how.
-
-    Three routes, deliberately distinct because their costs differ:
-
-    * `--icon-font DIR` reads a copy from disk. No credentials, no network.
-    * `--fetch-icon-font` asks a controller, which needs an API key. Ubiquiti
-      publish no copy of this font, so there is no third option that avoids
-      both.
-    * Neither: unfingerprinted clients draw as shapes, and nothing is contacted.
-    """
-    if args.icon_font:
-        font, codepoints = read_icon_font_dir(args.icon_font)
-        store.save_icon_font(font, codepoints)
-        log.info(
-            "Loaded the client glyph font from %s (%d glyphs).", args.icon_font, len(codepoints)
-        )
-        return
-
-    if not args.fetch_icon_font:
-        if not store.glyph_codepoints():
-            log.info(
-                "Clients with no product artwork will draw as shapes. The "
-                "generic glyph font exists only on a controller, so it needs "
-                "either --fetch-icon-font (an API key) or --icon-font DIR (a "
-                "copy you made yourself)."
-            )
-        return
-
-    # Explicitly requested, so the credential requirement is not a surprise.
-    config = load_config(args.env_file)
-    log.info("Fetching the client glyph font from %s (this uses your API key).", config.host)
-    font, codepoints = UniFiClient(config).fetch_icon_font()
-    store.save_icon_font(font, codepoints)
-    log.info("Cached the client glyph font (%d glyphs).", len(codepoints))
 
 
 def _describe(payload: object) -> str:
@@ -478,229 +361,6 @@ def _describe(payload: object) -> str:
     if isinstance(payload, list):
         return f"{len(payload)} records"
     return "no data"
-
-
-def _resolve_icons(
-    topo: Topology, store: AssetStore, theme, counts: dict[str, int] | None = None
-) -> dict[str, IconAsset]:
-    """Map node id to cached artwork, fetching as needed.
-
-    UniFi devices are matched on sysid against Ubiquiti's hardware catalog.
-    Clients are matched on their fingerprint dev_id against Ubiquiti's client
-    artwork, which is what the topology view itself renders; clients with no
-    usable fingerprint fall back to the controller's own icon-font glyph, the
-    same way the UI does.
-
-    All of it is Ubiquiti's and none of it is vendored into this repository: it
-    is downloaded on first use and cached.
-    """
-    icons: dict[str, IconAsset] = {}
-
-    # --- UniFi hardware ---
-    devices = {n.sysid for n in topo.nodes.values() if n.sysid is not None}
-    by_sysid: dict[int, IconAsset | None] = {s: store.icon(s) for s in sorted(devices)}
-    for node in topo.nodes.values():
-        if node.sysid is None:
-            continue
-        asset = by_sysid.get(node.sysid)
-        if asset is not None:
-            icons[node.id] = asset
-        # Prefer the catalog's product name over the terse model code.
-        product = store.product_name(node.sysid)
-        if product:
-            node.detail = product
-
-    device_total = len(devices)
-    device_found = sum(1 for a in by_sysid.values() if a is not None)
-    log.info("Artwork: %d/%d UniFi devices", device_found, device_total)
-    if counts is not None:
-        counts.update(device_found=device_found, device_total=device_total)
-
-    # --- the upstream provider ---
-    for node in topo.nodes.values():
-        if node.kind is not Kind.INTERNET:
-            continue
-        logo = store.isp_logo(node.asn) if node.asn is not None else None
-        if logo is not None:
-            icons[node.id] = logo
-            log.info("Artwork: ISP brand mark for AS%d", node.asn)
-        elif (cloud := store.internet_icon(theme.text_muted)) is not None:
-            # Plenty of providers have no brand mark, so a cloud reads better
-            # than the bare polygon the shape renderer would leave behind.
-            icons[node.id] = cloud
-
-    # --- clients ---
-    client_nodes = [n for n in topo.nodes.values() if n.glyph_name is not None]
-    if not client_nodes:
-        return icons
-
-    dev_ids = {n.dev_id for n in client_nodes if n.dev_id is not None}
-    by_dev_id: dict[int, IconAsset | None] = {d: store.client_icon(d) for d in sorted(dev_ids)}
-
-    glyph_cache: dict[str, IconAsset | None] = {}
-    from_glyph = 0
-    from_fingerprint = 0
-    from_hardware = 0
-    for node in client_nodes:
-        asset = by_dev_id.get(node.dev_id) if node.dev_id is not None else None
-        if asset is not None:
-            from_fingerprint += 1
-        elif (hardware := _hardware_asset(node, store)) is not None:
-            asset = hardware
-            from_hardware += 1
-        else:
-            # Same fallback the UI uses: a generic user/guest x wired/wireless
-            # glyph from the controller's icon font.
-            name = node.glyph_name
-            if name not in glyph_cache:
-                glyph_cache[name] = store.client_glyph(name, theme.text_muted)
-            asset = glyph_cache[name]
-            if asset is not None:
-                from_glyph += 1
-        if asset is not None:
-            icons[node.id] = asset
-
-    # Counted per node, not per dev_id: several clients can share a fingerprint.
-    plain = len(client_nodes) - from_fingerprint - from_hardware - from_glyph
-    if counts is not None:
-        counts.update(
-            client_total=len(client_nodes),
-            client_found=from_fingerprint + from_hardware + from_glyph,
-            from_fingerprint=from_fingerprint,
-            from_hardware=from_hardware,
-            from_glyph=from_glyph,
-        )
-    log.info(
-        "Artwork: %d/%d clients (%d product, %d UniFi hardware, %d generic glyph, %d none)",
-        from_fingerprint + from_hardware + from_glyph,
-        len(client_nodes),
-        from_fingerprint,
-        from_hardware,
-        from_glyph,
-        plain,
-    )
-    return icons
-
-
-def _apply_drawn_icons(
-    topo: Topology,
-    store: AssetStore,
-    theme,
-    icons: dict[str, IconAsset],
-    counts: dict | None = None,
-) -> int:
-    """Fill remaining nodes with icons we drew ourselves. Returns how many.
-
-    Last, deliberately. Ubiquiti's product artwork is the real picture of the
-    real hardware and the console's icon font is what the UI itself falls back
-    to; both are better answers than a generic drawing. This only covers what
-    neither could name, which previously left a bare Graphviz primitive.
-
-    The Internet node is skipped: `_resolve_icons` already gives it a brand mark
-    or our cloud, and the cloud is the drawn icon for that kind.
-    """
-    drawn_count = 0
-    for node in topo.nodes.values():
-        if node.id in icons or node.kind is Kind.INTERNET:
-            continue
-        # Clients split four ways on guest/wireless, the same split the
-        # console's icon font encodes; everything else is drawn by kind.
-        name = node.glyph_name or node.kind.value
-        asset = store.drawn_icon(name, theme.text_muted)
-        if asset is not None:
-            icons[node.id] = asset
-            drawn_count += 1
-    if counts is not None:
-        counts.update(from_drawn=drawn_count)
-    return drawn_count
-
-
-def _hardware_asset(node, store: AssetStore) -> IconAsset | None:
-    """Artwork for UniFi hardware that shows up as a client.
-
-    A Protect camera on a switch port is a client with no fingerprint, so the
-    Network app offers nothing to look up. Its hostname can be matched against
-    the hardware catalog instead, narrowed by what another app says it is.
-    """
-    if not node.hardware_type and not (node.oui and "ubiquiti" in node.oui.lower()):
-        return None
-
-    sysid = store.sysid_for_name(node.label, device_type=node.hardware_type)
-    if sysid is None:
-        return None
-
-    asset = store.icon(sysid)
-    if asset is not None:
-        product = store.product_name(sysid)
-        if product:
-            node.detail = product
-    return asset
-
-
-def _write_outputs(
-    dot_source: str,
-    topo: Topology,
-    out_dir: Path,
-    stem: str,
-    formats: list[str],
-    style: Style,
-    icons: dict[str, IconAsset],
-    stagger_depth: int = 0,
-    force: bool = False,
-    progress: bool = True,
-    title: str = "",
-) -> None:
-    mkdir_private(out_dir)
-
-    # Every icon this render used, and nothing else, may be embedded.
-    icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
-
-    # Stagger once, up front, so the SVG/PDF and the draw.io coordinates are
-    # computed from byte-identical DOT and therefore agree exactly.
-    dot_source = stagger(dot_source, stagger_depth)
-
-    if "dot" in formats:
-        path = out_dir / f"{stem}.dot"
-        _write_output(path, dot_source, force=force, guard=True)
-        log.info("  %s", path)
-
-    for fmt in ("svg", "pdf", "png"):
-        if fmt not in formats:
-            continue
-        with spinner(f"Rendering {fmt}", progress):
-            data = run_dot(dot_source, fmt)
-        if fmt == "svg":
-            # Graphviz references artwork by filesystem path; inline it so the
-            # SVG is a single portable file.
-            data = inline_svg_images(data, allowed=icon_paths)
-        path = out_dir / f"{stem}.{fmt}"
-        _write_output(path, data, force=force, guard=False)
-        log.info("  %s (%.1f KiB)", path, len(data) / 1024)
-
-    if "mermaid" in formats:
-        # No Graphviz involved: Mermaid does its own layout, so the staggered
-        # DOT above has nothing to contribute here.
-        path = out_dir / f"{stem}.mmd"
-        _write_output(
-            path,
-            render_mermaid(topo, title, "TB" if style.layout == "tree" else "LR"),
-            force=force,
-            guard=False,
-        )
-        log.info("  %s", path)
-
-    if "json" in formats:
-        # Like mermaid, no Graphviz involved: this is the model, not a drawing.
-        path = out_dir / f"{stem}.json"
-        _write_output(path, render_json(topo, title or None), force=force, guard=False)
-        log.info("  %s", path)
-
-    if "drawio" in formats:
-        layout = compute_layout(dot_source)
-        xml = render_drawio(topo, layout, stem, style.theme, icons, style.transparent)
-        path = out_dir / f"{stem}.drawio"
-        _write_output(path, xml, force=force, guard=True)
-        log.info("  %s (%.1f KiB)", path, len(xml.encode()) / 1024)
 
 
 def cmd_render(args: argparse.Namespace) -> int:
@@ -766,7 +426,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)
     if style.icons == "unifi":
         with spinner("Resolving artwork", args.progress):
-            icons = _resolve_icons(topo, store, style.theme)
+            icons = resolve_icons(topo, store, style.theme)
     else:
         # `builtin` means "nothing fetched", not "nothing drawn". The cloud is
         # ours and needs no network, so the Internet node gets it here too.
@@ -779,7 +439,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # Both modes: anything still without artwork gets one of ours rather than a
     # bare Graphviz primitive. In `unifi` that is hardware absent from
     # Ubiquiti's catalogue; in `builtin` it is everything.
-    drawn_count = _apply_drawn_icons(topo, store, style.theme, icons)
+    drawn_count = apply_drawn_icons(topo, store, style.theme, icons)
     if drawn_count:
         log.info("Artwork: %d node(s) drawn locally", drawn_count)
 
@@ -812,10 +472,10 @@ def cmd_render(args: argparse.Namespace) -> int:
     title = args.title or "Network map"
     subtitle = _subtitle(tally)
     formats = list(dict.fromkeys(args.formats))
-    stem = _safe_name(args.name)
+    stem = safe_name(args.name)
 
     log.info("Full map:")
-    _write_outputs(
+    write_outputs(
         render_dot(topo, title, style, icons, subtitle),
         topo,
         args.out_dir,
@@ -835,11 +495,11 @@ def cmd_render(args: argparse.Namespace) -> int:
             log.warning("No client networks found; skipping per-network views.")
         # Resolved across the whole set, since a collision is a property of the
         # set rather than of any one name.
-        stems = _unique_names(names)
+        stems = unique_names(names)
         for name in names:
             view = filter_by_network(topo, name)
             log.info("Network view %r:", name)
-            _write_outputs(
+            write_outputs(
                 render_dot(view, f"{title}: {name}", style, icons, _subtitle(view.counts())),
                 view,
                 args.out_dir,
@@ -993,7 +653,7 @@ def cmd_shape(args: argparse.Namespace) -> int:
     artwork: dict[str, int] = {}
     store = AssetStore(cache_dir=args.asset_cache, offline=True)
     with contextlib.suppress(Exception):
-        _resolve_icons(topo, store, get_theme("light"), artwork)
+        resolve_icons(topo, store, get_theme("light"), artwork)
     if artwork:
         # Which of the two catalogues is present decides how to read the counts
         # above, and neither is fetched here.

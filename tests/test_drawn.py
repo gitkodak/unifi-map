@@ -147,14 +147,14 @@ class TestUsedByTheRenderer:
         """`--icons builtin` used to mean no artwork at all, so every node fell
         through to a Graphviz primitive. It now means artwork we drew rather
         than artwork fetched from Ubiquiti."""
-        from unifi_map.cli import _apply_drawn_icons
+        from unifi_map.artwork import apply_drawn_icons
         from unifi_map.client import Snapshot
         from unifi_map.model import Kind, build_topology
         from unifi_map.theme import LIGHT
 
         topo = build_topology(Snapshot.read(DEMO))
         icons: dict = {}
-        _apply_drawn_icons(topo, AssetStore(cache_dir=tmp_path), LIGHT, icons)
+        apply_drawn_icons(topo, AssetStore(cache_dir=tmp_path), LIGHT, icons)
 
         # Internet is excluded: it has a brand mark or the cloud, not a kind icon.
         expected = {n.id for n in topo.nodes.values() if n.kind is not Kind.INTERNET}
@@ -164,8 +164,8 @@ class TestUsedByTheRenderer:
         """Last resort, and it has to stay last. Ubiquiti's product render is a
         picture of the actual hardware; ours is a generic drawing of its role.
         """
+        from unifi_map.artwork import apply_drawn_icons
         from unifi_map.assets import IconAsset
-        from unifi_map.cli import _apply_drawn_icons
         from unifi_map.client import Snapshot
         from unifi_map.model import build_topology
         from unifi_map.theme import LIGHT
@@ -175,7 +175,7 @@ class TestUsedByTheRenderer:
         sentinel = IconAsset(path=Path("/real/product.png"), width=10, height=10)
         icons = {taken: sentinel}
 
-        _apply_drawn_icons(topo, AssetStore(cache_dir=tmp_path), LIGHT, icons)
+        apply_drawn_icons(topo, AssetStore(cache_dir=tmp_path), LIGHT, icons)
         assert icons[taken] is sentinel
 
     def test_the_renderer_no_longer_discards_them(self, tmp_path):
@@ -193,9 +193,9 @@ class TestUsedByTheRenderer:
         topo = build_topology(Snapshot.read(DEMO))
         store = AssetStore(cache_dir=tmp_path)
         icons: dict = {}
-        from unifi_map.cli import _apply_drawn_icons
+        from unifi_map.artwork import apply_drawn_icons
 
-        _apply_drawn_icons(topo, store, LIGHT, icons)
+        apply_drawn_icons(topo, store, LIGHT, icons)
 
         assert icons, "nothing was drawn, so this proves nothing"
         style = Style(theme=LIGHT, icons="builtin", layout="tree")

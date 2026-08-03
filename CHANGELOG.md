@@ -56,6 +56,44 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+**0.9.0 will be installable.** `pip install unifi-map` is going to work, which
+is a commitment rather than a feature: it means owning the name and never
+breaking a published artifact, because a published version cannot be withdrawn
+once somebody depends on it. Until now a release here was a tag and an entry in
+this file. The entry point and build backend already exist; CI needs a `tags:`
+trigger and the man page needs installing where `man` will find it.
+
+### Removed
+
+- **The `UDM_*` environment variable names.** `UDM_HOST`, `UDM_API_KEY`,
+  `UDM_SITE` and `UDM_VERIFY_TLS` are no longer read. They existed only because
+  that is what the author had called things before this tool did, and they have
+  warned since 0.7.0.
+
+  **If you still use them, rename them to the `UNIFI_*` spellings.** Nothing
+  subtle happens if you do not: the tool reports the missing variable by name
+  and exits, exactly as on a fresh install. `UDM_USER` and `UDM_PASS` were
+  already dead, unread since password authentication was removed, and are worth
+  deleting from any credential file that still carries them.
+
+  One deliberate asymmetry: `layout.py` still strips `UDM_API_KEY` from the
+  environment Graphviz runs with. We stopped *reading* it, which does nothing
+  about somebody who still exports one, and an unread variable holding a real
+  key is exactly as worth withholding from a child process as a read one.
+
+### Changed
+
+- **Artwork resolution and output writing moved out of `cli.py`**, into
+  `artwork.py` and `output.py`. No behaviour changes. The reason is layering
+  rather than length: neither is a command-line concern, and the tell was a
+  rendering test having to import a private function from `unifi_map.cli` to
+  exercise the renderer. `cli.py` keeps argument parsing, credential resolution,
+  logging setup and the `cmd_*` functions that sequence a run, and drops from
+  1367 lines to 1027.
+
+  Only relevant to you if you import from `unifi_map.cli` directly, which is not
+  a supported interface and which nothing is known to do.
+
 ### Added
 
 - **`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR`**, so the

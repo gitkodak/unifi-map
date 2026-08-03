@@ -19,20 +19,19 @@ class ConfigError(RuntimeError):
     """Raised when required configuration is missing or malformed."""
 
 
-# Both naming schemes are accepted so the tool works with an existing UDM_*
-# credential file or with UNIFI_* names from other UniFi tooling.
-_ALIASES: dict[str, tuple[str, ...]] = {
-    "host": ("UNIFI_HOST", "UDM_HOST"),
-    "api_key": ("UNIFI_API_KEY", "UDM_API_KEY"),
-    "site": ("UNIFI_SITE", "UDM_SITE"),
-    "verify": ("UNIFI_VERIFY_TLS", "UDM_VERIFY_TLS"),
+# The credential variables. `UDM_*` spellings were accepted until 0.9.0 and
+# warned from 0.7.0; they are gone. Anyone still on them gets the ordinary
+# "missing required configuration" error, which names the variable to set.
+_VARS: dict[str, str] = {
+    "host": "UNIFI_HOST",
+    "api_key": "UNIFI_API_KEY",
+    "site": "UNIFI_SITE",
+    "verify": "UNIFI_VERIFY_TLS",
 }
 
 # Directories, which are not credentials and are read without requiring any.
-# Kept apart from the aliases above because those are needed only for a live
+# Kept apart from the variables above because those are needed only for a live
 # fetch, while these apply to `render` too, which needs no credentials at all.
-#
-# No `UDM_*` spellings: these are new, and that deprecation is not one to extend.
 _DIRECTORY_VARS: dict[str, str] = {
     "cache_dir": "UNIFI_CACHE_DIR",
     "asset_cache": "UNIFI_ASSET_CACHE",
@@ -54,45 +53,14 @@ def default_env_files() -> list[Path]:
     return candidates
 
 
-def _first(
-    keys: tuple[str, ...], values: dict[str, str], used: list[str] | None = None
-) -> str | None:
-    """First non-empty value among *keys*, so either naming scheme works.
+def _value(key: str, values: dict[str, str]) -> str | None:
+    """The value for *key*, treating empty as absent.
 
-    The first name in each tuple is the current one. Anything after it is a
-    legacy spelling, and resolving from one appends it to *used* so the caller
-    can say so once rather than per variable.
+    An empty assignment in a credential file (`UNIFI_SITE=`) reads as "not set"
+    rather than as the empty string, which is what somebody commenting a line
+    out halfway means by it.
     """
-    for index, key in enumerate(keys):
-        value = values.get(key)
-        if value:
-            if index > 0 and used is not None:
-                used.append(key)
-            return value
-    return None
-
-
-def _warn_deprecated(used: list[str]) -> None:
-    """Name the legacy variables in one line, with what to use instead.
-
-    One message rather than one per variable: a credential file written before
-    the rename uses the old spelling for everything, and four warnings for a
-    single decision is noise rather than information.
-
-    No removal date is promised, deliberately. Everything about this interface
-    is unstable before 1.0, and committing to a version here would be a promise
-    made for the sake of sounding organised.
-    """
-    if not used:
-        return
-    current = {legacy: keys[0] for keys in _ALIASES.values() for legacy in keys[1:]}
-    pairs = ", ".join(f"{name} -> {current[name]}" for name in used)
-    log.warning(
-        "Using deprecated environment variable names (%s). They still work, and "
-        "will be removed in a future version. The UNIFI_ spelling is the "
-        "supported one.",
-        pairs,
-    )
+    return values.get(key) or None
 
 
 @dataclass(frozen=True)
@@ -252,9 +220,8 @@ def load_config(env_file: Path | None = None, site: str | None = None) -> Export
     # pushed into os.environ, so the key never becomes inheritable.
     values = {**from_file, **{k: v for k, v in os.environ.items() if v}}
 
-    legacy: list[str] = []
-    host = _first(_ALIASES["host"], values, legacy)
-    api_key = _first(_ALIASES["api_key"], values, legacy)
+    host = _value(_VARS["host"], values)
+    api_key = _value(_VARS["api_key"], values)
 
     locations = ", ".join(str(p) for p in searched)
     missing = [
@@ -271,8 +238,6 @@ def load_config(env_file: Path | None = None, site: str | None = None) -> Export
             f"{ENV_FILE_VAR} to a credential file."
         )
 
-    _warn_deprecated(legacy)
-
     assert host and api_key  # narrowed above
     if api_key == "CHANGE_ME":
         raise ConfigError("UNIFI_API_KEY is still the placeholder value CHANGE_ME.")
@@ -283,6 +248,6 @@ def load_config(env_file: Path | None = None, site: str | None = None) -> Export
         # An explicit --site beats the environment, which beats the default.
         # Resolved here rather than in the CLI so precedence lives in one
         # place alongside the environment lookup it is competing with.
-        site=site or _first(_ALIASES["site"], values, legacy) or "default",
-        verify_tls=_parse_verify(_first(_ALIASES["verify"], values, legacy) or "true"),
+        site=site or _value(_VARS["site"], values) or "default",
+        verify_tls=_parse_verify(_value(_VARS["verify"], values) or "true"),
     )

@@ -174,20 +174,24 @@ class TestCredentials:
         assert config.site == "default"
         assert config.verify_tls is True
 
-    def test_udm_aliases_work(self, monkeypatch, tmp_path):
-        self._clear(monkeypatch)
-        config = load_config(self._env(tmp_path, "UDM_HOST=h\nUDM_API_KEY=secret\nUDM_SITE=s\n"))
-        assert (config.host, config.api_key, config.site) == ("h", "secret", "s")
+    def test_udm_names_are_no_longer_read(self, monkeypatch, tmp_path):
+        """Removed in 0.9.0, after warning since 0.7.0.
 
-    def test_unifi_names_win_over_udm_names(self, monkeypatch, tmp_path):
+        The failure has to be the ordinary missing-configuration error naming
+        the variable to set, not something that mentions the old name, because
+        by this point the old name is not part of the interface.
+        """
         self._clear(monkeypatch)
-        config = load_config(
-            self._env(
-                tmp_path,
-                "UDM_HOST=udm\nUNIFI_HOST=unifi\nUDM_API_KEY=udm-key\nUNIFI_API_KEY=unifi-key\n",
-            )
-        )
-        assert (config.host, config.api_key) == ("unifi", "unifi-key")
+        with pytest.raises(ConfigError) as excinfo:
+            load_config(self._env(tmp_path, "UDM_HOST=h\nUDM_API_KEY=secret\nUDM_SITE=s\n"))
+        assert "UNIFI_HOST" in str(excinfo.value)
+        assert "UNIFI_API_KEY" in str(excinfo.value)
+
+    def test_an_empty_assignment_reads_as_unset(self, monkeypatch, tmp_path):
+        """`UNIFI_SITE=` is somebody commenting a line out halfway."""
+        self._clear(monkeypatch)
+        config = load_config(self._env(tmp_path, "UNIFI_HOST=h\nUNIFI_API_KEY=k\nUNIFI_SITE=\n"))
+        assert config.site == "default"
 
     def test_real_environment_beats_the_file(self, monkeypatch, tmp_path):
         self._clear(monkeypatch)
@@ -467,20 +471,20 @@ class TestOutputIsNotClobbered:
     """
 
     def _write(self, tmp_path, name, body, **kwargs):
-        from unifi_map.cli import _write_output
+        from unifi_map.output import write_output
 
         path = tmp_path / name
         path.write_text(body, encoding="utf-8")
-        _write_output(path, "replacement", **kwargs)
+        write_output(path, "replacement", **kwargs)
         return path
 
     def test_a_foreign_file_is_refused(self, tmp_path):
-        from unifi_map.cli import OutputExistsError, _write_output
+        from unifi_map.output import OutputExistsError, write_output
 
         path = tmp_path / "network-map.drawio"
         path.write_text("MY HAND EDITED DIAGRAM", encoding="utf-8")
         with pytest.raises(OutputExistsError, match="not written by unifi-map"):
-            _write_output(path, "replacement", force=False, guard=True)
+            write_output(path, "replacement", force=False, guard=True)
         assert path.read_text(encoding="utf-8") == "MY HAND EDITED DIAGRAM"
 
     def test_force_overrides_the_refusal(self, tmp_path):
@@ -506,7 +510,7 @@ class TestOutputIsNotClobbered:
 
 class TestWritesAreAtomic:
     def test_a_failed_write_leaves_the_previous_file_intact(self, tmp_path, monkeypatch):
-        from unifi_map.cli import _write_output
+        from unifi_map.output import write_output
 
         path = tmp_path / "e.svg"
         path.write_text("the good previous render", encoding="utf-8")
@@ -520,7 +524,7 @@ class TestWritesAreAtomic:
         # copies of this logic were merged into one helper.
         monkeypatch.setattr("unifi_map.fsio.os.replace", fail)
         with pytest.raises(OSError):
-            _write_output(path, "half a file", force=False, guard=False)
+            write_output(path, "half a file", force=False, guard=False)
         monkeypatch.setattr("unifi_map.fsio.os.replace", real)
 
         # Not truncated, not replaced, and no debris beside it.
@@ -633,7 +637,7 @@ class TestDrawioGeometryIsAddressable:
 class TestStaggerIsAppliedOnceToBothRenderers:
     """The SVG and the draw.io coordinates must come from byte-identical DOT.
 
-    `_write_outputs()` staggers up front and feeds the result to both paths. If
+    `write_outputs()` staggers up front and feeds the result to both paths. If
     a change routes unstaggered DOT to one of them, or writes the `.dot` from
     before the stagger, the diagram still renders and the draw.io shapes land
     somewhere plausible but no longer where the SVG drew them. Comparing the
@@ -650,11 +654,11 @@ class TestStaggerIsAppliedOnceToBothRenderers:
     def test_drawio_positions_match_the_dot_that_was_written(self, snapshot, tmp_path):
         import xml.etree.ElementTree as ET
 
-        from unifi_map.cli import _write_outputs
         from unifi_map.layout import compute_layout
+        from unifi_map.output import write_outputs
 
         topo = build_topology(snapshot)
-        _write_outputs(
+        write_outputs(
             render_dot(topo, "t", TREE),
             topo,
             tmp_path,
@@ -768,13 +772,13 @@ class TestCredentialsDoNotReachChildProcesses:
         assert result.stdout == b""
 
 
-class TestLegacyVariableNames:
-    """`UDM_*` still works and now says it is on the way out.
+class TestTheUdmNamesAreGone:
+    """Removed in 0.9.0, after warning since 0.7.0.
 
-    The alias exists only because that is what the author had called things
-    before the tool did. No removal version is promised anywhere, deliberately:
-    everything here is unstable before 1.0, and naming a version would be a
-    promise made to sound organised.
+    Kept as a test rather than simply deleted with the code, because "we stopped
+    reading it" is a behaviour somebody could undo by reintroducing an alias
+    without noticing. The failure mode that matters is a `UDM_*`-only credential
+    file appearing to work.
     """
 
     def _load(self, monkeypatch, env):
@@ -795,46 +799,39 @@ class TestLegacyVariableNames:
             monkeypatch.setenv(k, v)
         return load_config(Path("/dev/null"))
 
-    def test_the_legacy_names_still_work(self, monkeypatch):
-        config = self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
-        assert config.host == "c.example.com"
-        assert config.api_key == "k"
-
-    def test_using_them_warns_once_naming_the_replacement(self, monkeypatch, caplog):
-        with caplog.at_level("WARNING"):
+    def test_a_udm_only_environment_does_not_configure_anything(self, monkeypatch):
+        with pytest.raises(ConfigError):
             self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
-        # One line for the lot: a file written before the rename uses the old
-        # spelling for everything, and four warnings is noise.
-        assert caplog.text.count("deprecated environment variable") == 1
-        assert "UDM_HOST -> UNIFI_HOST" in caplog.text
-        assert "UDM_API_KEY -> UNIFI_API_KEY" in caplog.text
 
-    def test_no_removal_version_is_promised(self, monkeypatch, caplog):
-        with caplog.at_level("WARNING"):
-            self._load(monkeypatch, {"UDM_HOST": "c.example.com", "UDM_API_KEY": "k"})
-        assert "1.0" not in caplog.text
-
-    def test_the_current_spelling_is_silent(self, monkeypatch, caplog):
-        with caplog.at_level("WARNING"):
-            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UNIFI_API_KEY": "k"})
-        assert "deprecated" not in caplog.text
-
-    def test_only_the_legacy_names_actually_used_are_named(self, monkeypatch, caplog):
-        with caplog.at_level("WARNING"):
-            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UDM_API_KEY": "k"})
-        assert "UDM_API_KEY" in caplog.text
-        assert "UDM_HOST" not in caplog.text
-
-    def test_the_current_spelling_still_wins_when_both_are_set(self, monkeypatch):
+    def test_a_udm_value_never_reaches_the_config(self, monkeypatch):
+        """Set both, with different values. The UDM one must not appear at all."""
         config = self._load(
             monkeypatch,
             {
                 "UNIFI_HOST": "right.example.com",
                 "UDM_HOST": "wrong.example.com",
                 "UNIFI_API_KEY": "k",
+                "UDM_SITE": "wrong-site",
             },
         )
         assert config.host == "right.example.com"
+        assert config.site == "default"
+
+    def test_the_current_spelling_is_silent(self, monkeypatch, caplog):
+        """Nothing warns any more, since there is no deprecation left to warn about."""
+        with caplog.at_level("WARNING"):
+            self._load(monkeypatch, {"UNIFI_HOST": "c.example.com", "UNIFI_API_KEY": "k"})
+        assert "deprecated" not in caplog.text
+
+    def test_a_key_exported_under_the_old_name_is_still_kept_from_graphviz(self):
+        """Retiring the alias must not narrow what `layout.py` withholds.
+
+        We stopped reading `UDM_API_KEY`; somebody who still exports one has a
+        real key in their environment either way.
+        """
+        from unifi_map.layout import _CREDENTIAL_VARS
+
+        assert "UDM_API_KEY" in _CREDENTIAL_VARS
 
 
 class TestAnExistingOutputDirectoryIsLeftAlone:
@@ -890,29 +887,29 @@ class TestAnExistingOutputDirectoryIsLeftAlone:
 class TestPerNetworkFilenamesAreUnique:
     """Distinct networks must not land on the same file.
 
-    `_safe_name` maps "IoT A", "IoT-A" and "IoT/A" all to "iot-a". The second
+    `safe_name` maps "IoT A", "IoT-A" and "IoT/A" all to "iot-a". The second
     diagram overwrote the first, and quietly: the file it replaced carried this
     tool's own provenance marker, so the overwrite guard let it through.
     """
 
     def test_names_differing_only_in_punctuation_get_distinct_stems(self):
-        from unifi_map.cli import _unique_names
+        from unifi_map.output import unique_names
 
-        stems = _unique_names(["IoT A", "IoT-A", "IoT/A"])
+        stems = unique_names(["IoT A", "IoT-A", "IoT/A"])
         assert len(set(stems.values())) == 3, f"collision remains: {stems}"
 
     def test_an_uncontested_name_keeps_the_plain_slug(self):
-        from unifi_map.cli import _unique_names
+        from unifi_map.output import unique_names
 
-        assert _unique_names(["Servers", "IoT A"])["Servers"] == "servers"
+        assert unique_names(["Servers", "IoT A"])["Servers"] == "servers"
 
     def test_a_stem_does_not_depend_on_the_order_networks_arrive_in(self):
         # A counter would renumber diagrams whenever the controller reordered
         # its networks, so the suffix is derived from the name itself.
-        from unifi_map.cli import _unique_names
+        from unifi_map.output import unique_names
 
-        forward = _unique_names(["IoT A", "IoT-A", "Servers"])
-        reverse = _unique_names(["Servers", "IoT-A", "IoT A"])
+        forward = unique_names(["IoT A", "IoT-A", "Servers"])
+        reverse = unique_names(["Servers", "IoT-A", "IoT A"])
         assert forward == reverse
 
 
