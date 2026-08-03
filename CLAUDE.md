@@ -292,7 +292,13 @@ rather than by argument. Recorded because the earlier note reads persuasively
 and would otherwise stop the fix twice.
 
 What exists today is a warning: `cmd_render` says so once when `--theme dark`
-and `drawio` are combined. The real fix is registered as **KAN-140**. **The full fix is blocked on something real**, which
+and `drawio` are combined. The real fix is registered as **KAN-140**, and its
+shape was decided rather than left open: it will **always** warn when `drawio`
+is requested with a dark theme; with other formats alongside it will author the
+`.drawio` **light** so it displays dark like the rest of the run; and with
+`drawio` requested *alone* it will author it **dark** as asked, warning that
+draw.io may not display it as expected. Asking for one format and that format
+only is a clear enough instruction to honour rather than override. **The full fix is blocked on something real**, which
 is why it is a warning and not a swap: the icons this project draws are baked in
 `theme.text_muted`, and one `icons` dict is shared by every format in a run.
 Rendering the draw.io file light while the run is dark would put light-baked

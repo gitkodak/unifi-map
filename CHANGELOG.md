@@ -58,6 +58,30 @@ told something untrue and may have acted on it.
 
 ### Added
 
+- **An `svg` extra, for your own SVG override artwork.** `pip install
+  'unifi-map[svg]'` rasterises a supplied SVG to a cached PNG as it is read, so
+  it reaches every output format.
+
+  Without it, Graphviz loads SVG artwork only for its own `svg` driver: `png`
+  and `pdf` go through cairo, which has no SVG loader, so the icon is dropped
+  from both. It also insists on an XML declaration and reports a file that
+  plainly exists as missing when there is none. Rasterising sidesteps both, so
+  a file exported by a drawing tool works untouched.
+
+  **Optional on purpose**, and converting the file to PNG yourself does the
+  same job with no dependency at all. Both routes are documented; the tool
+  warns and names the file when an SVG is about to go missing from a format.
+  Fetched artwork is unaffected: it is already PNG.
+
+- **A warning when an SVG override will not reach `png` or `pdf`**, naming the
+  icons and the formats that will lack them. Graphviz's own message is `No
+  loadimage plugin for "svg:cairo"`, which names neither the file nor a way
+  forward.
+
+- **A warning when `--theme dark` is combined with `drawio`.** draw.io
+  re-themes on load and will render a dark-authored file light. See *Known
+  limitations* below.
+
 - **`make build`**, producing a wheel and an sdist in `dist/`. Installing the
   wheel into a clean environment gives you a working `unifi-map` without a
   checkout, which is useful for putting it on a machine that should not carry
@@ -107,6 +131,12 @@ told something untrue and may have acted on it.
 
 ### Changed
 
+- **Graphviz's warnings are no longer discarded.** Graphviz warns on stderr and
+  still exits 0, and that output was thrown away on every successful run, so
+  every warning it has ever emitted was invisible. That is how an icon could
+  vanish from a PNG in silence. Surfaced whole rather than filtered: deciding
+  which of its messages matter is how the last one stayed hidden.
+
 - **Artwork resolution and output writing moved out of `cli.py`**, into
   `artwork.py` and `output.py`. No behaviour changes. The reason is layering
   rather than length: neither is a command-line concern, and the tell was a
@@ -120,6 +150,48 @@ told something untrue and may have acted on it.
 
 ### Fixed
 
+- **draw.io connection lines no longer run through unrelated devices.** The
+  edges carried only their two endpoints, so draw.io routed them with its own
+  router and drew a long run straight through whatever the layout had placed in
+  between. Graphviz had already computed a route and it was being discarded;
+  those waypoints are now written into the file. Safe to pass through unchanged
+  because both layouts use `ortho` or `polyline` splines, never a bezier, so the
+  reported points are corners rather than control points.
+
+- **draw.io node captions no longer land on the node below.** The label was
+  positioned outside the cell, while Graphviz had sized that cell to hold the
+  artwork *and* the text. The box carried dead space and the caption fell onto
+  whatever was underneath, so on a dense column every icon wore its neighbour's
+  caption. The label now renders inside the box the layout was computed for.
+
+- **An SVG with only a `viewBox` is accepted.** Explicit `width` and `height`
+  were required, and most drawing tools export a viewBox instead. Graphviz
+  renders those perfectly well and preserves the ratio, checked by rendering
+  both through `dot` rather than by reading a spec. Only the ratio is used
+  downstream. Explicit dimensions still win where a file has both.
+
+- **A refused icon says which rule it broke.** "Could not read artwork at
+  `<path>`" on a file the reader can plainly open is a shrug rather than an
+  error, and SVG has requirements that are not guessable from the outside.
+
+- **The README implied you could run `unifi-map` before installing it.** The
+  quick-look section ran `make demo` and then `unifi-map all`, as though the
+  first had prepared an environment for the second. It had not: `make demo`
+  calls the venv's copy by full path and puts nothing on your `PATH`.
+
+- **Nothing anywhere told you to activate the virtual environment.** Install
+  ended at `.venv/bin/pip install -e .`, which puts the command at
+  `.venv/bin/unifi-map` and nowhere else, while the README and every page under
+  `docs/` invoked a bare `unifi-map`. Anyone following the instructions
+  literally got `command not found` on their first real command. Install now
+  ends with `source .venv/bin/activate` and says why, which makes those examples
+  correct rather than editing each of them.
+
+- **`all` now says what it means.** It is `fetch` then `render`, both stages,
+  and reads to a newcomer as "all output formats". It writes the same default
+  two files any `render` would. The help text says so and `docs/usage.md` has
+  the incantation for the other five.
+
 - **Documentation said Lucid's `.drawio` import had not been tried. It has, and
   it does not work.** Lucid reads one cell of the file and stops, a different
   cell each time. Neither stripping the embedded artwork nor writing the payload
@@ -128,6 +200,33 @@ told something untrue and may have acted on it.
   which are to export from draw.io or to import the `svg` or `pdf` output.
   draw.io itself remains confirmed working. Nothing about the generated file is
   being reshaped to suit a second tool's parser.
+
+### Known limitations
+
+- **`--theme dark` does not survive into a `.drawio` file.** draw.io re-themes
+  a diagram on load, inverting it to contrast with its own appearance setting,
+  because its dark mode assumes diagrams are authored light. A file authored
+  dark is inverted a second time and displays light; a file authored light is
+  correct in both of draw.io's modes.
+
+  Nothing is corrupted when this happens. The inversion is holistic, so cells,
+  text and artwork flip together and the file stays coherent; it simply reads as
+  the theme you did not ask for.
+
+  **For now the tool warns and renders what you asked for.** Use `--theme light`
+  for the `.drawio`, or set the appearance in draw.io explicitly rather than
+  leaving it on Automatic. `docs/output.md` covers both.
+
+  **When this is fixed, the behaviour will be:**
+
+  - It will **always warn** when `drawio` is among the requested formats and the
+    theme is dark, because the interaction is worth knowing about either way.
+  - With **other formats alongside**, the `.drawio` will be authored **light**,
+    so it displays dark like everything else in the run.
+  - With **only `drawio`** requested (`--theme dark -f drawio`), it will be
+    authored **dark** as asked, with a warning that draw.io may not display it
+    the way you expect and a pointer to the documentation. Asking for one format
+    and that format alone is a clear enough instruction to honour.
 
 ## 0.8.0 - 2026-08-02
 
