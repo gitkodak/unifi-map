@@ -6,6 +6,7 @@ stub is not untested dead code.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -177,6 +178,29 @@ class TestApplyLinks:
         # Nothing hangs off the placeholder any more, so it goes.
         assert UNKNOWN_UPLINK_ID not in result.topology.nodes
         assert not any(UNKNOWN_UPLINK_ID in (e.src, e.dst) for e in result.topology.edges)
+
+    def test_displacing_an_observed_parent_says_so(self, topo, caplog):
+        """Replacing a real observation is not the same as tidying a placeholder.
+
+        The design rule is that an override contradicting the controller says
+        so rather than quietly preferring itself. `_drop_parent_edges` used to
+        be silent on the assumption, written into the call site, that anything
+        being linked had been unplaceable. Nothing enforced that, and
+        `[[hosted]]` breaks it deliberately.
+        """
+        with caplog.at_level(logging.WARNING):
+            apply(topo, parse({"link": [{"from": "nas", "to": "gateway"}]}))
+        assert any("replaces that link" in r.getMessage() for r in caplog.records)
+
+    def test_tidying_the_placeholder_stays_quiet(self, unplaced_topo, caplog):
+        """The documented case is not a contradiction, so it must not warn.
+
+        Warning here would put a line in front of every user doing exactly what
+        the feature is for, which is how a warning stops being read.
+        """
+        with caplog.at_level(logging.WARNING):
+            apply(unplaced_topo, parse({"link": [{"from": "vm-host", "to": "Core Switch"}]}))
+        assert not [r for r in caplog.records if "replaces that link" in r.getMessage()]
 
     def test_a_node_ends_up_with_exactly_one_parent(self, topo):
         result = apply(topo, parse({"link": [{"from": "nas", "to": "gateway"}]}))

@@ -401,13 +401,14 @@ listed twice, and ordered by fit rather than by arrival.
   two ends, and the second is what makes the first worth reading. Most of the
   decisions are already made at runtime and thrown away as log lines.
 
-- **A normalised JSON export** of `Topology` itself, not the raw controller
-  responses. Cheap, because the model is already the stable thing and the raw
-  payloads are the unstable ones, and it is the honest way to let somebody build
-  an inventory check or a Home Assistant integration without learning UniFi's
-  schemas. Must honour `--obfuscate`, overrides and per-network filtering, and
-  should carry the provenance fields the report above would need, which is an
-  argument for doing them together.
+- **A normalised JSON export of `Topology`. Shipped, as `-f json`.** Kept here
+  for the constraints, which still bind: it honours `--obfuscate`, overrides and
+  per-network filtering, because a JSON export that ignored the cleaning applied
+  to the picture would be a way to leak what the picture hid. `SCHEMA_VERSION`
+  is 1 and the promise is that the schema gains fields and never loses them.
+  It does **not** yet carry the provenance fields the diagnostic report would
+  want; doing both together was the argument for doing them together, and that
+  argument is now only half spent.
 
 - **Generalised filters**: `--kind switch ap`, `--wireless-only`, `--guest-only`,
   and most usefully `--root "Rack Switch"` for a subtree of a large map.
@@ -464,9 +465,13 @@ listed twice, and ordered by fit rather than by arrival.
   something is now, so a stale client must never be drawn as a current link. If
   it cannot be made obviously historical it should not be drawn at all.
 
-- **`overrides check`**, validating selectors without rendering anything. Small
-  and clearly useful: overrides fail loudly by design, and today the only way to
-  find out is to render. Pairs with the candidates generator below.
+- **`overrides check`, validating selectors without rendering. Shipped.** One
+  thing about it worth not rediscovering: it must build its topology with the
+  same `--show-offline` the render will use. It originally passed
+  `include_offline=True` unconditionally, which is *more* permissive than the
+  default render, so a selector naming an offline device passed the check and
+  then failed the render it had just been checked for. The flag is now shared
+  between the two subparsers rather than duplicated.
 
 - **`generate-overrides`**, emitting a skeleton `overrides.toml` seeded with the
   nodes the tool could not place. Closes a loop that is currently half open: the
@@ -474,11 +479,12 @@ listed twice, and ordered by fit rather than by arrival.
   and the "no reconciliation report" gap below is asking for the same
   information from the other end. One command could answer both.
 
-- **Mermaid export.** Cheap and a clean architectural fit: another pure function
-  from `Topology` to text, beside `render_dot` and `render_drawio`. Worth
-  documenting that it necessarily loses artwork, so it is the shape of the
-  network and nothing else. Good for a README or a wiki page, which is a place
-  this tool's output currently cannot go.
+- **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
+  it is the shape of the network and nothing else, and the docs say so. Note
+  that its direction follows `--layout` (`unifi` gives LR, `tree` gives TB) and
+  that it emits a `title` front matter block; `docs/output.md` embeds the `tree`
+  output with the front matter stripped, and a test diffs the embedded block
+  against real output so that claim cannot rot.
 
 - **An interactive HTML viewer.** Collapsible client subtrees address the exact
   problem the tool exists for, and path highlighting is genuinely useful on a
@@ -492,7 +498,7 @@ listed twice, and ordered by fit rather than by arrival.
   all of them: a controller cannot know which rack something is in, which is
   precisely what `[[device]]` and friends are for. The unknown is rendering.
   Graphviz clusters interact badly with `--layout unifi` (`rankdir=LR` with
-  ortho routing), there is already a legend cluster in `sane`, and the
+  ortho routing), there is already a legend cluster in `tree`, and the
   `unflatten` stagger pass has not been tried against nested clusters. Prototype
   the layout before committing to the schema.
 
@@ -673,15 +679,6 @@ listed twice, and ordered by fit rather than by arrival.
   breaking a published artifact, so it is a commitment rather than a chore. The
   entry point and build backend already exist; CI would need a `tags:` trigger.
 
-- **Remove the `sane` layout alias in 0.6.0.** Renamed to `tree`; `sane` is
-  accepted, hidden from `--help` by `metavar`, and warns naming the version.
-  Delete `DEPRECATED_LAYOUTS` in `render_dot.py`, the warning in `cmd_render`,
-  the `choices` widening, and the `sane` Makefile target.
-
-  **Unlike `UDM_*`, this one has a promised version.** It is a single flag
-  value, trivially changed by anyone using it, so an open-ended deprecation
-  would just keep the word in `--help` forever.
-
 - **Finish retiring the `UDM_*` environment aliases.** The warning is in:
   `config.py` collects legacy names as it resolves them and emits one line
   naming each replacement, and the README section is marked deprecated. What
@@ -717,8 +714,15 @@ the man page cannot disagree about what the parser contains.
 Done since this list was last accurate: overrides are applied rather than only
 parsed, CI exists, obfuscation exists, `SECURITY.md` and `CONTRIBUTING.md` and
 the issue and PR templates were written, clients behind non-UniFi devices are
-placed from the controller's own graph, `--support-file` is implemented, and
-0.2.0 is released.
+placed from the controller's own graph, `--support-file` is implemented, the
+`sane` alias is gone, `unifi-map shape` and `overrides check` and the Mermaid
+and JSON exports all shipped, the man page exists, and 0.7.2 is released.
+
+**Four of those were still written up here as future work well after they
+shipped**, which is the failure this file is most prone to: it is edited for
+whatever is being discussed, and nothing sweeps it. The same sweep `TODO.md`
+gets at every handover is worth running here, since this file claims to be the
+authoritative one and a stale authority is worse than a stale list.
 
 **The GitHub repository description is set**, and matches `pyproject.toml`.
 Verified against the API rather than assumed, because it is a setting rather

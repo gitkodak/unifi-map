@@ -27,7 +27,7 @@ differently:
 
 | Command | Controller | Artwork |
 | --- | --- | --- |
-| `fetch` | Unless `--support-file` is given. Never checks the cache first, so it always overwrites the snapshot with current state. | Fetches the icon font if it is missing |
+| `fetch` | Unless `--support-file` is given. Never checks the cache first, so it always overwrites the snapshot with current state. | Fetches the icon font, replacing any cached copy |
 | `render` | Never. Reads whatever snapshot is in `--cache-dir`, however old. | Downloads any artwork not already cached, unless `--offline` |
 | `all` | Same as `fetch`, because it is `fetch` then `render` | Same as `render` |
 
@@ -236,6 +236,7 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
+| `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
 | `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid,json}` | Output formats (default: svg drawio) | `svg drawio` |
 | `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime. builtin: geometric shapes only, no network access (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
@@ -248,7 +249,6 @@ equivalent. Command options must follow the subcommand.
 | `--obfuscate` | Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared |  |
 | `--title` | Diagram title (default: Network map). Note that --obfuscate cannot clean a title you supply yourself |  |
 | `--no-clients` | Infrastructure only, no clients |  |
-| `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
 | `--per-network` | Also emit one diagram per client network, which keeps a busy map readable |  |
 | `--legend`, `--no-legend` | Show the legend (default: on for --layout tree, off for --layout unifi) |  |
 | `--title-block`, `--no-title-block` | Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for --layout tree, off for --layout unifi) |  |
@@ -265,6 +265,7 @@ equivalent. Command options must follow the subcommand.
 | Flag | What it does | Default |
 | --- | --- | --- |
 | `action` `{check}` | check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things |  |
+| `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
 | `--overrides` | Which file to check. Defaults to overrides.toml when it exists. |  |
 
 <!-- END GENERATED FLAGS -->

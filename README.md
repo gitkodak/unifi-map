@@ -15,9 +15,10 @@ console; this pulls the same data and renders it properly.
 
 **This is a UniFi Network tool.** It reads one Protect endpoint, purely to tell
 a camera from an Access reader when the hardware names collide, and touches
-nothing else in the suite. Access readers, Talk phones and a UNAS all still
-appear, because they are clients or UniFi hardware like anything else, but
-nothing here knows what they are beyond what Network reports.
+nothing else in the suite. Access readers and Talk phones still appear, as
+ordinary clients, and a UNAS should appear as ordinary UniFi hardware, though
+none of those has been seen here and the last is inference. Either way nothing
+here knows what they are beyond what Network reports.
 [What that costs, and what would fix it](docs/verification.md#which-unifi-applications-this-has-seen).
 
 ![Example output: the demo network in the default UniFi layout, dark theme](docs/images/example-unifi-dark.png)

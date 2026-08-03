@@ -131,6 +131,80 @@ told something untrue and may have acted on it.
   `--help` is worse than a hand-written one when it does, so the claim is tested
   rather than trusted.
 
+- **`overrides check` now validates against the same topology `render` will
+  build.** It passed `include_offline=True` unconditionally, which is more
+  permissive than the default render, so a selector naming a device the
+  controller merely remembers passed the check and then failed the render it had
+  just been checked for. That is the one outcome the command exists to prevent.
+  `--show-offline` is now shared between the two subcommands rather than
+  belonging to `render` alone.
+- **An override that displaces a link the controller reported now says so.**
+  `[[link]]` and `[[hosted]]` both detach a node from its current parent before
+  attaching the stated one, which is necessary and, for `[[hosted]]`, the entire
+  point: reparenting a VM under its hypervisor displaces a real observation by
+  design. But the code assumed the displaced edge was always the "uplink not
+  reported" placeholder, and nothing enforced that, so contradicting the
+  controller was silent. It warns now, naming both ends. Tidying the placeholder
+  stays quiet, since warning on the documented case is how a warning stops being
+  read.
+- The runtime hint about unplaceable clients pointed at "Manual overrides in the
+  README", a section the documentation split moved to `docs/overrides.md`.
+- **The man page omitted exit code 3** (Graphviz not installed), and its
+  description listed neither Mermaid nor JSON among the output formats.
+- Several documented behaviours did not match the code, all found by an external
+  review reading the split documentation against the source. Each is a fix to
+  the document except where noted:
+  - `docs/output.md` said nothing is ever written to stdout; `unifi-map shape`
+    writes its report there, which is what makes it pipeable.
+  - It listed `dot` among the formats needing Graphviz. `dot`, `mermaid` and
+    `json` are all written directly and work without it; only `svg`, `pdf` and
+    `png` need it. Verified by rendering with an empty `PATH`.
+  - Its JSON example named version 0.6.0 and omitted `title` and `networks`,
+    the latter promised two paragraphs above it.
+  - Its Mermaid example claimed to be the shipped demo while showing a direction
+    and header no documented command produced. The example is now byte-identical
+    to `--layout tree` output, with the one edit stated.
+  - `docs/overrides.md` called `[[device]].kind` required; it defaults to
+    `unknown`. It also never documented what `note` does, which differs per
+    block: an edge label for `[[link]]` and `[[hosted]]`, nothing at all for
+    `[[device]]` and `[[node]]`. And it did not mention `overrides check`.
+  - `docs/usage.md` said `fetch` downloads the icon font only when missing; it
+    replaces any cached copy every time.
+  - `docs/support-files.md` said omitting `--fetch-fingerprints` leaves clients
+    without product artwork. The flag governs the download, not the lookup: a
+    database already cached is read either way.
+  - `docs/verification.md` said "all five output formats" when there are seven,
+    and ended with a `BEGIN GENERATED FLAGS` marker that had no `END` and no
+    content, left behind when the split moved the flag reference to
+    `docs/usage.md`.
+  - `.env.example` pointed at a Credentials section of the README that is now
+    `docs/credentials.md`.
+  - The README said Access readers, Talk phones and a UNAS "all still appear".
+    `docs/verification.md` correctly calls the UNAS case inference, none of the
+    three having been seen here, and the README now matches it.
+- **Support-file operational guidance was on the artwork page.** Site selection,
+  the four archive limits, the compression-bomb defence and the slow-walk
+  warning all sat inside a section about client icons, while
+  `docs/support-files.md` covered none of them. Moved, and site selection and
+  limits now come before the artwork asides, since a multi-site archive stops
+  the run before artwork is reached.
+- `CLAUDE.md` proposed the JSON export, `overrides check` and the Mermaid export
+  as future work, all three having shipped, and still described removing the
+  `sane` layout alias in 0.6.0, which 0.6.0 did. The entries are rewritten to
+  keep the constraints that still bind rather than deleted. The issue template
+  for feature requests pointed contributors at that file's planned-work section,
+  naming two shipped features; it points at `TODO.md`, which exists precisely
+  because `CLAUDE.md` is written for agents.
+
+### Added
+
+- **Three documentation guards, each for a class of drift the existing checks
+  could not see.** The JSON example is parsed and its version and top-level keys
+  compared against real output; the Mermaid example is diffed byte-for-byte
+  against what its stated command produces; and every document is checked for a
+  generated-content marker without its pair. All three were mutation-tested by
+  reintroducing the exact defect they were written for.
+
 ## 0.7.2 - 2026-08-02
 
 ### Fixed

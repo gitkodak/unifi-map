@@ -198,7 +198,7 @@ def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
     log.info(
         "%d client(s) have no uplink the controller reports, so they hang off a "
         "placeholder rather than a guessed parent. An overrides file can place "
-        "them: see Manual overrides in the README.",
+        "them: see docs/overrides.md.",
         stranded,
     )
 
@@ -770,7 +770,11 @@ def cmd_overrides(args: argparse.Namespace) -> int:
         return 2
 
     snapshot = Snapshot.read(args.cache_dir)
-    topo = build_topology(snapshot, include_offline=True)
+    # Must match what `render` will actually do. Checking with everything
+    # included is more permissive than the default render, so a selector naming
+    # an offline device passed here and then failed the render it was checked
+    # for, which is the one outcome this command exists to prevent.
+    topo = build_topology(snapshot, include_offline=args.show_offline == "yes")
     overrides = load_overrides(path)
     result = apply_overrides(topo, overrides)
 
@@ -1056,7 +1060,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = parser.add_subparsers(dest="command", required=True)
 
-    render_flags = argparse.ArgumentParser(add_help=False)
+    # Shared with `overrides check` rather than living in render_flags, because
+    # a check has to model the render it is checking for: validating against a
+    # topology that includes offline devices passes selectors that the default
+    # render then rejects.
+    offline_flag = argparse.ArgumentParser(add_help=False)
+    offline_flag.add_argument(
+        "--show-offline",
+        choices=("yes", "no"),
+        default="no",
+        help="Include devices the controller lists but that are not currently "
+        "connected. Defaults to no, because a controller keeps remembering "
+        "hardware long after it has been pulled from the rack; use yes when you "
+        "want to see what it still thinks exists (default: no)",
+    )
+
+    render_flags = argparse.ArgumentParser(add_help=False, parents=[offline_flag])
     render_flags.add_argument(
         "-f",
         "--formats",
@@ -1129,15 +1148,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-clients", action="store_true", help="Infrastructure only, no clients"
     )
     render_flags.add_argument(
-        "--show-offline",
-        choices=("yes", "no"),
-        default="no",
-        help="Include devices the controller lists but that are not currently "
-        "connected. Defaults to no, because a controller keeps remembering "
-        "hardware long after it has been pulled from the rack; use yes when you "
-        "want to see what it still thinks exists (default: no)",
-    )
-    render_flags.add_argument(
         "--per-network",
         action="store_true",
         help="Also emit one diagram per client network, which keeps a busy map readable",
@@ -1190,7 +1200,7 @@ def build_parser() -> argparse.ArgumentParser:
     shape.set_defaults(func=cmd_shape)
     overrides = sub.add_parser(
         "overrides",
-        parents=[shared],
+        parents=[shared, offline_flag],
         help="Check an overrides file without rendering",
     )
     overrides.add_argument(

@@ -15,7 +15,8 @@ unreadable.
 .PP
 \fBunifi\-map\fR reads the same JSON endpoints the interface draws from and
 renders them properly: SVG and PDF that stay sharp at any zoom, PNG, Graphviz
-source, and draw.io files whose shapes are already positioned.
+source, draw.io files whose shapes are already positioned, Mermaid for a
+README or a wiki, and JSON of the normalised topology for other programs.
 .PP
 It only ever reads. Every request is a GET, and there is no code path that
 changes anything on the controller.
@@ -106,6 +107,9 @@ show program's version number and exit
 \fBfetch\fR takes only the global options above.
 .SH RENDER and ALL OPTIONS
 .TP
+\fB\-\-show\-offline\fR \fI{yes,no}\fR
+Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
+.TP
 \fB\-f\fR, \fB\-\-formats\fR \fI{svg,pdf,png,dot,drawio,mermaid,json}\fR
 Output formats (default: svg drawio)
 .TP
@@ -143,9 +147,6 @@ Diagram title (default: Network map). Note that \-\-obfuscate cannot clean a tit
 \fB\-\-no\-clients\fR
 Infrastructure only, no clients
 .TP
-\fB\-\-show\-offline\fR \fI{yes,no}\fR
-Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
-.TP
 \fB\-\-per\-network\fR
 Also emit one diagram per client network, which keeps a busy map readable
 .TP
@@ -165,6 +166,9 @@ Skip the consent prompt. Read what the report contains first; `unifi\-map shape`
 .TP
 \fBaction\fR \fI{check}\fR
 check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things
+.TP
+\fB\-\-show\-offline\fR \fI{yes,no}\fR
+Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
 .TP
 \fB\-\-overrides\fR
 Which file to check. Defaults to overrides.toml when it exists.
@@ -236,6 +240,11 @@ The controller, a support file, Graphviz or an output path failed.
 .TP
 \fB2\fR
 Configuration or command line error.
+.TP
+\fB3\fR
+Graphviz is not installed. Distinct from \fB1\fR because it is fixed by
+installing a package rather than by changing anything here, and because
+\fBdot\fR, \fBmermaid\fR and \fBjson\fR do not need it at all.
 .SH SEE ALSO
 \fBdot\fR(1), \fBunflatten\fR(1)
 .PP

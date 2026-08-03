@@ -50,13 +50,13 @@ corrects a node that exists; this one creates it.
 | Key | Required | Meaning |
 | --- | --- | --- |
 | `name` | yes | Label on the map, and what other blocks select it by |
-| `kind` | yes | `gateway`, `switch`, `ap`, `bridge`, `wired_client`, `wireless_client` or `unknown` |
+| `kind` | no | `gateway`, `switch`, `ap`, `bridge`, `wired_client`, `wireless_client` or `unknown`. Defaults to `unknown`, which draws the generic shape. |
 | `ip` | no | Address, shown under the name |
 | `model` | no | Model string, shown under the address |
 | `parent` | no | Selector for what it hangs off. Without one it floats. |
 | `port` | no | Port on the parent, for the edge label. Needs a `parent`. |
 | `icon` | no | Path to artwork you supply |
-| `note` | no | Free text |
+| `note` | no | Free text. Recorded but not drawn; see [Where `note` shows up](#where-note-shows-up). |
 
 Declared devices are added before every other override, so a `[[link]]`, a
 `[[hosted]]` or a `[[node]]` can reference one, and one declared device can hang
@@ -76,7 +76,7 @@ two stay distinguishable without relying on colour.
 | `to` | yes | Selector for the other end |
 | `port` | no | Port number, for the edge label. May be unquoted. |
 | `speed` | no | e.g. `"10G"`, for the edge label |
-| `note` | no | Free text |
+| `note` | no | Free text. Becomes the edge label when there is no `port` or `speed`; see [Where `note` shows up](#where-note-shows-up). |
 | `wireless` | no | `true` renders the link dashed |
 
 ### `[[hosted]]`
@@ -85,7 +85,7 @@ two stay distinguishable without relying on colour.
 | --- | --- | --- |
 | `guest` | yes | Selector for the nested node |
 | `host` | yes | Selector for the node it runs on |
-| `note` | no | e.g. `"VM"`, `"container"` |
+| `note` | no | e.g. `"VM"`, `"container"`. Becomes the edge label, replacing the default `hosted`. |
 
 ### `[[node]]`
 
@@ -97,7 +97,7 @@ Corrects how a single node is presented.
 | `name` | no* | Replacement label |
 | `icon` | no* | Path to artwork you supply |
 | `hide` | no* | `true` drops the node from the map entirely |
-| `note` | no | Free text |
+| `note` | no | Free text. Recorded but not drawn; see [Where `note` shows up](#where-note-shows-up). |
 
 \* at least one of `name`, `icon` or `hide` is required; an entry that changes
 nothing is rejected rather than silently ignored.
@@ -199,6 +199,43 @@ Anything you assert is drawn as a **dotted** line, and the legend gains a
 "Stated in overrides" entry when a render contains one. Nothing you claim is ever
 mistaken for something the controller reported.
 
+## Checking a file without rendering
+
+```bash
+unifi-map overrides check
+```
+
+Applies the file against the cached snapshot and reports what it would do,
+without drawing anything. Worth knowing about because overrides fail loudly by
+design: a selector matching nothing, or matching two things, stops the run. That
+is the right behaviour, and before this command the only way to discover it was
+to render the whole map.
+
+It reads the cache, so it contacts no controller and needs no credentials.
+
+**It honours `--show-offline`, and defaults to `no` exactly as `render` does.**
+That matters more than it sounds: a selector naming a device the controller
+remembers but that is not currently connected resolves only when offline devices
+are included. Checking with different settings from the render it is checking
+for would let a file pass here and fail there, which is the one outcome this
+command exists to prevent. If you render with `--show-offline yes`, check with
+it too.
+
+## Where `note` shows up
+
+`note` behaves differently per block, which is worth stating because three of
+the four accept it and only two draw it.
+
+| Block | Effect |
+| --- | --- |
+| `[[link]]` | The edge label, but only when neither `port` nor `speed` is set. Those win. |
+| `[[hosted]]` | The edge label, replacing the default text `hosted`. |
+| `[[device]]`, `[[node]]` | None. Read and validated, never drawn: a comment for whoever edits the file next. |
+
+A `#` comment does the same job for the two that do not draw it, and TOML keeps
+those perfectly well. `note` is accepted there so that moving a block between
+kinds does not fail on a key that was fine a moment earlier.
+
 ## Order of application
 
 Links and nesting are applied first, then renames, artwork and hiding. That
@@ -207,8 +244,14 @@ node in the same file is correctly refused.
 
 ## Design constraints
 
-- **Overrides add, they don't silently rewrite.** If an override contradicts what
-  the controller reported, say so rather than quietly preferring one.
+- **Overrides add rather than rewrite, and where they must rewrite, they say
+  so.** `[[link]]` and `[[hosted]]` both detach a node from its current parent
+  before attaching the one you stated, because a node with two parents is not a
+  tree. Usually what is detached is the "uplink not reported" placeholder, which
+  is no loss. Sometimes it is a real observation: reparenting a VM under its
+  hypervisor is exactly that, and is the whole point of `[[hosted]]`. When the
+  displaced link was something the controller actually reported, a warning names
+  both ends, so a contradiction is never silent even though it is allowed.
 - **Never invent topology.** This feature exists precisely so the tool doesn't
   have to guess. Its output must remain distinguishable from observed data.
 - **A stale override should fail loudly.** Devices get replaced and renamed; an

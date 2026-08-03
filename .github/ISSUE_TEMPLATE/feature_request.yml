@@ -5,10 +5,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        `CLAUDE.md` has an "Open work" section listing what is already planned,
-        including manual overrides, an infrastructure view and ISP logos. Worth a
-        look first, though a nudge on something already listed is still useful
-        signal.
+        [`TODO.md`](https://github.com/gitkodak/unifi-map/blob/main/TODO.md)
+        lists what is already planned, including an infrastructure view, an
+        interactive HTML viewer and a `diff` between two snapshots. Worth a look
+        first, though a nudge on something already listed is still useful signal.
 
   - type: textarea
     id: problem

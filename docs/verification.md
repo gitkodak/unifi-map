@@ -10,7 +10,7 @@ difference matters if you hit a problem, so:
 
 **Checked directly**, against UniFi Network 10.5.67 on a UDM Pro Max:
 authentication, every endpoint used, artwork lookup for both UniFi hardware and
-clients, the icon font fallback, both layouts, both themes, all five output
+clients, the icon font fallback, both layouts, both themes, all seven output
 formats, the offline and no-artwork paths, and opening the generated `.drawio`
 in draw.io.
 
@@ -71,5 +71,3 @@ needs. Half an answer, cheaply.
 - `cache/` holds a MAC, hostname and IP inventory of every device on your
   network. It's gitignored and written `0600`. Don't commit it or paste it into
   an issue.
-
-<!-- BEGIN GENERATED FLAGS -->

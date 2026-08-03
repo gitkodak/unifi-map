@@ -13,8 +13,13 @@ than what it draws.
 | `mermaid` | Text that GitHub, GitLab and most wikis draw in place. No artwork; shape only. [More below](#mermaid-for-documentation). |
 | `json` | The normalised topology, for programs rather than people. [More below](#json-for-programs). |
 
-`svg`, `pdf`, `png` and `dot` are all Graphviz doing the drawing and need
-nothing said about them beyond that row. The two below do.
+`svg`, `pdf` and `png` need nothing said about them beyond that row: Graphviz
+does the drawing, so those three are the formats that require it installed.
+`dot`, `mermaid` and `json` are written directly and work without it, which is
+worth knowing if you only want the source or the data. `drawio` is in between:
+the file is written here, but Graphviz computed the positions in it.
+
+The two text formats below are the ones that need explaining.
 
 ## JSON, for programs
 
@@ -32,18 +37,30 @@ snapshot is a full controller dump; this is the graph, and it honours
 `--obfuscate`, overrides and `--per-network` exactly as the diagram does, so
 whatever cleaning was applied to the picture applies here.
 
+Every top-level key, from the shipped demo. `nodes` and `edges` are abridged to
+one entry each; the rest is complete:
+
 ```json
 {
   "schema": 1,
-  "generator": "unifi-map 0.6.0",
-  "counts": { "gateway": 1, "switch": 4, "ap": 3, "internet": 1 },
+  "generator": "unifi-map 0.7.2",
+  "title": "Network map",
+  "counts": {
+    "gateway": 1, "switch": 4, "ap": 3, "internet": 1,
+    "wired_client": 8, "wireless_client": 11, "unknown": 1
+  },
+  "networks": [ { "id": "net-lan", "name": "lan", "vlan": 1 } ],
   "nodes": [
     { "id": "02:00:00:00:01:01", "label": "gateway", "kind": "gateway",
-      "ip": "10.0.0.1", "model": "UDMPROMAX", "sysid": 59954 }
+      "ip": "10.0.0.1", "model": "UDMPROMAX", "detail": "UDMPROMAX",
+      "sysid": 59954 }
   ],
   "edges": [ { "child": "02:00:00:00:01:01", "parent": "internet", "label": "WAN" } ]
 }
 ```
+
+`counts` covers the whole map rather than the abridged arrays above, so it does
+not add up to the one node shown.
 
 Edges are named `child` and `parent` rather than `src` and `dst`, because a
 reader should not have to guess which way round they point. Facts that are not
@@ -63,8 +80,19 @@ destination the other formats cannot reach: a README cannot embed an SVG that
 adapts to the reader's colour scheme, and a draw.io file is not a picture until
 somebody opens it.
 
-This is the shipped demo, infrastructure only, rendered by whatever is showing
-you this page:
+**The direction follows `--layout`**, as everywhere else: `unifi` (the default)
+draws left to right, `tree` draws top to bottom. The file also opens with a
+`title` front matter block, which Mermaid renders as a caption.
+
+Below is the shipped demo, infrastructure only, drawn by whatever is showing you
+this page. It is the output of
+
+```bash
+unifi-map render -f mermaid --no-clients --layout tree
+```
+
+with the front matter removed, because a caption on top of a heading reads as a
+duplicate of it. Everything else is verbatim:
 
 ```mermaid
 flowchart TB
@@ -138,5 +166,7 @@ unifi-map --no-progress all          # never spin
 unifi-map all > map.log 2>&1         # already silent, no flag needed
 ```
 
-Nothing is ever written to stdout, and log output goes to stderr with or without
-the spinner, so neither choice changes what a script sees.
+Log output goes to stderr with or without the spinner, so neither choice changes
+what a script sees. The rendering commands write nothing to stdout at all; their
+output is the files they produce. The one exception is `unifi-map shape`, whose
+report *is* its output and goes to stdout so it can be piped or redirected.

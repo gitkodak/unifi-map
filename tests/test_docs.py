@@ -14,12 +14,18 @@ safety would have been a poor trade for a shorter file.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
 from typing import ClassVar
 
 import pytest
+
+from unifi_map.client import Snapshot
+from unifi_map.model import build_topology
+from unifi_map.render_json import render_json
+from unifi_map.render_mermaid import render_mermaid
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -562,3 +568,103 @@ def test_no_release_describes_the_same_subject_twice():
             if subjects.count(subject) > 1 and (match.group(1), subject) not in allowed:
                 offenders.append(f"{match.group(1)}: {subject}")
     assert not offenders, f"one change described more than once: {sorted(offenders)}"
+
+
+def _fenced(path: Path, language: str) -> list[str]:
+    """Every fenced block of *language* in *path*, fence-aware.
+
+    Line-based rather than a regex over the whole file: a `#` heading inside a
+    shell block already fooled one regex here into extracting the wrong range.
+    """
+    out, current = [], None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("```"):
+            tag = line[3:].strip()
+            if current is None and tag == language:
+                current = []
+            elif current is not None:
+                out.append("\n".join(current) + "\n")
+                current = None
+            continue
+        if current is not None:
+            current.append(line)
+    return out
+
+
+def test_the_documented_json_example_is_current():
+    """The JSON example in `docs/output.md` must be output this tool produces.
+
+    It went stale at 0.6.0 while claiming to show the export, and had lost a
+    top-level key the surrounding prose promises. An example of a *stable
+    schema* is exactly the thing a reader will copy assumptions from, so it
+    gets checked rather than proof-read.
+    """
+    from unifi_map import __version__
+
+    blocks = _fenced(ROOT / "docs" / "output.md", "json")
+    assert blocks, "docs/output.md has no JSON example"
+    example = json.loads(blocks[0])
+
+    assert example["generator"] == f"unifi-map {__version__}", (
+        "the JSON example names a stale version; regenerate it from real output"
+    )
+
+    real = json.loads(
+        render_json(
+            build_topology(Snapshot.read(ROOT / "examples" / "demo")),
+            title="Network map",
+        )
+    )
+    assert set(example) == set(real), (
+        "the JSON example's top-level keys differ from real output: "
+        f"missing {sorted(set(real) - set(example))}, extra {sorted(set(example) - set(real))}"
+    )
+
+
+def test_the_documented_mermaid_example_is_real_output():
+    """The Mermaid block in `docs/output.md` is verbatim, and says so.
+
+    It claimed to be "the shipped demo" while showing a direction and a header
+    no documented command produced: the example was TB with no front matter,
+    the command beside it emits LR with it. Since the page tells the reader
+    exactly which command and which single edit, both are reproduced here.
+    """
+    blocks = _fenced(ROOT / "docs" / "output.md", "mermaid")
+    assert blocks, "docs/output.md has no Mermaid example"
+
+    # `include_offline=False` because the CLI defaults `--show-offline no` while
+    # `build_topology` defaults to keeping them: a library should not drop data
+    # silently. Without it this test rebuilt a topology the documented command
+    # does not produce, and blamed the document.
+    topo = build_topology(
+        Snapshot.read(ROOT / "examples" / "demo"),
+        include_clients=False,
+        include_offline=False,
+    )
+    # `--layout tree` is TB, and the page states the front matter was removed.
+    real = render_mermaid(topo, title=None, direction="TB")
+    assert blocks[0] == real, "the Mermaid example is not what `--layout tree` produces"
+
+
+def test_no_document_carries_an_orphaned_generated_marker():
+    """A `BEGIN` with no `END` is a generator pointed somewhere it no longer writes.
+
+    `docs/verification.md` ended with a bare `BEGIN GENERATED FLAGS` after the
+    split moved the flag reference to `docs/usage.md`, so the file advertised
+    generated content it did not contain. Invisible to the staleness checks,
+    which only ever look at the file the generator currently targets.
+    """
+    for path in DOCS:
+        text = path.read_text(encoding="utf-8")
+        for marker in ("GENERATED FLAGS",):
+            # The full comment syntax, not the bare words. The changelog entry
+            # for this very fix names the marker in prose, and matching a
+            # substring counted that as a marker: a test that fails when a
+            # document *mentions* the thing it checks is a test that has to be
+            # worked around rather than one that holds.
+            begins = text.count(f"<!-- BEGIN {marker} -->")
+            ends = text.count(f"<!-- END {marker} -->")
+            assert begins == ends, (
+                f"{path.name} has {begins} BEGIN and {ends} END for {marker}; "
+                "a marker without its pair means generated content is missing"
+            )
