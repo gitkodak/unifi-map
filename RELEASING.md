@@ -112,14 +112,36 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
    In that order. Tagging a commit that is not yet on the remote works locally
    and confuses everything afterwards.
 
-8. **Mirror to GitLab.**
+8. **Publish the GitHub Release**, from the changelog section for this version.
+
+   ```bash
+   # The section body, without its `## X.Y.Z - DATE` heading.
+   gh release create vX.Y.Z --title vX.Y.Z --notes-file notes.md --verify-tag --latest
+   ```
+
+   **A tag is not a Release.** They are separate objects: a tag leaves the
+   Releases sidebar empty, publishes no notes page, and reports nothing to
+   anything querying `/releases`. Eleven tags existed before the first Release
+   did, and an external repository scanner reported the project as having no
+   releases at all, which was fair.
+
+   Use the changelog section as the body rather than a link to it. Someone who
+   arrives at a release page has already navigated to the version they care
+   about, and sending them elsewhere to find out what changed is the whole
+   thing they came for.
+
+   `--verify-tag` refuses to invent a tag that does not exist, which is what
+   keeps this step honest about following step 7 rather than replacing it.
+
+9. **Mirror to GitLab.**
 
    ```bash
    ~/Development/admin-scripts/scripts/mirror-github-to-gitlab.sh -q unifi-map
    ```
 
-9. **Verify, rather than assume.** All four refs at the same commit, the tag on
-   both remotes, and the tag pointing at the version you think it does.
+10. **Verify, rather than assume.** All four refs at the same commit, the tag on
+   both remotes, the tag pointing at the version you think it does, and the
+   Release present and marked latest.
 
    ```bash
    git rev-parse --short HEAD
@@ -176,8 +198,14 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
 
 ## The undecided part
 
-**There is no published artifact.** A release here is a tag and a changelog
-entry. The only documented install is a clone plus `pip install -e .`.
+**There is no published artifact.** A release here is a tag, a changelog entry
+and a GitHub Release carrying that entry. The only documented install is a
+clone plus `pip install -e .`.
+
+Note that the Release itself is not the undecided part, and stopped being
+optional at 0.8.0: it costs nothing, breaks no promises, and is what makes the
+version history visible from outside a checkout. What is still undecided is
+whether anything should be *attached* to one.
 
 Whether that should change is a real decision, not an oversight:
 

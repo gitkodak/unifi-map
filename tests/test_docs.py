@@ -693,10 +693,16 @@ class TestDirectoriesFromTheEnvironment:
     """
 
     def _parsed(self, argv, env, monkeypatch, tmp_path):
+        from unifi_map import config
         from unifi_map.cli import build_parser
 
-        # Isolated from any real credential file, which could set these too.
-        monkeypatch.setenv("UNIFI_MAP_ENV", str(tmp_path / "absent.env"))
+        # Isolated from any real credential file, which can set these too.
+        # Pointing `UNIFI_MAP_ENV` at a nonexistent file is *not* enough: the
+        # search continues past a missing candidate to `./.env` and then
+        # `~/.config/unifi-map/env`, so a developer who had actually set
+        # `UNIFI_CACHE_DIR` in their own credential file failed this test. The
+        # search path itself has to be emptied.
+        monkeypatch.setattr(config, "default_env_files", lambda: [])
         for name in ("UNIFI_CACHE_DIR", "UNIFI_ASSET_CACHE", "UNIFI_OUT_DIR"):
             monkeypatch.delenv(name, raising=False)
         for name, value in env.items():
