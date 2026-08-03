@@ -292,7 +292,7 @@ rather than by argument. Recorded because the earlier note reads persuasively
 and would otherwise stop the fix twice.
 
 What exists today is a warning: `cmd_render` says so once when `--theme dark`
-and `drawio` are combined. **The full fix is blocked on something real**, which
+and `drawio` are combined. The real fix is registered as **KAN-140**. **The full fix is blocked on something real**, which
 is why it is a warning and not a swap: the icons this project draws are baked in
 `theme.text_muted`, and one `icons` dict is shared by every format in a run.
 Rendering the draw.io file light while the run is dark would put light-baked

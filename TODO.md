@@ -160,6 +160,19 @@ drawn from a thin one look equally authoritative.
   whereas appending would quietly change what an existing invocation produces.
   The message should name the working form, `-f svg pdf png`.
 
+- **Author the `.drawio` light whatever `--theme` says** (KAN-140). draw.io
+  re-themes on load, inverting a diagram to contrast with its own appearance
+  setting, so a light-authored file is right in both of its modes and a
+  dark-authored one is right in neither. `--theme dark -f drawio` therefore has
+  no configuration that works, which makes it a trap rather than a choice.
+
+  Not a one-line swap, which is why it warns instead today. Three artwork
+  sources have the theme baked into their pixels: the drawn icons, the
+  console's own client glyphs, and the drawn Internet cloud. Changing only the
+  card colours would put light-baked glyphs on a white card. The fix is to
+  resolve artwork twice, once per output theme, and give `write_outputs` a
+  second icons dict for the draw.io pass.
+
 - **Cap controller response sizes** (KAN-134). `client.py` reads responses with
   no ceiling, while `assets.py` caps every fetch from the CDN. That is backwards
   from how it looks: the untrusted path is defended and the trusted one is not,
