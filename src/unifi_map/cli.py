@@ -47,7 +47,13 @@ from .model import (
     filter_by_network,
 )
 from .obfuscate import id_map, obfuscate
-from .output import OutputExistsError, safe_name, unique_names, write_outputs
+from .output import (
+    OutputExistsError,
+    safe_name,
+    unique_names,
+    warn_about_svg_artwork,
+    write_outputs,
+)
 from .overrides import OverrideError
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
@@ -487,6 +493,10 @@ def cmd_render(args: argparse.Namespace) -> int:
     subtitle = _subtitle(tally)
     formats = list(dict.fromkeys(args.formats))
     stem = safe_name(args.name)
+
+    # Once per run. `write_outputs` runs again for every network view, so
+    # warning from there repeated the same line for each of them.
+    warn_about_svg_artwork(icons, formats)
 
     log.info("Full map:")
     write_outputs(

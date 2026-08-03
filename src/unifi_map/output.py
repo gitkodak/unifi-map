@@ -126,8 +126,13 @@ def write_output(path: Path, data: bytes | str, *, force: bool, guard: bool) -> 
 _CAIRO_FORMATS = ("png", "pdf")
 
 
-def _warn_about_svg_artwork(icon_paths: set[Path], formats: list[str]) -> None:
+def warn_about_svg_artwork(icons: dict[str, IconAsset], formats: list[str]) -> None:
     """Say so when SVG artwork cannot survive into a requested format.
+
+    Called once per run by the CLI, not from `write_outputs`. That runs once per
+    network under `--per-network`, so warning there produced one identical line
+    for the whole map and another for every network. This is a property of the
+    run rather than of a file being written.
 
     Graphviz loads an SVG image only for its own `svg` output driver. There is
     no `svg:cairo` loadimage plugin, so `png` and `pdf` drop the image entirely,
@@ -141,7 +146,9 @@ def _warn_about_svg_artwork(icon_paths: set[Path], formats: list[str]) -> None:
     is not installed. With it, an SVG becomes a cached PNG and none of this
     applies, so the message leads with that rather than with the workaround.
     """
-    svgs = sorted(p for p in icon_paths if p.suffix.lower() == ".svg")
+    svgs = sorted(
+        a.path for a in icons.values() if a.path is not None and a.path.suffix.lower() == ".svg"
+    )
     affected = [f for f in _CAIRO_FORMATS if f in formats]
     if not svgs or not affected:
         return
@@ -174,8 +181,6 @@ def write_outputs(
 
     # Every icon this render used, and nothing else, may be embedded.
     icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
-
-    _warn_about_svg_artwork(icon_paths, formats)
 
     # Stagger once, up front, so the SVG/PDF and the draw.io coordinates are
     # computed from byte-identical DOT and therefore agree exactly.
