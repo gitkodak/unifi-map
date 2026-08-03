@@ -231,19 +231,24 @@ rm -rf cache/assets/user-svg
 ```
 
 If you moved the cache with `--asset-cache` or `UNIFI_ASSET_CACHE`, delete
-`user-svg/` inside that directory instead. `-v` prints where everything actually
-resolved to, which is worth checking first:
+`user-svg/` inside that directory instead.
 
-```bash
-unifi-map render -v 2>&1 | grep Directories
-# Directories: cache=... assets=... out=...
+**Type the path out rather than letting a shell expand it.**
+`UNIFI_ASSET_CACHE` is often set in the credential file rather than your shell,
+so the variable can be empty where you are typing while the tool is happily
+using it — and an empty expansion inside `rm -rf` aims at an absolute path you
+did not mean.
+
+If you are not sure where it ended up, `-v` reports the resolved directories as
+it works:
+
+```
+Directories: cache=... assets=... out=...
 ```
 
-That matters because `UNIFI_ASSET_CACHE` can be set in the credential file
-rather than your shell, so the variable may be empty where you are typing even
-though the tool is using it. Read the path and type it out; do not put the
-variable in an `rm -rf` line, where an empty expansion aims at an absolute path
-you did not mean.
+That means running a render, which writes output and may download artwork, so it
+is a heavier way to read a path than it looks. Checking your credential file and
+`unifi-map render --help`, which states the default, is usually quicker.
 
 PNG and other raster overrides are not copied anywhere; only SVG rasterisation
 writes to the cache.

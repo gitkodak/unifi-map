@@ -761,6 +761,19 @@ class AssetStore:
             return None
 
 
+def _make_private(path: Path) -> None:
+    """Restrict *path* if it exists, ignoring anything that cannot hold modes.
+
+    Suppressed rather than reported: a mount without POSIX permissions is not a
+    reason to fail a render, which is how the snapshot writer treats the same
+    situation.
+    """
+    if not path.exists():
+        return
+    with contextlib.suppress(OSError):
+        path.chmod(0o700 if path.is_dir() else 0o600)
+
+
 def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
     """An SVG turned into a cached PNG, or None if that is not possible.
 
@@ -802,6 +815,21 @@ def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
 
     out_dir = cache_dir / "user-svg"
     target = out_dir / f"{hashlib.sha256(data).hexdigest()[:16]}.png"
+
+    # Repair anything an earlier version left world-readable. Before this was
+    # made private, the directory was created at the umask and the PNG written
+    # 0644 like the rest of the artwork cache; neither `mkdir_private` nor the
+    # `is_file()` skip below would ever have touched them again, so an upgraded
+    # checkout kept a public copy of the user's artwork indefinitely.
+    #
+    # This is not the case `mkdir_private` declines to handle. That refuses to
+    # tighten a directory the *user* pointed at, because taking somebody's
+    # shared output directory to 0700 locks their collaborators out of a choice
+    # they made. `user-svg/` is ours: we create it, inside our own cache, and
+    # the user never names it. Tightening what we own is not the same act.
+    _make_private(out_dir)
+    _make_private(target)
+
     if not target.is_file():
         # Ratio from the source, so a wide drawing stays wide. `_measure_svg`
         # already knows how to read it, including from a viewBox.

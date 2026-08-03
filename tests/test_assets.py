@@ -920,6 +920,40 @@ class TestSvgRendersNotJustMeasures:
         assert not file_mode & 0o077, f"raster is group/world readable: {file_mode:o}"
         assert not dir_mode & 0o077, f"user-svg dir is traversable: {dir_mode:o}"
 
+    def test_a_cache_left_public_by_an_earlier_version_is_repaired(self, tmp_path):
+        """The permission fix has to reach caches that already exist.
+
+        Before rasters were made private the directory was created at the umask
+        and the PNG written 0644. Neither `mkdir_private` nor the "already
+        rendered, skip" path would ever touch them again, so an upgraded
+        checkout kept a world-readable copy of the user's artwork forever. The
+        original regression test only covered a cache created from scratch.
+        """
+        pytest.importorskip("cairosvg")
+        import os
+        import stat
+
+        from unifi_map.assets import local_icon
+
+        if os.name != "posix":
+            pytest.skip("POSIX modes only")
+
+        cache = tmp_path / "cache"
+        icon = tmp_path / "icon.svg"
+        icon.write_text(
+            '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"/>',
+            encoding="utf-8",
+        )
+
+        # Render once, then put it back the way the old code left it.
+        first = local_icon(icon, cache_dir=cache).path
+        first.parent.chmod(0o755)
+        first.chmod(0o644)
+
+        again = local_icon(icon, cache_dir=cache).path
+        assert not stat.S_IMODE(again.stat().st_mode) & 0o077
+        assert not stat.S_IMODE(again.parent.stat().st_mode) & 0o077
+
     def test_the_raster_keeps_the_aspect_ratio(self, tmp_path):
         pytest.importorskip("cairosvg")
         from unifi_map.assets import local_icon
