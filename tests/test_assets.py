@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import stat
 import subprocess
 from typing import ClassVar
 
@@ -953,6 +954,45 @@ class TestSvgRendersNotJustMeasures:
         again = local_icon(icon, cache_dir=cache).path
         assert not stat.S_IMODE(again.stat().st_mode) & 0o077
         assert not stat.S_IMODE(again.parent.stat().st_mode) & 0o077
+
+    @pytest.mark.parametrize("link_is_dir", [True, False])
+    def test_the_repair_refuses_to_follow_a_symlink(self, tmp_path, link_is_dir):
+        """A link in the cache must not redirect the chmod onto its target.
+
+        `Path.chmod()` follows links, so before this a symlink planted at
+        `user-svg/` or at one of its PNGs made the repair strip permissions from
+        whatever it pointed at. Nothing is disclosed — access is removed, not
+        granted — but an unrelated path loses group or world access, and in a
+        cache directory somebody else can write to that is a local
+        denial-of-service primitive.
+
+        Both shapes are covered because the directory and the file take
+        different branches: one is opened as a directory, one as a file.
+        """
+        pytest.importorskip("cairosvg")
+        import os
+
+        from unifi_map.assets import _make_private
+
+        if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+            pytest.skip("needs POSIX modes and O_NOFOLLOW")
+
+        if link_is_dir:
+            victim = tmp_path / "victim-dir"
+            victim.mkdir()
+            expected = 0o755
+        else:
+            victim = tmp_path / "victim-file"
+            victim.write_text("not yours", encoding="utf-8")
+            expected = 0o644
+        victim.chmod(expected)
+
+        link = tmp_path / "link"
+        link.symlink_to(victim)
+        _make_private(link)
+
+        assert stat.S_IMODE(victim.stat().st_mode) == expected
+        assert link.is_symlink(), "the link itself should still be a link"
 
     def test_the_raster_keeps_the_aspect_ratio(self, tmp_path):
         pytest.importorskip("cairosvg")

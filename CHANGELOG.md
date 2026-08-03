@@ -56,6 +56,21 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+### Fixed
+
+- **The permission repair for pre-0.9.0 SVG caches no longer follows symlinks.**
+  It restores private modes to rasters an earlier build left world-readable, and
+  did so through `Path.chmod()`, which follows links: a symlink planted at
+  `user-svg/` or at one of its cached PNGs redirected the change onto whatever
+  it pointed at. Nothing was disclosed, since access was removed rather than
+  granted, but an unrelated path could lose group or world access, and in a
+  cache directory writable by somebody else that is a local denial-of-service
+  primitive.
+
+  Now done through a descriptor opened `O_NOFOLLOW`, so a link fails the open
+  outright and the mode is applied to the thing that was inspected rather than
+  to whatever the name resolves to a moment later.
+
 ## 0.9.0 - 2026-08-03
 
 ### Added

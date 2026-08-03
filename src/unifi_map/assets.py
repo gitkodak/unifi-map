@@ -30,7 +30,9 @@ import hashlib
 import json
 import logging
 import math
+import os
 import re
+import stat
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
@@ -762,25 +764,45 @@ class AssetStore:
 
 
 def _make_private(path: Path) -> None:
-    """Restrict *path* if it exists, ignoring anything that cannot hold modes.
+    """Restrict *path* if it exists, refusing to follow a symlink to get there.
 
-    Suppressed rather than reported: a mount without POSIX permissions is not a
-    reason to fail a render, which is how the snapshot writer treats the same
-    situation.
+    Done through a file descriptor rather than `Path.chmod()`, which follows
+    links: a symlink planted at `user-svg/` or at one of its PNGs would
+    otherwise make this strip permissions from the target instead. That grants
+    nothing and discloses nothing, since it removes access rather than adding
+    it, but an unrelated path could lose group or world access, and in a cache
+    directory somebody else can write to it is a local denial-of-service
+    primitive.
 
-    **Known: this follows symlinks** (KAN-143). `is_dir()` and `chmod()` both
-    do, so a link planted at `user-svg/` or at one of its PNGs makes this strip
-    permissions from the target instead. It grants nothing and discloses
-    nothing — it removes access — but an unrelated path can lose group or world
-    access, and in a cache directory somebody else can write to that is a local
-    denial-of-service primitive. Filed rather than fixed for 0.9.0; the fix is
-    an `is_symlink()` refusal, or an `O_NOFOLLOW` descriptor if racing attackers
-    are in scope.
+    `is_symlink()` followed by `chmod()` would close the accidental case and
+    leave a race: the check and the change name the path twice, so the link can
+    appear between them. `O_NOFOLLOW` fails outright when the final component is
+    a link, and `fchmod` then acts on the descriptor already opened, so the
+    thing changed is the thing inspected.
+
+    Everything is suppressed. A missing file, a symlink, a mount with no POSIX
+    modes and a platform without `O_NOFOLLOW` are all reasons to leave the path
+    alone, none of them a reason to fail a render, which is how the snapshot
+    writer treats the same situation.
     """
-    if not path.exists():
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    if not nofollow:
+        # Windows and anything else without it. The repair is a courtesy for
+        # caches written by a pre-0.9.0 checkout; skipping it beats following a
+        # link blindly.
         return
-    with contextlib.suppress(OSError):
-        path.chmod(0o700 if path.is_dir() else 0o600)
+    try:
+        fd = os.open(path, os.O_RDONLY | nofollow)
+    except OSError:
+        # Absent, or the final component is a symlink (ELOOP).
+        return
+    try:
+        target = 0o700 if stat.S_ISDIR(os.fstat(fd).st_mode) else 0o600
+        os.fchmod(fd, target)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
 
 
 def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
