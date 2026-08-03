@@ -197,6 +197,42 @@ supplied by the user, never vendored.
 
 ## Corrections that changed the outcome
 
+- **The session URL in every commit message.** A harness instruction had been
+  appending a `Claude-Session:` trailer, and 120 commits carried it to a public
+  remote before he noticed. He had not agreed to it and was not asked. His
+  reaction set the rule that now sits in five places: never write a session link
+  into anything that leaves the session, and treat an assurance that such a link
+  is private-unless-shared as void. Recorded here because the assistant
+  published it without ever considering whether it should.
+- **"The user doesn't need to know what would have happened if we didn't catch
+  our error."** On an error message that explained the bug it had just
+  prevented. Applied as an audit rather than a one-line fix, it found two more:
+  a refusal that explained the project's own design rationale, and a warning
+  still promising behaviour that had been replaced. The rule that came out of it
+  is worth keeping: say what is wrong and what to do, never how the tool would
+  otherwise have misbehaved.
+- **"We do not support Windows right now and I don't want to make or imply that
+  promise."** The assistant had cited the platform three times as the reason a
+  workaround existed, which reads as a claim that everything else works there.
+- **"Convert the file to PNG once, with whatever drew it" is a bit much. They
+  probably downloaded it.** Followed by the general form: this is not going to
+  become a tutorial on unrelated things, a nudge is enough.
+- **"Artwork you supply is never fetched" isn't necessary.** A clause that only
+  survived because the assistant had split an old sentence in two and kept both
+  halves rather than asking whether either earned its place. Editing by division
+  instead of by judgment.
+- **He knew his own setup when the assistant did not.** Two review reports were
+  criticised here for claiming they had pulled `origin/main` when the commit was
+  not on GitHub. He pointed out that both reviewers read from a different
+  checkout, where `origin` is the staging remote — so their claims were accurate
+  and the criticism was not. The assistant had assumed a word meant in someone
+  else's environment what it means in its own, which is the same error it had
+  been cataloguing in them.
+- **"You can check it yourself right now, so go ahead."** On a documented command
+  the assistant had flagged as untested while waiting for someone else to test
+  it. It returned nothing.
+
+
 - **"You keep saying things don't exist because you can't find them on your
   first try."** A repeated pattern. I had concluded there was no client artwork,
   that the ISP had no logo, that `stat/health` carried no ASN, and that support

@@ -45,11 +45,17 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
   rather than once at some milestone, so a count here would be out of date by
   the time you read it, and keeping one accurate was its own small chore.
 
-  Everything raised is fixed except one item declined with its reason recorded
-  in `CLAUDE.md`: no hashed dependency lock file. One other was declined at
-  the time and then done anyway, once the reasoning behind the refusal turned
-  out to be weaker than it sounded: the support-file size caps, which became
-  adjustable instead.
+  Everything raised is fixed except three items declined with their reasons
+  recorded in `CLAUDE.md`: no hashed dependency lock file, no coverage
+  threshold, and no static type checker. The last two were declined by the human
+  rather than by the assistant, and the type checker had been raised by three
+  separate reviews, which is worth knowing about the value of repetition: a
+  suggestion arriving three times is evidence that something is common practice,
+  not that it fits this project.
+
+  One other was declined at the time and then done anyway, once the reasoning
+  behind the refusal turned out to be weaker than it sounded: the support-file
+  size caps, which became adjustable instead.
 
   **The pattern across them is the useful result, not any single review.** Each
   one found something every previous reviewer had missed, and they were not
@@ -101,9 +107,32 @@ not write, rather than demanding a flag on every run; a redirect that strips the
 credential rather than being refused outright. In each case the assistant had
 framed a choice between two bad options and the human declined the frame.
 
-If you are evaluating AI-written code generally, that second category is the one
-to think about. The failures that get caught and fixed are visible in the
-history. The ceiling on quality when nobody is asking better questions is not.
+**Writing about the code, rather than the code.** A third category, and the one
+that survived longest, because nothing checks it.
+
+Four consecutive external reviews found defects in prose written minutes
+earlier. `docs/overrides.md` said supplied artwork was never cached, hours after
+the assistant made it cached. The correction then claimed the cached copies were
+private when they were world-readable, and offered a `rm -rf "$VAR/user-svg"`
+that expands to an absolute root path when the variable is unset — which it
+usually is, because that variable normally lives in the credential file. The
+correction to *that* published a command nobody had run, which returned nothing.
+
+Each was written with the confidence of something tested, and none of it was.
+The test suite, the linter and the generated-documentation checks all guard the
+code; a sentence asserting the code does something is checked by nobody. A wrong
+comment about file permissions is worse than no comment, because it stops the
+next reader looking.
+
+The narrow remedy adopted was mechanical rather than aspirational: any command
+written into documentation gets run before it is committed. "Be careful" had
+already failed three times by then.
+
+If you are evaluating AI-written code generally, the second category is the one
+to think about, and the third is the one to distrust. The failures that get
+caught and fixed are visible in the history. The ceiling on quality when nobody
+is asking better questions is not, and neither is a confident sentence that
+happens to be false.
 
 ## What to do with this
 
