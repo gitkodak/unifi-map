@@ -247,6 +247,29 @@ above calls for minor on a new flag and, pre-1.0, on a changed default.
   sections the split had moved (`CLAUDE.md`, the `--icon-font` help text, and
   the pull request checklist).
 
+- **An overrides file could mean the opposite of what it said.** `wireless =
+  "false"` and `hide = "false"` both read as true, because `bool("false")` is
+  true and TOML has real booleans that are easy to quote by accident. `port =
+  true` became port 1, since `bool` subclasses `int`. `port = 1.9` became port
+  1. And a misspelled key such as `wirless` was accepted and ignored, so the
+  link simply stayed solid with nothing said. All four now stop the run, and the
+  unknown-key error lists what the block does accept. This is the rule the
+  feature already claimed: a stale or mistyped override fails loudly rather than
+  quietly doing something else.
+- **SVG artwork was accepted and then broke the render.** Graphviz refuses an
+  SVG with no XML declaration, reporting it as a file that "was not found",
+  which fails the whole run; measuring it here and letting it through turned a
+  bad icon into a bad map. The accepted subset is now what Graphviz will
+  actually load, verified by rendering one rather than by reading a spec, and
+  `width="."` no longer raises while `width="0.5"` no longer becomes a 0x0 icon
+  drawn as nothing.
+- **Downloaded artwork bypassed the pixel cap.** The guard was added to the path
+  that measures files already on disk and not to the one that decodes bytes off
+  the network, which is the path that matters most.
+- **An icon whose path contains `&` was left in the output as a path.** Graphviz
+  writes it into an XML attribute, so it arrives as `&amp;` and never matched
+  the permitted set, defeating the inlining that exists to keep local paths out
+  of a file meant for sharing.
 - **`unifi-map shape` could print the values it promises never to print.**
   Unrecognised keys were named, filtered to "schema-shaped" tokens on the
   reasoning that a field name is controller schema worth seeing on an unfamiliar

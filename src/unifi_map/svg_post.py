@@ -9,6 +9,7 @@ each reference into a base64 data URI makes the diagram a single portable file.
 from __future__ import annotations
 
 import base64
+import html
 import logging
 import mimetypes
 import re
@@ -46,6 +47,11 @@ def inline_svg_images(svg: bytes, allowed: Iterable[Path] = ()) -> bytes:
 
     def replace(match: re.Match[bytes]) -> bytes:
         raw = match.group("path")
+        # This is an XML attribute value, so a path containing `&` arrives as
+        # `&amp;`. Compared literally, such a file never matched the permitted
+        # set and was left in the output as an absolute path, which is the
+        # disclosure this function exists to prevent.
+        raw = html.unescape(raw.decode("utf-8", errors="replace")).encode("utf-8")
         if raw.startswith(b"data:"):
             return match.group(0)
         if raw in cache:

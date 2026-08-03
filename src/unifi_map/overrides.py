@@ -151,12 +151,66 @@ def _optional_str(table: dict, key: str) -> str | None:
     value = table.get(key)
     if value is None:
         return None
-    # Ports are naturally written unquoted in TOML, so accept an int too.
-    if isinstance(value, int | float):
+    # `bool` is a subclass of `int` in Python, so `port = true` used to become
+    # the port "1". Checked first, and refused.
+    if isinstance(value, bool):
+        raise OverrideError(f"'{key}' must be a string or number, got a boolean")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        # `port = 1.9` silently became "1". A port is a whole number, and a
+        # fractional one is a typo worth stopping for.
+        if value != int(value):
+            raise OverrideError(f"'{key}' must be a whole number, got {value}")
         return str(int(value))
     if not isinstance(value, str):
         raise OverrideError(f"'{key}' must be a string or number, got {type(value).__name__}")
     return value.strip() or None
+
+
+# Every key each block accepts. A file is hand-edited, and a misspelling is the
+# most likely mistake in one.
+_KNOWN_KEYS: dict[str, frozenset[str]] = {
+    "device": frozenset({"name", "kind", "ip", "model", "parent", "port", "icon", "note"}),
+    "link": frozenset({"from", "to", "port", "speed", "note", "wireless"}),
+    "hosted": frozenset({"guest", "host", "note"}),
+    "node": frozenset({"match", "name", "icon", "hide", "note"}),
+}
+
+
+def _refuse_unknown_keys(table: dict, block: str, context: str) -> None:
+    """Reject a key this block does not accept.
+
+    `wirless = true` was accepted and ignored, so the link stayed solid and
+    nothing said why. That is the same failure as a stale selector, which this
+    file already refuses loudly: a typo has to stop the run, or the map quietly
+    does not say what the file says.
+    """
+    unknown = sorted(k for k in table if k not in _KNOWN_KEYS[block])
+    if unknown:
+        known = ", ".join(sorted(_KNOWN_KEYS[block]))
+        raise OverrideError(
+            f"{context}: unknown key(s) {', '.join(repr(k) for k in unknown)}. "
+            f"[[{block}]] accepts: {known}."
+        )
+
+
+def _optional_bool(table: dict, key: str, context: str) -> bool:
+    """A flag that must actually be a TOML boolean.
+
+    `bool("false")` is `True`, so `wireless = "false"` and `hide = "false"` both
+    read as the opposite of what they say. Quoting a boolean is an easy mistake
+    in a format that has real booleans, and the whole design rule here is that
+    an overrides file fails loudly rather than doing something else quietly.
+    """
+    value = table.get(key)
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise OverrideError(
+            f"{context}: '{key}' must be true or false without quotes, got {value!r}"
+        )
+    return value
 
 
 def _icon_path(table: dict, base_dir: Path | None) -> Path | None:
@@ -184,6 +238,7 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
         if not isinstance(raw, dict):
             raise OverrideError(f"[[device]] #{index} must be a table")
         context = f"[[device]] #{index}"
+        _refuse_unknown_keys(raw, "device", context)
         name = _require_str(raw, "name", context)
         if name.lower() in seen_names:
             raise OverrideError(f"{context}: a device named {name!r} is already declared")
@@ -215,6 +270,7 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
         if not isinstance(raw, dict):
             raise OverrideError(f"[[link]] #{index} must be a table")
         context = f"[[link]] #{index}"
+        _refuse_unknown_keys(raw, "link", context)
         result.links.append(
             Link(
                 source=_require_str(raw, "from", context),
@@ -222,7 +278,7 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
                 port=_optional_str(raw, "port"),
                 speed=_optional_str(raw, "speed"),
                 note=_optional_str(raw, "note"),
-                wireless=bool(raw.get("wireless", False)),
+                wireless=_optional_bool(raw, "wireless", context),
             )
         )
 
@@ -230,6 +286,7 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
         if not isinstance(raw, dict):
             raise OverrideError(f"[[hosted]] #{index} must be a table")
         context = f"[[hosted]] #{index}"
+        _refuse_unknown_keys(raw, "hosted", context)
         result.hosted.append(
             Hosted(
                 guest=_require_str(raw, "guest", context),
@@ -242,10 +299,11 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
         if not isinstance(raw, dict):
             raise OverrideError(f"[[node]] #{index} must be a table")
         context = f"[[node]] #{index}"
+        _refuse_unknown_keys(raw, "node", context)
         icon = _icon_path(raw, base_dir)
         name = _optional_str(raw, "name")
         note = _optional_str(raw, "note")
-        hide = bool(raw.get("hide", False))
+        hide = _optional_bool(raw, "hide", context)
         if name is None and icon is None and not hide:
             raise OverrideError(f"{context}: needs at least one of 'name', 'icon' or 'hide'")
         result.nodes.append(

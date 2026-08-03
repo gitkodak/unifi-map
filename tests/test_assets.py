@@ -7,6 +7,7 @@ so AssetStore reads it from disk.
 from __future__ import annotations
 
 import json
+import shutil
 from typing import ClassVar
 
 import pytest
@@ -763,7 +764,11 @@ class TestOversizedImagesAndNonPngArtwork:
         from unifi_map.assets import local_icon
 
         path = tmp_path / "icon.svg"
+        # The XML declaration is required: without it Graphviz refuses the file
+        # and the render fails, so accepting it here would trade a missing icon
+        # for a broken run. This test asserted the version without one.
         path.write_text(
+            '<?xml version="1.0"?>'
             '<svg xmlns="http://www.w3.org/2000/svg" width="64px" height="32px"></svg>',
             encoding="utf-8",
         )
@@ -797,3 +802,97 @@ class TestOversizedImagesAndNonPngArtwork:
         out = inline_svg_images(svg, [icon]).decode()
         assert "data:image/svg+xml;base64," in out
         assert str(icon) not in out, "the absolute path survived, which is the disclosure"
+
+
+class TestSvgRendersNotJustMeasures:
+    """Measuring an SVG is not evidence Graphviz will draw it.
+
+    The first version checked only that dimensions could be read, and happily
+    accepted a standards-valid SVG that Graphviz then refused with "was not
+    found as a file", failing the whole render. Accepting an icon that breaks
+    the run is worse than refusing it.
+    """
+
+    HEAD = '<?xml version="1.0"?>'
+    BODY = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="64px" height="32px">'
+        '<rect width="64" height="32" fill="#888"/></svg>'
+    )
+
+    @pytest.mark.skipif(shutil.which("dot") is None, reason="graphviz `dot` not installed")
+    def test_an_accepted_svg_actually_renders(self, tmp_path):
+        from unifi_map.assets import local_icon
+        from unifi_map.layout import run_dot
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(self.HEAD + self.BODY, encoding="utf-8")
+        assert local_icon(icon) is not None
+
+        dot = (
+            'digraph{n[shape=none,label=<<TABLE BORDER="0"><TR><TD>'
+            f'<IMG SRC="{icon}"/></TD></TR></TABLE>>];}}'
+        )
+        # Graphviz reports a rejected image as a *warning* and still exits 0,
+        # so the absence of that warning is the assertion, not the exit code.
+        out = run_dot(dot, "svg").decode("utf-8", errors="replace")
+        assert "was not found" not in out
+        assert len(out) > 0
+
+    @pytest.mark.parametrize(
+        "body,why",
+        [
+            (BODY, "no XML declaration: Graphviz refuses it and fails the render"),
+            (HEAD + '<svg width="." height="5"/>', "not a number"),
+            (HEAD + '<svg viewBox="0 0 64 32"/>', "no explicit dimensions"),
+            (HEAD + '<svg width="0" height="10"/>', "zero width"),
+            (HEAD + '<svg width="-4" height="10"/>', "negative width"),
+        ],
+    )
+    def test_an_svg_graphviz_would_reject_is_refused_here(self, tmp_path, body, why):
+        from unifi_map.assets import AssetError, local_icon
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(body, encoding="utf-8")
+        with pytest.raises(AssetError):
+            local_icon(icon)
+
+    def test_a_fractional_size_never_rounds_to_nothing(self, tmp_path):
+        """`int(0.5)` is 0, and a 0x0 icon is drawn as nothing at all."""
+        from unifi_map.assets import local_icon
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(self.HEAD + '<svg width="0.5px" height="0.5px"/>', encoding="utf-8")
+        asset = local_icon(icon)
+        assert asset.width >= 1 and asset.height >= 1
+
+
+def test_an_oversized_download_is_refused_too(tmp_path):
+    """The size guard went on `_measure` and not on `_downscale`, which is the
+    path that decodes bytes straight off the network."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    from unifi_map import assets
+
+    side = int(assets.MAX_IMAGE_PIXELS**0.5) + 2000
+    buffer = BytesIO()
+    Image.new("RGBA", (side, side), (0, 0, 0, 0)).save(buffer, "PNG")
+
+    with pytest.raises(assets.AssetError):
+        assets._downscale(buffer.getvalue(), tmp_path / "out.png", 256)
+
+
+def test_an_xml_escaped_path_is_still_inlined(tmp_path):
+    """Graphviz writes the path into an XML attribute, so `&` arrives as
+    `&amp;`. Compared literally it never matched the permitted set, and the
+    absolute path stayed in the output: the disclosure the function prevents."""
+    from unifi_map.svg_post import inline_svg_images
+
+    icon = tmp_path / "private&name.png"
+    icon.write_bytes(b"\x89PNG\r\n\x1a\n")
+    svg = f'<image href="{str(icon).replace("&", "&amp;")}"/>'.encode()
+
+    out = inline_svg_images(svg, [icon]).decode()
+    assert "data:image/png;base64," in out
+    assert "private" not in out.split("data:")[0], "the path survived alongside the data URI"

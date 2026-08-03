@@ -28,6 +28,7 @@ import base64
 import contextlib
 import json
 import logging
+import math
 import re
 import warnings
 from dataclasses import dataclass
@@ -845,19 +846,38 @@ def _measure_svg(path: Path) -> IconAsset | None:
 
     `docs/overrides.md` documents SVG as usable artwork, and it was not: every
     SVG was rejected at this function, because measuring went through Pillow.
-    Graphviz will only load an SVG that declares explicit pixel dimensions
-    anyway, so requiring them here refuses exactly what Graphviz would refuse,
-    and with a better message.
+    Accepts only what Graphviz will actually load, which is narrower than
+    "valid SVG": explicit pixel `width` and `height`, *and* an XML declaration.
+    Refusing here names the file, which beats a Graphviz warning about a file
+    that plainly exists, or silence.
     """
     try:
-        head = path.read_bytes()[:4096]
+        # Only the head, rather than reading the file and then slicing it.
+        with path.open("rb") as handle:
+            head = handle.read(4096)
     except OSError:
         return None
-    found = {m.group(1).lower(): float(m.group(2)) for m in _SVG_DIM.finditer(head)}
-    width, height = found.get(b"width"), found.get(b"height")
-    if not width or not height:
+    # Graphviz rejects an SVG with no XML declaration, reporting it as a file
+    # that "was not found", which fails the entire render. Measuring it here
+    # and letting it through turned a bad icon into a bad run. Learned by
+    # rendering one, not from a spec.
+    if b"<?xml" not in head:
         return None
-    return IconAsset(path=path, width=int(width), height=int(height))
+    found: dict[bytes, float] = {}
+    for match in _SVG_DIM.finditer(head):
+        try:
+            found[match.group(1).lower()] = float(match.group(2))
+        except ValueError:
+            # `width="."` matches the pattern and is not a number.
+            return None
+    width, height = found.get(b"width"), found.get(b"height")
+    if width is None or height is None:
+        return None
+    if not (math.isfinite(width) and math.isfinite(height)) or width <= 0 or height <= 0:
+        return None
+    # Rounded, never to zero: `width="0.5"` truncated to a 0x0 icon, which
+    # Graphviz draws as nothing at all.
+    return IconAsset(path=path, width=max(1, round(width)), height=max(1, round(height)))
 
 
 def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:
@@ -957,7 +977,10 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
 
     Image = _pillow_image()
     try:
-        with Image.open(BytesIO(raw)) as image:
+        # Same guard as `_measure`. This is the path that decodes bytes
+        # straight off the network, so leaving it out meant the cap applied
+        # to artwork already on disk and not to artwork arriving.
+        with _bomb_guard(Image), Image.open(BytesIO(raw)) as image:
             image = image.convert("RGBA")
             bbox = image.getbbox()
             if bbox:

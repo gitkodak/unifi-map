@@ -701,3 +701,48 @@ class TestCycleRefusal:
         # Two children of one parent revisit the same ancestors; revisiting is
         # only a loop when the node is still on the current path.
         _refuse_cycles(self._topo([Edge(src="a", dst="b"), Edge(src="c", dst="b")]))
+
+
+class TestMistakesFailLoudly:
+    """An overrides file is hand-edited, so the likely mistakes are typos.
+
+    The rule this file states is that a stale or wrong override stops the run
+    rather than quietly doing something else. These four did the something
+    else: two inverted a flag, one truncated a port, one was ignored entirely.
+    """
+
+    @pytest.mark.parametrize(
+        "payload,message",
+        [
+            # `bool("false")` is True, and TOML has real booleans, so quoting
+            # one is easy and silently meant the opposite.
+            ({"link": [{"from": "a", "to": "b", "wireless": "false"}]}, "without quotes"),
+            ({"node": [{"match": "a", "hide": "false"}]}, "without quotes"),
+            # `bool` is a subclass of `int`, so this became the port "1".
+            ({"link": [{"from": "a", "to": "b", "port": True}]}, "got a boolean"),
+            ({"link": [{"from": "a", "to": "b", "port": 1.9}]}, "whole number"),
+            # Accepted and ignored, so the link simply stayed solid.
+            ({"link": [{"from": "a", "to": "b", "wirless": True}]}, "unknown key"),
+            ({"device": [{"name": "sw", "kynd": "switch"}]}, "unknown key"),
+            ({"hosted": [{"guest": "a", "host": "b", "notes": "x"}]}, "unknown key"),
+            ({"node": [{"match": "a", "name": "b", "hidden": True}]}, "unknown key"),
+        ],
+    )
+    def test_it_is_refused(self, payload, message):
+        with pytest.raises(OverrideError, match=message):
+            parse(payload)
+
+    def test_the_error_lists_what_the_block_does_accept(self):
+        with pytest.raises(OverrideError, match="accepts: from, note, port, speed, to, wireless"):
+            parse({"link": [{"from": "a", "to": "b", "wirless": True}]})
+
+    def test_correct_spellings_still_work(self):
+        result = parse(
+            {
+                "link": [{"from": "a", "to": "b", "port": 24, "speed": "10G", "wireless": True}],
+                "node": [{"match": "c", "hide": True}],
+            }
+        )
+        assert result.links[0].wireless is True
+        assert result.links[0].port == "24"
+        assert result.nodes[0].hide is True
