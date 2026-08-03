@@ -39,28 +39,45 @@ back out light. Observed with one unchanged `--theme dark` file:
 | Dark, or Automatic on a dark desktop | **Light** |
 | Light | **Dark** |
 
-Nothing is corrupted when this happens. The inversion is holistic, so cells,
-text and artwork all flip together and the file stays internally coherent. It
-simply reads as the theme you did not ask for.
+A file authored **light**, by contrast, is right in both:
 
-Two ways to get what you wanted, and neither is better than the other:
+| draw.io appearance | light file | dark file |
+| --- | --- | --- |
+| Light | light canvas, dark text | dark canvas |
+| Dark, or Automatic on a dark desktop | dark canvas, light text | light canvas |
 
-- **Render `.drawio` with `--theme light`** and let draw.io darken it. That is
-  the convention its dark mode is built around, so a dark-mode reader gets a
-  dark diagram. Worth doing when the file is going to somebody whose setup you
-  do not know.
-- **Change the appearance in draw.io.** Under Extras, set the theme explicitly
-  rather than leaving it on Automatic. Better when the file is for you and you
-  already know how your own editor is configured.
+So `--theme light` is not a workaround here, it is the answer. Read the left
+column: a light-authored file gives you a light diagram in light mode and a
+dark diagram in dark mode, which is what you wanted from `--theme` in the first
+place. A dark-authored one is wrong in both.
+
+Nothing is corrupted when the inversion happens. It is holistic, so cells, text
+and artwork flip together and the file stays internally coherent. It simply
+reads as the theme you did not ask for.
+
+Two ways to get what you want:
+
+- **Render `.drawio` with `--theme light`** and let draw.io theme it. Right for
+  every reader, whatever their appearance setting, which matters most when the
+  file is going to somebody whose setup you do not know. `unifi-map` warns if
+  you ask for `--theme dark` and `drawio` together.
+- **Set the appearance in draw.io explicitly**, rather than leaving it on
+  Automatic. Enough when the file is for you and you know how your own editor
+  is configured, though it does not help anybody you send it to.
 
 If you want a dark diagram whose colours are fixed and cannot be re-themed by a
 viewer, use `svg` or `pdf` instead. Those we control completely.
 
-**This is not something this tool can fix.** The re-theming happens inside
+**The re-theming itself is not something this tool can fix.** It happens inside
 draw.io, after the file is written, and there is no attribute we can set that is
-known to opt out of it. Documenting the interaction is the honest option;
-quietly ignoring `--theme` for this one format would trade a surprise you can
-now read about for one you could not.
+known to opt out of it.
+
+What we could do is author `.drawio` light whatever `--theme` says. That is not
+done yet, and the reason is worth knowing: the icons this project draws itself
+are **baked** in a colour taken from the theme, and one set of images is shared
+by every format in a run. Rendering the draw.io file light while the run is dark
+would put light-baked icons on a white card. Doing it properly means resolving
+artwork twice, which is a real change rather than a flag flip.
 
 ## Lucid does not import these files
 

@@ -277,12 +277,28 @@ that the two files had been swapped, and that draw.io was ignoring our
 `background` attribute. The attribute is written correctly for both themes,
 verified against the reporter's own files on disk.
 
-The guidance is in `docs/output.md`: render `.drawio` with `--theme light` and
-let draw.io darken it, or set the appearance in draw.io explicitly rather than
-leaving it on Automatic. **Do not "fix" this by forcing `.drawio` light and
-ignoring the flag.** That was considered and rejected: silently discarding an
-explicit instruction is worse than an interaction somebody can read about, and
-it is out of step with how the rest of this tool treats what the user asked for.
+**A light-authored file is right in both of draw.io's modes**, which was
+established a day later and changes the conclusion. Light mode leaves it light;
+dark mode inverts it to dark. That is exactly what `--theme` was supposed to
+deliver. A dark-authored file is right in neither, so `--theme dark -f drawio`
+is not a user choice with a trade-off, it is a combination with no configuration
+that works.
+
+This file previously recorded "do not fix this by forcing `.drawio` light" as
+considered and rejected, on the grounds that silently discarding an explicit
+flag is worse than a documented surprise. **That reasoning assumed dark was
+right for somebody.** It is not, so the objection was answered by evidence
+rather than by argument. Recorded because the earlier note reads persuasively
+and would otherwise stop the fix twice.
+
+What exists today is a warning: `cmd_render` says so once when `--theme dark`
+and `drawio` are combined. **The full fix is blocked on something real**, which
+is why it is a warning and not a swap: the icons this project draws are baked in
+`theme.text_muted`, and one `icons` dict is shared by every format in a run.
+Rendering the draw.io file light while the run is dark would put light-baked
+icons on a white card, trading a reported bug for an unreported one. Doing it
+properly means resolving artwork twice, once per output theme, which `write_outputs`
+is not shaped for.
 
 The general shape is the same as the `bgcolor` note above. Where we produce the
 final pixels, `--theme` means what it says. Where the output is handed to

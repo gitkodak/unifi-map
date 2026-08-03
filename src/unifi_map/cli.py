@@ -390,6 +390,20 @@ def cmd_render(args: argparse.Namespace) -> int:
     )
     log.info("Style: icons=%s layout=%s theme=%s", style.icons, style.layout, args.theme)
 
+    if args.theme == "dark" and "drawio" in args.formats:
+        # draw.io re-themes on load: its dark mode assumes diagrams are
+        # authored light and inverts them, so a file authored dark comes back
+        # out light. A light-authored file is right in both of draw.io's modes
+        # and a dark-authored one is right in neither, which makes this the one
+        # combination with no configuration that works. Said once, here, rather
+        # than left for somebody to rediscover by opening the file.
+        log.warning(
+            "--theme dark applies to every format except drawio, where draw.io "
+            "re-themes the file itself and will render it light. Use --theme "
+            "light for the .drawio, or set the appearance in draw.io "
+            "explicitly. See docs/output.md."
+        )
+
     override_icons: dict[str, IconAsset] = {}
     path = args.overrides or (DEFAULT_OVERRIDES if DEFAULT_OVERRIDES.is_file() else None)
     if path is not None:

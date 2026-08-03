@@ -200,6 +200,10 @@ def render_drawio(
             fallback_y += 50.0
         _geometry(cell, geometry)
 
+    # Graphviz reported a route per edge; consumed in order, because two nodes
+    # can be joined more than once and the nth here is the nth there.
+    routes = {pair: list(paths) for pair, paths in layout.edges.items()}
+
     for index, edge in enumerate(topo.edges):
         if edge.src not in topo.nodes or edge.dst not in topo.nodes:
             continue
@@ -212,6 +216,7 @@ def render_drawio(
             style += "dashed=1;dashPattern=1 3;"
         elif edge.wireless:
             style += "dashed=1;"
+        source, target = _cell_id(edge.dst), _cell_id(edge.src)
         cell = ET.SubElement(
             root,
             "mxCell",
@@ -221,10 +226,26 @@ def render_drawio(
             edge="1",
             parent="1",
             # parent -> child, matching the DOT renderer's direction.
-            source=_cell_id(edge.dst),
-            target=_cell_id(edge.src),
+            source=source,
+            target=target,
         )
-        _geometry(cell, {"relative": "1"})
+        geometry = _geometry(cell, {"relative": "1"})
+
+        # Hand draw.io the route Graphviz already computed. Without this the
+        # edge carries only its endpoints, draw.io routes it with its own
+        # router, and a long run is drawn straight through whatever the layout
+        # placed in between: on a real map, lines crossing unrelated devices.
+        # Graphviz avoided those obstacles and we were discarding the answer.
+        waypoints = routes.get((source, target))
+        path = waypoints.pop(0) if waypoints else None
+        if path and len(path) > 2:
+            # The first and last points sit on the node boundaries, which
+            # draw.io derives from the shapes themselves. Passing them as
+            # waypoints puts a redundant bend right at each end.
+            array = ET.SubElement(geometry, "Array")
+            array.set("as", "points")
+            for x, y in path[1:-1]:
+                ET.SubElement(array, "mxPoint", x=f"{x:.1f}", y=f"{y:.1f}")
 
     return ET.tostring(mxfile, encoding="unicode")
 

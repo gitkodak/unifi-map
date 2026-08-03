@@ -634,6 +634,84 @@ class TestDrawioGeometryIsAddressable:
         assert list(ET.fromstring(self._render()).iter("mxGeometry"))
 
 
+class TestDrawioEdgesCarryGraphvizsRoute:
+    """An edge must ship the waypoints Graphviz computed, not just its ends.
+
+    With only `source` and `target`, draw.io routes the edge itself and draws a
+    long run straight through whatever the layout placed in between. On a real
+    map that is connection lines crossing unrelated devices. Graphviz already
+    solved it and the answer was being discarded.
+
+    Safe to pass straight through because both layouts set `splines` to `ortho`
+    or `polyline`, never a bezier, so the reported points are corners on the
+    route rather than control points.
+    """
+
+    def _layout_and_topo(self):
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.render_drawio import _cell_id
+
+        topo = Topology()
+        topo.add(Node(id="a", label="a", kind=Kind.SWITCH))
+        topo.add(Node(id="b", label="b", kind=Kind.AP))
+        topo.edges.append(Edge(src="b", dst="a", label="1"))
+        layout = Layout(
+            nodes={
+                _cell_id("a"): Placed(x=0.0, y=0.0, width=10.0, height=10.0),
+                _cell_id("b"): Placed(x=0.0, y=200.0, width=10.0, height=10.0),
+            },
+            width=10.0,
+            height=210.0,
+            # Endpoints plus two corners; only the corners should be emitted.
+            edges={
+                (_cell_id("a"), _cell_id("b")): [
+                    [(5.0, 10.0), (60.0, 60.0), (60.0, 150.0), (5.0, 200.0)]
+                ]
+            },
+        )
+        return topo, layout
+
+    def _render(self):
+        from unifi_map.render_drawio import render_drawio
+        from unifi_map.theme import LIGHT
+
+        topo, layout = self._layout_and_topo()
+        return render_drawio(topo, layout, "t", LIGHT)
+
+    def test_the_interior_waypoints_are_emitted(self):
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(self._render())
+        arrays = [a for a in root.iter("Array") if a.get("as") == "points"]
+        assert arrays, "edge carries no waypoint array"
+        pts = [(m.get("x"), m.get("y")) for m in arrays[0]]
+        assert pts == [("60.0", "60.0"), ("60.0", "150.0")]
+
+    def test_the_endpoints_are_not_repeated_as_waypoints(self):
+        """draw.io derives those from the shapes; passing them bends the ends."""
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(self._render())
+        array = next(a for a in root.iter("Array") if a.get("as") == "points")
+        xs = {m.get("x") for m in array}
+        assert "5.0" not in xs
+
+    def test_an_edge_with_no_reported_route_still_renders(self):
+        """A route we could not read means draw.io routes it, as it used to."""
+        import xml.etree.ElementTree as ET
+
+        from unifi_map.layout import Layout
+        from unifi_map.render_drawio import render_drawio
+        from unifi_map.theme import LIGHT
+
+        topo, layout = self._layout_and_topo()
+        bare = Layout(nodes=layout.nodes, width=layout.width, height=layout.height)
+        root = ET.fromstring(render_drawio(topo, bare, "t", LIGHT))
+        assert [c for c in root.iter("mxCell") if c.get("edge")]
+        assert not [a for a in root.iter("Array") if a.get("as") == "points"]
+
+
 class TestDrawioLabelsStayInsideTheirCell:
     """A node's caption must render within the box Graphviz sized for it.
 

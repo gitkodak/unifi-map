@@ -11,7 +11,7 @@ import logging
 import os
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +41,14 @@ class Layout:
     nodes: dict[str, Placed]
     width: float
     height: float
+    # Waypoints per (tail, head), in the order Graphviz reported them and in
+    # the same pixel space as `nodes`. Both layouts set `splines` to `ortho` or
+    # `polyline`, never a bezier, so these are real corners on the route rather
+    # than control points, and can be handed to draw.io as-is.
+    #
+    # A list per pair because two nodes can be joined more than once, and the
+    # nth DOT edge between a pair is the nth reported here.
+    edges: dict[tuple[str, str], list[list[tuple[float, float]]]] = field(default_factory=dict)
 
 
 # Names a credential can arrive under. Stripped from any child's environment:
@@ -171,6 +179,7 @@ def parse_plain(plain: str) -> Layout:
     scale = 1.0
     graph_w = graph_h = 0.0
     raw: dict[str, tuple[float, float, float, float]] = {}
+    raw_edges: dict[tuple[str, str], list[list[tuple[float, float]]]] = {}
 
     for line in plain.splitlines():
         fields = _split_plain(line.strip())
@@ -181,6 +190,20 @@ def parse_plain(plain: str) -> Layout:
         elif fields[0] == "node" and len(fields) >= 6:
             name, x, y, w, h = fields[1], *map(float, fields[2:6])
             raw[name] = (x, y, w, h)
+        elif fields[0] == "edge" and len(fields) >= 4:
+            # `edge tail head n x1 y1 ... xn yn [label xl yl] style color`.
+            # Anything after the 2n coordinates is ignored: the label position
+            # is draw.io's business and the style is already set by the caller.
+            try:
+                count = int(fields[3])
+                coords = [float(v) for v in fields[4 : 4 + count * 2]]
+            except (ValueError, IndexError):
+                # A line we cannot read is one edge routed by draw.io instead,
+                # which is the old behaviour rather than a failure.
+                continue
+            if len(coords) == count * 2:
+                points = list(zip(coords[0::2], coords[1::2], strict=True))
+                raw_edges.setdefault((fields[1], fields[2]), []).append(points)
         elif fields[0] == "stop":
             break
 
@@ -203,10 +226,26 @@ def parse_plain(plain: str) -> Layout:
             height=height,
         )
 
+    # Same transform as the nodes above, so a waypoint and a node centre agree.
+    edges = {
+        pair: [
+            [
+                (
+                    x * POINTS_PER_INCH * scale,
+                    (graph_h - y) * POINTS_PER_INCH * scale,
+                )
+                for x, y in route
+            ]
+            for route in routes
+        ]
+        for pair, routes in raw_edges.items()
+    }
+
     return Layout(
         nodes=nodes,
         width=graph_w * POINTS_PER_INCH * scale,
         height=graph_h * POINTS_PER_INCH * scale,
+        edges=edges,
     )
 
 
