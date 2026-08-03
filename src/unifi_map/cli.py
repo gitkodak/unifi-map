@@ -426,6 +426,16 @@ def cmd_render(args: argparse.Namespace) -> int:
         ", ".join(f"{count} {kind}" for kind, count in sorted(tally.items())) or "empty",
     )
     log.info("Style: icons=%s layout=%s theme=%s", style.icons, style.layout, args.theme)
+    # Where the directories actually resolved to. Worth saying because a flag is
+    # not the only way they get set: `UNIFI_CACHE_DIR` and `UNIFI_ASSET_CACHE`
+    # can come from the credential file, which is deliberately somewhere the
+    # reader is not looking. Without this there is no way to find out where the
+    # artwork cache is short of reading `--help` and guessing whether a default
+    # applied. Debug rather than info: correct for a normal run, and the whole
+    # point of `-v` is the detail that is usually noise.
+    log.debug(
+        "Directories: cache=%s assets=%s out=%s", args.cache_dir, args.asset_cache, args.out_dir
+    )
 
     if args.theme == "dark" and "drawio" in args.formats:
         # draw.io re-themes on load: its dark mode assumes diagrams are

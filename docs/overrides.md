@@ -231,16 +231,19 @@ rm -rf cache/assets/user-svg
 ```
 
 If you moved the cache with `--asset-cache` or `UNIFI_ASSET_CACHE`, delete
-`user-svg/` inside that directory instead. Check where it is first rather than
-letting a shell expand it for you:
+`user-svg/` inside that directory instead. `-v` prints where everything actually
+resolved to, which is worth checking first:
 
 ```bash
-unifi-map render -v 2>&1 | grep -i 'asset cache'
+unifi-map render -v 2>&1 | grep Directories
+# Directories: cache=... assets=... out=...
 ```
 
-`UNIFI_ASSET_CACHE` may be set in the credential file rather than your shell, so
-an unset variable in a `rm -rf` line would expand to an absolute path you did
-not mean.
+That matters because `UNIFI_ASSET_CACHE` can be set in the credential file
+rather than your shell, so the variable may be empty where you are typing even
+though the tool is using it. Read the path and type it out; do not put the
+variable in an `rm -rf` line, where an empty expansion aims at an absolute path
+you did not mean.
 
 PNG and other raster overrides are not copied anywhere; only SVG rasterisation
 writes to the cache.
