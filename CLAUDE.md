@@ -75,11 +75,15 @@ Symlink mode bits are always `777`, so `stat` on a symlinked credential file
 raises a false "world-readable key" alarm. The file was `600` throughout. Use
 `stat -L`, or `ls -laL`, when the thing you care about is the target.
 
-### A repeated `-f` overwrites rather than appends
+### A repeated `-f` used to overwrite rather than append
 
-`-f` is `nargs="+"`, so `-f svg -f png` silently yields **png only**, not both.
-Pass them together: `-f svg pdf png`. This is a property of the tool's own CLI
-and worth remembering before concluding a format failed to render.
+`-f` is `nargs="+"`, so `-f svg -f png` silently yielded **png only**, which
+read as a format that had failed to render. Fixed in 0.9.0: `_FormatsAction`
+now refuses the repeat and names the working form, `-f svg pdf png`.
+
+Kept here because the shape recurs. Any `nargs="+"` or `action="store"` option
+behaves this way, so a future flag that accepts several values needs the same
+treatment or it will reintroduce the same silent loss.
 
 ### Do not use `git commit --no-verify`
 

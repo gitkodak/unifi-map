@@ -217,13 +217,30 @@ override is rasterised to PNG once and that PNG is kept under
 Editing your SVG produces a new entry rather than replacing the old one, and
 nothing removes either automatically, so copies accumulate.
 
-They carry the same private permissions as the rest of the artwork cache, so
-this is not a disclosure to anyone else on the machine. It does mean **deleting
-your original SVG does not delete the rendered copy**. To remove them:
+Unlike the rest of the artwork cache, which is Ubiquiti's public imagery and is
+written world-readable, these are written `0600` inside a `0700` directory,
+because a rendering of your own file is not the same thing as a downloaded
+product photo.
+
+It does mean **deleting your original SVG does not delete the rendered copy**.
+They live in `user-svg/` inside whatever you set as the asset cache, which by
+default is:
 
 ```bash
-rm -rf "$UNIFI_ASSET_CACHE/user-svg"      # or cache/assets/user-svg by default
+rm -rf cache/assets/user-svg
 ```
+
+If you moved the cache with `--asset-cache` or `UNIFI_ASSET_CACHE`, delete
+`user-svg/` inside that directory instead. Check where it is first rather than
+letting a shell expand it for you:
+
+```bash
+unifi-map render -v 2>&1 | grep -i 'asset cache'
+```
+
+`UNIFI_ASSET_CACHE` may be set in the credential file rather than your shell, so
+an unset variable in a `rm -rf` line would expand to an absolute path you did
+not mean.
 
 PNG and other raster overrides are not copied anywhere; only SVG rasterisation
 writes to the cache.

@@ -887,6 +887,39 @@ class TestSvgRendersNotJustMeasures:
         assert asset.path.suffix == ".png"
         assert asset.path.is_file()
 
+    def test_the_raster_is_private_unlike_the_rest_of_the_cache(self, tmp_path):
+        """A rendering of the user's own file is not public CDN artwork.
+
+        Everything else in the artwork cache is Ubiquiti's imagery, written
+        0644 because there is nothing to protect. This one is derived from a
+        file the user supplied, which may itself be private, so writing a
+        world-readable copy would change their exposure without being asked.
+
+        Directory as well as file: a 0600 file under a 0755 parent still leaks
+        its name, and the name is a hash of their artwork.
+        """
+        pytest.importorskip("cairosvg")
+        import os
+        import stat
+
+        from unifi_map.assets import local_icon
+
+        if os.name != "posix":
+            pytest.skip("POSIX modes only")
+
+        cache = tmp_path / "cache"
+        icon = tmp_path / "icon.svg"
+        icon.write_text(
+            '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"/>',
+            encoding="utf-8",
+        )
+        asset = local_icon(icon, cache_dir=cache)
+
+        file_mode = stat.S_IMODE(asset.path.stat().st_mode)
+        dir_mode = stat.S_IMODE(asset.path.parent.stat().st_mode)
+        assert not file_mode & 0o077, f"raster is group/world readable: {file_mode:o}"
+        assert not dir_mode & 0o077, f"user-svg dir is traversable: {dir_mode:o}"
+
     def test_the_raster_keeps_the_aspect_ratio(self, tmp_path):
         pytest.importorskip("cairosvg")
         from unifi_map.assets import local_icon

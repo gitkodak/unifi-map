@@ -39,7 +39,7 @@ from typing import Any
 import requests
 
 from . import drawn
-from .fsio import atomic_write
+from .fsio import atomic_write, mkdir_private
 
 log = logging.getLogger(__name__)
 
@@ -819,8 +819,15 @@ def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
         except Exception as exc:  # cairosvg raises a wide variety
             log.warning("Could not rasterise %s: %s", path, exc)
             return None
-        out_dir.mkdir(parents=True, exist_ok=True)
-        _cache_write(target, png)
+        # Private, unlike the rest of this cache. Everything else here is
+        # Ubiquiti's public artwork, fetched from a CDN and written 0644
+        # because there is nothing to protect. This is a rendering of a file
+        # the *user* supplied, which may itself be private, and turning it into
+        # a world-readable copy would be a change in exposure they did not ask
+        # for. Directory and file both, since a 0600 file under a 0755 parent
+        # still leaks its name.
+        mkdir_private(out_dir)
+        atomic_write(target, png, mode=0o600, fsync=False)
         log.info("Rasterised %s to PNG so it reaches every output format.", path.name)
 
     return _measure(target)
