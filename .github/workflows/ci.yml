@@ -8,6 +8,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # So a run can be started by hand against any branch, without opening a pull
+  # request to provoke one. Added after wanting exactly that and finding there
+  # was no way to do it. Note the GitHub rule that made it useless on the day:
+  # manual dispatch is only offered for workflows already on the default
+  # branch, so this does nothing for a branch until it has been merged.
+  workflow_dispatch:
 
 permissions:
   contents: read
