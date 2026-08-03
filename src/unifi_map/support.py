@@ -653,9 +653,10 @@ def load_support_file(
     obtains it from Ubiquiti's published copy, so no controller is involved.
 
     *max_member* and *max_total* cap what is decoded into memory; *max_entries*
-    caps how much of the archive is walked, which is a separate concern because
-    entry count does not follow the bytes decoded. All three are arguments
-    because the right value depends on the site; see the constants.
+    and *max_archive* cap how much of the archive is walked, in entries and in
+    uncompressed bytes, which are separate concerns because neither follows the
+    bytes decoded. All four are arguments because the right value depends on the
+    site; see the constants.
 
     Raises `SupportFileError` if the archive is unreadable or does not carry
     the device and topology data a map needs.

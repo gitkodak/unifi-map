@@ -124,8 +124,8 @@ controller JSON.
 - **An asset that 404s stays quiet at the default log level, on purpose.** A
   handful of unrecognised devices is ordinary on any network, and a warning per
   device would drown the output that matters. The detail lives behind `-v`,
-  which logs every lookup including the empty ones; that is documented in the
-  README and asked for by both issue templates. This was considered as a
+  which logs every lookup including the empty ones; that is documented in
+  `docs/usage.md` and asked for by both issue templates. This was considered as a
   summary count at the end of the artwork pass and deliberately not built:
   documenting the existing flag was enough.
 
@@ -219,8 +219,8 @@ It is deliberately not claimed to be pixel-identical to the controller UI:
 Graphviz owns the layout, so sibling order and spacing are its decisions, link
 routing differs in its corners and channels, typography and label content are
 ours, clients without a usable fingerprint fall back to shapes or a generic
-glyph rather than the console's own icon, and the output is static. The README has a section spelling
-this out. Keep improving fidelity if you like, but do not let the documentation
+glyph rather than the console's own icon, and the output is static.
+`docs/usage.md` has a section spelling this out. Keep improving fidelity if you like, but do not let the documentation
 start implying an exactness that is not there.
 
 ## Whether `unifi` layout is narrower than `tree` is data-dependent
@@ -305,6 +305,27 @@ do not can offer it without having to guess what is useful.
   already half exists, in that every render logs its effective `Style` before
   drawing. A config file is the alternative and shipping both would be worse
   than either.
+
+### Sweep "the README" references too, for the same reason
+
+The documentation split moved most of the README into `docs/`, and this file
+kept pointing at where things used to be. Three separate reviews found stale
+ones, each time a different subset, because each fix only touched the sentence
+under discussion. The last pass found five and an external reviewer had spotted
+two of them.
+
+Same failure as `TODO.md` below, so same remedy. Every mention is either about
+`README.md` as it now stands (its tone, its screenshots, its own structure) or
+about a section that moved:
+
+```bash
+grep -n "README" CLAUDE.md
+grep -n "^## \|^### " README.md      # what is genuinely still there
+```
+
+Two counts travel with those references and were wrong after the first sweep:
+the multi-site check names five files, not four, and `make docs` covers two of
+those five.
 
 ### Check `TODO.md` before handing anything over
 
@@ -451,16 +472,16 @@ listed twice, and ordered by fit rather than by arrival.
   other way to answer it.
 
   There is no single phrase common to all three, which is the trap: the help
-  text and the README say "more than one", the error says "holds N sites". Check
-  the four files rather than trusting one grep:
+  text and `docs/support-files.md` say "more than one", the error says "holds N
+  sites". Check all five files rather than trusting one grep:
 
   ```bash
   grep -rn "sites" docs/support-files.md docs/usage.md unifi-map.1 \
     src/unifi_map/cli.py src/unifi_map/support.py
   ```
 
-  `unifi-map.1` and the README table are generated, so fixing `cli.py` and
-  running `make docs` covers two of the four.
+  `unifi-map.1` and the `docs/usage.md` table are generated, so fixing `cli.py`
+  and running `make docs` covers two of the five.
 
 - **Historical clients**, opt-in and visibly dated. Codex's caveat is the right
   one and matches the rules here: an old association is not evidence of where
@@ -683,7 +704,8 @@ listed twice, and ordered by fit rather than by arrival.
 
 - **Finish retiring the `UDM_*` environment aliases.** The warning is in:
   `config.py` collects legacy names as it resolves them and emits one line
-  naming each replacement, and the README section is marked deprecated. What
+  naming each replacement, and the `docs/credentials.md` section is marked
+  deprecated. What
   remains is deleting them.
 
   **No removal version is promised, on purpose.** Naming 1.0 would be a promise
@@ -1032,6 +1054,6 @@ filter with a demonstrated gap should not be trusted to have caught everything.
 Do not weaken the warning on the grounds that some specific secret turned out to
 be absent.
 
-The warning lives in three places on purpose: `README.md` beside the instructions
-for generating one, `SECURITY.md` in full, and a `log.warning` in
+The warning lives in three places on purpose: `docs/support-files.md` beside the
+instructions for generating one, `SECURITY.md` in full, and a `log.warning` in
 `_fetch_from_support_file` so it is seen by someone who read neither.

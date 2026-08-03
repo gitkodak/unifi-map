@@ -252,8 +252,11 @@ node in the same file is correctly refused.
   tree. Usually what is detached is the "uplink not reported" placeholder, which
   is no loss. Sometimes it is a real observation: reparenting a VM under its
   hypervisor is exactly that, and is the whole point of `[[hosted]]`. When the
-  displaced link was something the controller actually reported, a warning names
-  both ends, so a contradiction is never silent even though it is allowed.
+  displaced link was something the controller actually reported, a warning says
+  so, naming both ends, so a contradiction is never silent even though it is
+  allowed. Under `--obfuscate` the warning still appears but reports only how
+  many links were replaced: those labels are exactly what that flag exists to
+  keep out of a terminal or a CI log.
 - **Never invent topology.** This feature exists precisely so the tool doesn't
   have to guess. Its output must remain distinguishable from observed data.
 - **A stale override should fail loudly.** Devices get replaced and renamed; an

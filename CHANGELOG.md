@@ -212,6 +212,9 @@ told something untrue and may have acted on it.
     same node, the second warning described the first override's own link as
     something the controller had reported: the exact misattribution the warning
     exists to prevent.
+- The overrides guide said the displaced-link warning names both ends. It does,
+  except under `--obfuscate`, where the fix above deliberately reduces it to a
+  count. The exception is now stated where the guarantee is.
 - `--support-max-archive` was the one cap whose error did not name the flag that
   raises it, which is the worst of the four to omit it from, since it is the one
   a legitimately large site is most likely to hit. Now tested for all four.
