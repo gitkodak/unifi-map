@@ -161,13 +161,17 @@ Practical guidance:
 - **Around 256 pixels on the long edge is plenty.** Everything is scaled down to
   the box anyway, and the file is base64 embedded into every SVG you produce, so
   a large photograph inflates the output for no visible gain.
-- **SVG works, with two caveats.** Graphviz loads one only if it declares
-  explicit `width` and `height` in pixels *and* opens with an XML declaration
-  (`<?xml version="1.0"?>`). An SVG carrying only a `viewBox`, or none at all,
-  is refused here with an error naming the file, because Graphviz's own
-  response is to report a file that plainly exists as missing and fail the
-  render. The dimensions are read from the `<svg>` element itself, so shapes
-  inside it do not affect the size. PNG avoids the question.
+- **SVG works, with one caveat: it must open with an XML declaration**
+  (`<?xml version="1.0"?>`). Graphviz refuses one without it, and its way of
+  saying so is to report a file that plainly exists as missing and fail the
+  whole render, so it is refused here instead with an error naming the file and
+  the reason. Many drawing tools omit the declaration, so this is worth
+  checking first if an SVG is rejected; adding the line by hand is enough.
+
+  Size is taken from `width` and `height` if the `<svg>` tag has them, and from
+  its `viewBox` otherwise, which is how most tools export. Only the ratio
+  matters downstream. Dimensions are read from the `<svg>` element itself, so
+  shapes inside it do not affect the size.
 - **Other formats** Graphviz accepts include JPEG, GIF and WebP, but none of
   them handle transparency as reliably as PNG.
 

@@ -771,8 +771,34 @@ def local_icon(path: Path) -> IconAsset:
         raise AssetError(f"No artwork file at {path}")
     asset = _measure(path)
     if asset is None:
-        raise AssetError(f"Could not read artwork at {path}")
+        # "Could not read" on a file the user can plainly see and open is not
+        # an error message, it is a shrug. SVG has specific rules that are not
+        # guessable, so say which one the file broke.
+        raise AssetError(f"Could not read artwork at {path}{_why_unreadable(path)}")
     return asset
+
+
+def _why_unreadable(path: Path) -> str:
+    """A reason to append to a failure, or an empty string if there is none."""
+    if path.suffix.lower() != ".svg":
+        return ". Supported: PNG, JPEG, GIF, and SVG that Graphviz can load."
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(4096)
+    except OSError:
+        return ""
+    if b"<?xml" not in head:
+        return (
+            ". The SVG has no <?xml ...?> declaration on the first line. "
+            "Graphviz refuses those, reporting the file as missing, so it is "
+            "rejected here where the message can name it."
+        )
+    if re.search(rb"<svg\b[^>]*>", head, re.I | re.S) is None:
+        return ". No opening <svg> tag was found in the first 4 KiB."
+    return (
+        ". The opening <svg> tag needs usable dimensions: either width and "
+        "height, or a viewBox to take the ratio from."
+    )
 
 
 def _pillow_image():
@@ -847,9 +873,15 @@ def _measure_svg(path: Path) -> IconAsset | None:
     `docs/overrides.md` documents SVG as usable artwork, and it was not: every
     SVG was rejected at this function, because measuring went through Pillow.
     Accepts only what Graphviz will actually load, which is narrower than
-    "valid SVG": explicit pixel `width` and `height`, *and* an XML declaration.
-    Refusing here names the file, which beats a Graphviz warning about a file
-    that plainly exists, or silence.
+    "valid SVG". Refusing here names the file, which beats a Graphviz warning
+    about a file that plainly exists, or silence.
+
+    Dimensions come from `width` and `height` if present, and from `viewBox`
+    otherwise. The fallback was added after a real icon was refused for having
+    only a viewBox, which is how most drawing tools export: Graphviz renders
+    those perfectly well and preserves the ratio, so demanding explicit
+    dimensions was stricter than the thing being protected against. Checked by
+    rendering both through `dot` rather than by reasoning about it.
     """
     try:
         # Only the head, rather than reading the file and then slicing it.
@@ -878,7 +910,19 @@ def _measure_svg(path: Path) -> IconAsset | None:
             return None
     width, height = found.get(b"width"), found.get(b"height")
     if width is None or height is None:
-        return None
+        # Only the ratio is used downstream, by `display_size()`, so a viewBox
+        # carries everything needed. Its first two numbers are the origin and
+        # are deliberately ignored.
+        box = re.search(rb"viewBox\s*=\s*[\"']([^\"']+)", opening.group(0), re.I)
+        if box is None:
+            return None
+        try:
+            parts = [float(v) for v in box.group(1).replace(b",", b" ").split()]
+        except ValueError:
+            return None
+        if len(parts) != 4:
+            return None
+        width, height = parts[2], parts[3]
     if not (math.isfinite(width) and math.isfinite(height)) or width <= 0 or height <= 0:
         return None
     # Rounded, never to zero: `width="0.5"` truncated to a 0x0 icon, which

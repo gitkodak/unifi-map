@@ -852,7 +852,8 @@ class TestSvgRendersNotJustMeasures:
         [
             (BODY, "no XML declaration: Graphviz refuses it and fails the render"),
             (HEAD + '<svg width="." height="5"/>', "not a number"),
-            (HEAD + '<svg viewBox="0 0 64 32"/>', "no explicit dimensions"),
+            (HEAD + "<svg/>", "no dimensions and no viewBox"),
+            (HEAD + '<svg viewBox="0 0 64"/>', "viewBox with too few numbers"),
             (HEAD + '<svg width="0" height="10"/>', "zero width"),
             (HEAD + '<svg width="-4" height="10"/>', "negative width"),
         ],
@@ -863,6 +864,43 @@ class TestSvgRendersNotJustMeasures:
         icon = tmp_path / "icon.svg"
         icon.write_text(body, encoding="utf-8")
         with pytest.raises(AssetError):
+            local_icon(icon)
+
+    def test_a_viewbox_supplies_the_size_when_width_and_height_are_absent(self, tmp_path):
+        """How most drawing tools export, and Graphviz renders them fine.
+
+        Previously refused for lacking explicit dimensions, which was stricter
+        than the thing being protected against. Verified by rendering one
+        through `dot` before relaxing it, not by reading a spec.
+        """
+        from unifi_map.assets import local_icon
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(
+            self.HEAD + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 486.2 497.8"/>',
+            encoding="utf-8",
+        )
+        asset = local_icon(icon)
+        assert (asset.width, asset.height) == (486, 498)
+
+    def test_explicit_dimensions_win_over_a_viewbox(self, tmp_path):
+        from unifi_map.assets import local_icon
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(
+            self.HEAD + '<svg width="64" height="32" viewBox="0 0 999 111"/>',
+            encoding="utf-8",
+        )
+        asset = local_icon(icon)
+        assert (asset.width, asset.height) == (64, 32)
+
+    def test_the_refusal_says_which_rule_was_broken(self, tmp_path):
+        """ "Could not read" on a file the user can open is a shrug, not an error."""
+        from unifi_map.assets import AssetError, local_icon
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(self.BODY, encoding="utf-8")  # no XML declaration
+        with pytest.raises(AssetError, match="declaration"):
             local_icon(icon)
 
     def test_a_fractional_size_never_rounds_to_nothing(self, tmp_path):
