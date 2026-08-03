@@ -117,6 +117,10 @@ class _Parser(argparse.ArgumentParser):
         for key, value in GLOBAL_DEFAULTS.items():
             if not hasattr(parsed, key):
                 setattr(parsed, key, value)
+
+        # Bookkeeping for `_FormatsAction`, not part of the parsed result.
+        if hasattr(parsed, _FORMATS_SEEN):
+            delattr(parsed, _FORMATS_SEEN)
         return parsed
 
 
@@ -141,6 +145,34 @@ GLOBAL_DEFAULTS = {
     "verbose": False,
     "progress": True,
 }
+
+
+# Marker left on the namespace by `_FormatsAction`, removed once parsing ends.
+_FORMATS_SEEN = "_formats_given"
+
+
+class _FormatsAction(argparse.Action):
+    """Refuse a repeated `-f` rather than silently honouring the last one.
+
+    `nargs="+"` means argparse overwrites the destination each time the option
+    appears, so `-f svg -f png` wrote png only and said nothing. That reads as a
+    format that failed to render, and both spellings look equally reasonable to
+    somebody who has not read the flag table.
+
+    Refusing rather than appending, deliberately. An error states what happened;
+    appending would quietly change what an existing invocation produces, and the
+    current behaviour, while wrong, is at least deterministic.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
+        if getattr(namespace, _FORMATS_SEEN, False):
+            parser.error(
+                f"{option_string} was given more than once, and only the last "
+                "would have counted. Pass the formats together instead: "
+                "-f svg pdf png"
+            )
+        setattr(namespace, _FORMATS_SEEN, True)
+        setattr(namespace, self.dest, values)
 
 
 def _bytes_arg(raw: str) -> int:
@@ -881,6 +913,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-f",
         "--formats",
         nargs="+",
+        action=_FormatsAction,
         choices=ALL_FORMATS,
         default=["svg", "drawio"],
         help="Output formats (default: svg drawio)",

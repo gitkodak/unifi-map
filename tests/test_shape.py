@@ -367,3 +367,43 @@ class TestArtworkCountsSayWhatTheyMeasure:
     def test_a_warm_cache_says_nothing(self, snapshot):
         report = self._report(snapshot, catalogue_cached=True, font_cached=True)
         assert "NOTE:" not in report
+
+
+class TestRepeatedFormatsFlagIsRefused:
+    """`-f` is `nargs="+"`, so a repeat overwrote rather than appended.
+
+    `-f svg -f png` wrote png only and said nothing, which reads as a format
+    that failed to render. Both spellings look equally reasonable to somebody
+    who has not read the flag table.
+
+    Refused rather than appended: an error states what happened, whereas
+    appending would quietly change what an existing invocation produces.
+    """
+
+    def _parse(self, argv):
+        from unifi_map.cli import build_parser
+
+        return build_parser().parse_args(argv)
+
+    def test_formats_given_together_are_kept(self):
+        assert self._parse(["render", "-f", "svg", "png"]).formats == ["svg", "png"]
+
+    def test_the_default_is_unchanged(self):
+        assert self._parse(["render"]).formats == ["svg", "drawio"]
+
+    def test_a_repeat_is_refused(self):
+        import pytest
+
+        with pytest.raises(SystemExit):
+            self._parse(["render", "-f", "svg", "-f", "png"])
+
+    def test_the_long_spelling_is_refused_too(self):
+        import pytest
+
+        with pytest.raises(SystemExit):
+            self._parse(["render", "--formats", "svg", "--formats", "png"])
+
+    def test_the_bookkeeping_marker_does_not_survive_parsing(self):
+        """It lives on the namespace during parsing and is not a parsed value."""
+        args = self._parse(["render", "-f", "svg"])
+        assert not hasattr(args, "_formats_given")

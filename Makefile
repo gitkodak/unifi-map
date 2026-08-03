@@ -1,8 +1,14 @@
 .PHONY: help check format lint test map fetch render tree offline dark demo \
         demo-overrides demo-images demo-snapshot docs build clean
 
-VENV := .venv
-PY   := $(VENV)/bin/python
+VENV  := .venv
+PY    := $(VENV)/bin/python
+# The stamp, not the directory, is the target. `python3 -m venv` creates the
+# directory before `pip install` runs, so a failed install left something
+# newer than pyproject.toml and make considered it done forever after: every
+# later `make check` skipped the recipe and failed with `No module named
+# ruff`, which does not resemble its cause. Written only on success.
+STAMP := $(VENV)/.installed
 
 help:
 	@echo "make check    format --check, lint, test"
@@ -22,52 +28,52 @@ help:
 	@echo "make build    build a wheel and sdist into dist/"
 	@echo "make clean    remove out/, dist/ and caches"
 
-$(VENV): pyproject.toml
+$(STAMP): pyproject.toml
 	python3 -m venv $(VENV)
 	$(VENV)/bin/pip install -q -e ".[dev]"
-	@touch $(VENV)
+	@touch $(STAMP)
 
-check: $(VENV)
+check: $(STAMP)
 	$(PY) -m ruff format --check .
 	$(PY) -m ruff check .
 	$(PY) -m pytest -q
 
-docs: $(VENV)
+docs: $(STAMP)
 	$(PY) scripts/generate_cli_docs.py
 	$(PY) scripts/generate_manpage.py
 
-format: $(VENV)
+format: $(STAMP)
 	$(PY) -m ruff format .
 
-lint: $(VENV)
+lint: $(STAMP)
 	$(PY) -m ruff check .
 
-test: $(VENV)
+test: $(STAMP)
 	$(PY) -m pytest -q
 
-fetch: $(VENV)
+fetch: $(STAMP)
 	$(VENV)/bin/unifi-map fetch
 
-render: $(VENV)
+render: $(STAMP)
 	$(VENV)/bin/unifi-map render --per-network -f svg pdf drawio
 
-map: $(VENV)
+map: $(STAMP)
 	$(VENV)/bin/unifi-map all --per-network -f svg pdf drawio
 
-tree: $(VENV)
+tree: $(STAMP)
 	$(VENV)/bin/unifi-map render --layout tree -f svg pdf drawio
 
-offline: $(VENV)
+offline: $(STAMP)
 	$(VENV)/bin/unifi-map render --icons builtin --offline -f svg pdf drawio
 
-dark: $(VENV)
+dark: $(STAMP)
 	$(VENV)/bin/unifi-map render --theme dark --per-network -f svg pdf drawio
 
-demo: $(VENV)
+demo: $(STAMP)
 	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
 		render --per-network -f svg pdf drawio --name demo --title "Demo network"
 
-demo-overrides: $(VENV)
+demo-overrides: $(STAMP)
 	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
@@ -76,7 +82,7 @@ demo-overrides: $(VENV)
 # are large binaries, and a rendering change should update them deliberately
 # rather than dirty the tree on every build. See the script for what is
 # generated and why the crop is computed rather than hard-coded.
-demo-images: $(VENV)
+demo-images: $(STAMP)
 	$(VENV)/bin/python scripts/make_demo_images.py
 
 demo-snapshot:
@@ -89,7 +95,7 @@ demo-snapshot:
 # dist/ is emptied first. Left alone it accumulates every version ever built,
 # and `pip install dist/*.whl` then resolves to whichever sorts last rather than
 # the one just built.
-build: $(VENV)
+build: $(STAMP)
 	$(VENV)/bin/pip install -q build
 	rm -rf dist
 	$(PY) -m build

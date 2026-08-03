@@ -150,6 +150,16 @@ told something untrue and may have acted on it.
 
 ### Fixed
 
+- **A repeated `-f` is refused instead of silently honouring the last one.**
+  `-f` takes several values, so `-f svg -f png` overwrote rather than appended
+  and wrote png only, with nothing said. That reads as a format that failed to
+  render. Pass them together: `-f svg pdf png`.
+
+  Refused rather than made to append, because an error states what happened
+  whereas appending would quietly change what an existing invocation produces.
+  **If you have a script using the repeated form, it will now stop with an
+  error naming the fix.**
+
 - **draw.io connection lines no longer run through unrelated devices.** The
   edges carried only their two endpoints, so draw.io routed them with its own
   router and drew a long run straight through whatever the layout had placed in

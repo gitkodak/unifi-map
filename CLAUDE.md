@@ -1288,8 +1288,8 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   `continue-on-error`, so requiring it would mean nothing, and if it ever gates
   properly a new CVE upstream would block every unrelated pull request.
 
-  **That reasoning is correct and was incomplete in a way that hid a real bug**
-  (KAN-132). The job has also never worked. It runs `pip-audit --strict` after
+  **That reasoning was correct and incomplete in a way that hid a real bug**
+  (KAN-132, fixed). The job had also never worked. It runs `pip-audit --strict` after
   installing the local package, and `unifi-map` is not on PyPI, so pip-audit
   reports it cannot be audited and `--strict` makes that a failure, which
   `continue-on-error` then swallows. A genuine CVE and a clean tree produce the
@@ -1302,8 +1302,14 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   component is one of the better places for a defect to hide. Found by an
   external review, not by us, and not by the many passes over this file.
 
-  Keep it non-gating when fixing it. Audit an exported dependency list that
-  excludes the project itself.
+  It now audits an exported dependency list rather than the installed
+  environment, and stays non-gating. Two details worth keeping: `pip`,
+  `setuptools` and `wheel` are excluded because an advisory against the
+  runner's own tooling is not actionable here, and the exclusion matches the
+  package name followed by **any** separator rather than `==`, because a
+  locally installed project freezes as `unifi-map @ file://...` and an
+  `==`-anchored pattern misses it. The first attempt at the fix failed exactly
+  there, and was caught only by running it.
 
 ## Tone is tiered, deliberately
 

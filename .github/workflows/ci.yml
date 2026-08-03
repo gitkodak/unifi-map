@@ -97,8 +97,31 @@ jobs:
         # Advisory, not gating. A new CVE in a transitive dependency should
         # start a conversation, not block an unrelated pull request from
         # somebody who cannot fix it.
+        #
+        # This audits the dependency closure, from a requirements file, rather
+        # than whatever happens to be installed. The previous version installed
+        # the project into the runner's own environment and audited that, which
+        # never worked: `unifi-map` is not on PyPI, so pip-audit reported that
+        # it could not be audited, `--strict` made that a failure, and
+        # `continue-on-error` swallowed it. A real advisory and a clean tree
+        # produced the same ignored red for as long as the job existed.
+        #
+        # pip, setuptools and wheel are excluded as well: they are the venv's
+        # own tooling rather than anything this project depends on, and an
+        # advisory against the runner's bundled pip is not actionable here.
+        #
+        # The exclusion matches the name followed by any separator, not just
+        # `==`. A locally installed project freezes as `unifi-map @ file://...`
+        # and an `==`-anchored pattern misses it, which is how the first attempt
+        # at this fix still failed.
         continue-on-error: true
         run: |
           python -m pip install --quiet pip-audit
-          python -m pip install --quiet .
-          pip-audit --strict --progress-spinner off
+          python -m venv /tmp/depsenv
+          /tmp/depsenv/bin/pip install --quiet .
+          /tmp/depsenv/bin/pip freeze \
+            | grep -viE '^(unifi[-_]map|pip|setuptools|wheel)([=@ ]|$)' \
+            > /tmp/requirements.txt
+          echo "Auditing:"
+          sed 's/^/  /' /tmp/requirements.txt
+          pip-audit --strict --progress-spinner off -r /tmp/requirements.txt
