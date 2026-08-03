@@ -1,5 +1,5 @@
 .PHONY: help check format lint test map fetch render tree offline dark demo \
-        demo-overrides demo-images demo-snapshot docs clean
+        demo-overrides demo-images demo-snapshot docs build clean
 
 VENV := .venv
 PY   := $(VENV)/bin/python
@@ -19,7 +19,8 @@ help:
 	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
 	@echo "make docs           regenerate the flag reference and man page from the parser"
 	@echo "make dark     render from cache in the dark theme"
-	@echo "make clean    remove out/ and caches"
+	@echo "make build    build a wheel and sdist into dist/"
+	@echo "make clean    remove out/, dist/ and caches"
 
 $(VENV): pyproject.toml
 	python3 -m venv $(VENV)
@@ -81,6 +82,20 @@ demo-images: $(VENV)
 demo-snapshot:
 	python3 scripts/make_demo_snapshot.py
 
+# A wheel and an sdist in dist/, installable anywhere with pip. Not a published
+# package: whether this project should ever own a name on PyPI is a separate and
+# still-open question, because publishing is the part that cannot be undone.
+#
+# dist/ is emptied first. Left alone it accumulates every version ever built,
+# and `pip install dist/*.whl` then resolves to whichever sorts last rather than
+# the one just built.
+build: $(VENV)
+	$(VENV)/bin/pip install -q build
+	rm -rf dist
+	$(PY) -m build
+	@echo
+	@echo "Install it with:  pip install dist/*.whl"
+
 clean:
-	rm -rf out .pytest_cache .ruff_cache
+	rm -rf out dist build .pytest_cache .ruff_cache
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +

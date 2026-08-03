@@ -825,26 +825,34 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   notion of (head and tail labels are the closest), and whether this becomes a
   third `--layout` or a separate output.
 
-- **A release should produce an installable artifact. Decided 2026-08-03, and
-  committed to 0.9.0** (KAN-132). `pip install unifi-map` is going to work.
-  `RELEASING.md` documents the process that exists, a tag plus a changelog
-  entry, and says plainly that there is no published package; that sentence has
-  to change on the day this ships, along with the same claim in
-  `AI_DISCLOSURE.md` if it repeats it.
+- **Building an artifact and publishing one are separate decisions.** This was
+  briefly conflated here on 2026-08-03 and recorded as "0.9.0 commits to
+  `pip install unifi-map`", which was wrong on both halves: it promised
+  something nobody had agreed to, and it treated a local build as though it
+  needed PyPI.
 
-  The entry point and build backend already exist. What is missing is a `tags:`
-  trigger in CI, the man page installed where `man` will find it rather than
-  only sitting in the repository, and a choice between trusted publishing and an
-  API token.
+  **The local build is done** and needed almost nothing, because the entry point
+  and build backend already existed. `make build` produces a wheel and an sdist;
+  `pip install dist/*.whl` into a clean venv works, the console script runs, and
+  `importlib.metadata.version` agrees with `__version__`. All verified rather
+  than assumed.
 
-  **It is a commitment rather than a chore**, which is why it sat undecided for
-  so long: a published version cannot be withdrawn once somebody depends on it.
+  **Publishing to PyPI stays undecided, and is not blocked on effort.** It means
+  owning the name and never breaking a published version once somebody depends
+  on it, which is a commitment rather than a chore. Do not record it as decided
+  again without Jason saying so; he has an account-recovery queue in front of
+  him and has said explicitly he is not ready for the commitment regardless.
 
-  **This reopens the lock-file decline**, whose stated reason was that hashed
-  constraints are ongoing maintenance for a dev-only benefit. That reason stops
-  holding the moment people install this rather than clone it, and it is the
-  declined security-review finding that `SECURITY.md` and `AI_DISCLOSURE.md`
-  both point at. Reverse it and those two need updating with it.
+  **The lock-file decline stands.** It was briefly reopened here on the argument
+  that "the benefit stops being dev-only once people install this", which only
+  holds for a published package. A locally built wheel does not change it. That
+  decline is the security-review finding `SECURITY.md` and `AI_DISCLOSURE.md`
+  both point at, so it must not be flipped as a side effect of something else.
+
+  Still true, and still on the publishing side of the line if it is ever
+  crossed: the man page would need placing in `share/man/man1` for
+  `man unifi-map` to work rather than `man ./unifi-map.1`. It is not in the
+  wheel today, checked rather than assumed.
 
 - **The `UDM_*` environment aliases are gone**, removed in 0.9.0 after warning
   since 0.7.0. `config.py` reads one name per setting and `_warn_deprecated` is

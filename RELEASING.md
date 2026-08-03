@@ -199,8 +199,12 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
 ## The undecided part
 
 **There is no published artifact.** A release here is a tag, a changelog entry
-and a GitHub Release carrying that entry. The only documented install is a
-clone plus `pip install -e .`.
+and a GitHub Release carrying that entry.
+
+Building one locally is not the undecided part and is documented: `make build`
+produces a wheel and an sdist in `dist/`, and `pip install dist/*.whl` works
+anywhere. Nothing about that is a promise to anyone, which is exactly why it
+sits outside this section.
 
 Note that the Release itself is not the undecided part, and stopped being
 optional at 0.8.0: it costs nothing, breaks no promises, and is what makes the
@@ -212,8 +216,9 @@ Whether that should change is a real decision, not an oversight:
 * Publishing to PyPI means owning the name, keeping metadata honest, and never
   breaking a published artifact. It also makes `pip install unifi-map` work,
   which is what people expect of a Python tool.
-* The entry point and build backend already exist, so `sdist` and `wheel` need
-  no new machinery. CI would need a `tags:` trigger to build and attach them.
+* The entry point and build backend already exist, and `make build` drives
+  them, so there is no build work left in either direction. CI would need a
+  `tags:` trigger to build and attach or upload them.
 * Graphviz is a system dependency, so a wheel is not self-contained either way.
 * Since 0.5.0 there is a man page, which packaging would have to place in
   `share/man/man1` for `man unifi-map` to work rather than `man ./unifi-map.1`.

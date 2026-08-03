@@ -56,12 +56,36 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-**0.9.0 will be installable.** `pip install unifi-map` is going to work, which
-is a commitment rather than a feature: it means owning the name and never
-breaking a published artifact, because a published version cannot be withdrawn
-once somebody depends on it. Until now a release here was a tag and an entry in
-this file. The entry point and build backend already exist; CI needs a `tags:`
-trigger and the man page needs installing where `man` will find it.
+### Added
+
+- **`make build`**, producing a wheel and an sdist in `dist/`. Installing the
+  wheel into a clean environment gives you a working `unifi-map` without a
+  checkout, which is useful for putting it on a machine that should not carry
+  the source.
+
+  It needed almost no new machinery: the entry point and the build backend were
+  already in `pyproject.toml`. What was missing was a documented way to invoke
+  them, and `dist/` and `build/` in `.gitignore` so the artifacts cannot be
+  swept into a commit.
+
+  **This is not a published package and does not promise one.** There is no
+  `pip install unifi-map` from PyPI, and whether there ever should be is
+  deliberately still an open question, recorded in `TODO.md`. Building an
+  artifact and publishing one are separate decisions, and only the second is a
+  commitment that cannot be withdrawn.
+
+- **`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR`**, so the
+  directories can be set once instead of passed on every command. A flag still
+  wins over the variable, and the variable over the default. They can go in the
+  credential file as well as the environment, which is the natural place, since
+  that file is already the thing kept outside the project.
+
+  The cache one is the point. A snapshot is a complete inventory of a network,
+  the default puts it in the working directory, and for anyone working on this
+  tool that directory is a git checkout. A `cache.bak` copy made before a risky
+  fetch is not covered by a `.gitignore` entry for `cache/`; one sat untracked
+  in this repository, one `git add -A` from being published. The ignore rule was
+  widened in 0.8.0, and this removes the question rather than guarding it.
 
 ### Removed
 
@@ -93,21 +117,6 @@ trigger and the man page needs installing where `man` will find it.
 
   Only relevant to you if you import from `unifi_map.cli` directly, which is not
   a supported interface and which nothing is known to do.
-
-### Added
-
-- **`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR`**, so the
-  directories can be set once instead of passed on every command. A flag still
-  wins over the variable, and the variable over the default. They can go in the
-  credential file as well as the environment, which is the natural place, since
-  that file is already the thing kept outside the project.
-
-  The cache one is the point. A snapshot is a complete inventory of a network,
-  the default puts it in the working directory, and for anyone working on this
-  tool that directory is a git checkout. A `cache.bak` copy made before a risky
-  fetch is not covered by a `.gitignore` entry for `cache/`; one sat untracked
-  in this repository, one `git add -A` from being published. The ignore rule was
-  widened in 0.8.0, and this removes the question rather than guarding it.
 
 ### Fixed
 

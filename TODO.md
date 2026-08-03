@@ -129,19 +129,10 @@ drawn from a thin one look equally authoritative.
 
 ## Committed to a version
 
+Nothing currently.
+
 A commitment means a version named in the code, the tests and the changelog, so
 this section stays empty unless something has actually been promised to users.
-
-- **0.9.0 will be installable** (KAN-132). `pip install unifi-map` should work,
-  which means owning the name on PyPI, never breaking a published artifact, and
-  putting the man page where `man` will find it. The entry point and the build
-  backend already exist; what is missing is a `tags:` trigger in CI and the
-  decision itself, which is now made. It is a commitment rather than a chore
-  because a published version cannot be withdrawn once somebody depends on it.
-
-  This also reopens the lock-file question below, whose stated reason to decline
-  was that the benefit is dev-only. That stops being true the moment people
-  install this.
 
 ## Waiting on a network nobody here has
 
@@ -166,8 +157,18 @@ help and what not to send.
 
 ## Undecided, rather than unstarted
 
-Nothing currently. Whether a release should produce an installable artifact used
-to sit here; it is decided and has moved up to "Committed to a version".
+- **Whether to publish to PyPI.** Building an installable artifact is done and
+  needs nothing from anyone: `make build` produces a wheel and an sdist, and
+  `pip install dist/*.whl` works. What stays undecided is *publishing* one.
+
+  That is deliberately a separate question, because it is the part that cannot
+  be undone: it means owning the name, keeping metadata honest and never
+  breaking a published version once somebody depends on it. Nothing about the
+  local build commits you to it, which is the point of splitting them.
+
+  Also still open, and cheap either way: whether a release should *attach* the
+  built artifacts to its GitHub Release. That gets `pip install <url>` without
+  owning anything.
 
 ## Considered and not planned
 

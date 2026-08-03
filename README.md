@@ -151,6 +151,24 @@ are the defaults: `svg`, `pdf`, `png` and the positions inside a `drawio` file.
 `dot`, `mermaid` and `json` are written directly and need nothing installed.
 `unflatten` is optional but improves layout on large networks.
 
+### Installing it somewhere else
+
+`make build` produces a wheel and an sdist in `dist/`, which install anywhere
+without a checkout:
+
+```bash
+make build
+pip install dist/*.whl             # here, or copy the wheel to another machine
+```
+
+Useful for putting the tool on a box that should not carry the source. Graphviz
+is still a system dependency; a wheel cannot bring it along.
+
+There is **no published package**, so `pip install unifi-map` does not work and
+is not meant to. Whether this should ever own a name on PyPI is an open
+question rather than an oversight, because publishing is the part that cannot be
+withdrawn once somebody depends on it.
+
 A man page is committed as `unifi-map.1`, so it works straight from a clone
 without installing anything:
 

@@ -18,6 +18,11 @@
 cache*/
 out*/
 
+# Build artifacts from `make build`. Regenerable, and a built wheel committed by
+# accident would be a second copy of the source going stale in the tree.
+dist/
+build/
+
 .venv/
 __pycache__/
 *.py[cod]
