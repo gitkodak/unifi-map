@@ -10,8 +10,13 @@
 # It also holds Ubiquiti's device catalog and downloaded product artwork.
 # That artwork is Ubiquiti's intellectual property and is deliberately NOT
 # vendored into this repository; it is fetched at runtime and cached locally.
-cache/
-out/
+# Snapshots and renders. The glob matters: a snapshot is a full inventory of a
+# network (every MAC, hostname, address and SSID), and the obvious thing to do
+# before a risky fetch is `cp -r cache cache.bak`, which `cache/` alone does not
+# cover. That exact backup sat untracked in this repository once, one `git add
+# -A` away from being published.
+cache*/
+out*/
 
 .venv/
 __pycache__/

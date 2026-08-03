@@ -56,12 +56,11 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-**This is 0.8.0 when it ships, not 0.7.3**, and three separate entries below
-would each be enough on their own. `overrides check` gained `--show-offline` and
-changed its default. `--icons builtin` draws icons where it used to draw
-geometric shapes. And overrides now refuse input they used to accept.
+Nothing yet.
 
-**Read that last one before upgrading if you keep an overrides file.** A file
+## 0.8.0 - 2026-08-02
+
+**If you keep an overrides file, read this before upgrading.** A file
 containing `wireless = "false"`, `hide = "false"`, a fractional `port`, or a
 misspelled key used to render; it now stops the run with an error naming the
 problem. Those files were never doing what they said, which is why this changed,
