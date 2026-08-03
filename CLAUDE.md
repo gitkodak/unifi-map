@@ -485,6 +485,20 @@ them so the thinking is not redone. They overlap heavily, which is itself
 information: the same three ideas arrived independently. Merged rather than
 listed twice, and ordered by fit rather than by arrival.
 
+**A second round ran against 2dcf791 on 2026-08-03**, this time asking for a
+maturity and security assessment rather than for features. It produced four
+defects worth acting on, all verified at source before being written down here:
+the `pip-audit` job that has never worked (KAN-132), the venv make target that
+strands a failed install (KAN-133), the missing controller response cap
+(KAN-134), and sparse package metadata that only matters if artifacts are ever
+distributed. It also raised static type checking, which two reviewers now want
+independently, and a coverage threshold, which is declined below.
+
+Both rounds are worth the trouble. Between them they have found things that
+many passes over this file did not, and the pattern is consistent: they are
+better at spotting a control that does not do what its documentation says than
+at anything requiring knowledge of UniFi.
+
 - **A `diff` subcommand**, comparing two cached snapshots and reporting what
   moved. The strongest of the set. Snapshots are already immutable, timestamped
   JSON, and `build_topology()` already turns one into a graph, so a diff is a
@@ -711,6 +725,18 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
 
 ### Gaps worth considering
 
+- **The controller path has no response-size cap and the CDN path does**
+  (KAN-134). `assets.py` has `MAX_ASSET_BYTES`, `MAX_CATALOG_BYTES`,
+  `_read_capped()`, `stream=True` and a Pillow pixel cap. `client.py` `_fetch()`
+  reads the whole body with none of that.
+
+  That is backwards from how it looks. The defended path is the untrusted CDN;
+  the undefended one is the controller, which is the endpoint people are told
+  it is ordinary to reach with `UNIFI_VERIFY_TLS=false`. It is the same threat
+  model that justified `_Session.rebuild_auth` stripping the key across a
+  host-changing redirect, so the two should be consistent. Low severity, and
+  consistency is most of the argument rather than the residual risk.
+
 - **Provenance and confidence.** `Edge.asserted` marks an override-supplied link
   and nothing else distinguishes observed from inferred. A client placed from
   the v2 topology graph, one placed from `stat/sta`, and one whose fingerprint
@@ -732,14 +758,54 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   Check before claiming it scales.
 
 - **No dependency lock file.** Deliberate for now: hashed constraints are real
-  ongoing maintenance for a dev-only benefit, and Dependabot plus the advisory
-  job cover staying current. Revisit if this ever ships releases people install.
+  ongoing maintenance for a dev-only benefit, and Dependabot covers staying
+  current. Revisit if this ever ships releases people install.
+
+  This used to say "Dependabot **and the advisory job** cover staying current".
+  Half of that was untrue: the advisory job has never reported anything (see
+  KAN-132 above). Dependabot alone still carries the argument, but the reason
+  was weaker than it read, and a decline resting partly on a control that does
+  not work is the kind of thing to notice rather than quietly patch.
+
+  Briefly reopened on 2026-08-03 on the argument that the benefit stops being
+  dev-only once people install this. **That was wrong** and the decline stands:
+  it only holds for a *published* package, and `make build` producing a local
+  wheel does not change the exposure at all. Do not reopen it as a side effect
+  of a packaging change.
 
   **This is the declined security-review finding** that `SECURITY.md` and
   `AI_DISCLOSURE.md` both point here for, so keep the reasoning legible if it
   moves. It is the only one left: the other decline, against tightening the
   support-file size caps without data from a large site, stopped being a
   decline when the caps became adjustable and the defaults dropped to 64M/128M.
+
+- **No coverage threshold. Declined 2026-08-03**, suggested by external review.
+
+  A number that gates the build makes the cheapest way past a failing build a
+  test written to move the number. Those exercise lines without asserting
+  anything worth asserting, and a report cannot tell them apart from tests that
+  would catch a regression. This repository has already produced two tests that
+  could not fail, both found by reading them rather than by any metric, and a
+  threshold would have counted both as coverage.
+
+  What is wanted is that the risky surfaces are tested, and those are known by
+  name rather than by percentage: archive parsing, override resolution,
+  obfuscation, output escaping, the overwrite guard. Each has adversarial tests
+  aimed at a specific failure.
+
+  **Measuring** coverage is not declined, only gating on it. A report nobody is
+  graded on can point at a module worth a second look.
+
+- **No static type checker** (KAN-135). Annotations are used throughout and
+  nothing verifies them, so they drift, and the confidence they appear to give
+  during a refactor is not actually there. The `artwork.py`/`output.py` split is
+  the concrete case: mechanical, suite green, and a checker would have been the
+  cheapest confirmation the moved signatures still matched their callers.
+
+  Raised independently by two external reviews, which is most of the argument
+  for it. Not yet adopted because it is the same shape of cost as the lock file
+  above, and because an advisory checker gets ignored: see KAN-132 for what
+  happens to a CI job nobody has to satisfy.
 
 - **We draw our own device icons. Shipped, in `drawn.py`.** Nine, not the seven
   first planned: five infrastructure keyed on `Kind` (gateway, switch, ap,
@@ -1171,6 +1237,23 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
 - `Dependency advisories` is deliberately **not** required. It is
   `continue-on-error`, so requiring it would mean nothing, and if it ever gates
   properly a new CVE upstream would block every unrelated pull request.
+
+  **That reasoning is correct and was incomplete in a way that hid a real bug**
+  (KAN-132). The job has also never worked. It runs `pip-audit --strict` after
+  installing the local package, and `unifi-map` is not on PyPI, so pip-audit
+  reports it cannot be audited and `--strict` makes that a failure, which
+  `continue-on-error` then swallows. A genuine CVE and a clean tree produce the
+  same ignored red.
+
+  Worth sitting with, because the failure is a documentation failure as much as
+  a workflow one. This paragraph explained *why the job does not gate* so
+  plausibly that nobody asked whether it reports anything. An explanation of a
+  design choice is not evidence the thing works, and a well-argued note about a
+  component is one of the better places for a defect to hide. Found by an
+  external review, not by us, and not by the many passes over this file.
+
+  Keep it non-gating when fixing it. Audit an exported dependency list that
+  excludes the project itself.
 
 ## Tone is tiered, deliberately
 

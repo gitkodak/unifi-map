@@ -33,10 +33,10 @@ drawn from a thin one look equally authoritative.
   benefit and may freely name your devices, because it is never leaving your
   terminal. Both were briefly called "report", which is why the shipped one
   is not.
-- **Provenance on the diagram itself.** An override-asserted link is drawn
-  dotted; nothing else distinguishes observed from inferred. A client placed
-  from the topology graph, one placed from `stat/sta`, and one whose fingerprint
-  was recovered from its name are drawn identically.
+- **Provenance on the diagram itself** (KAN-137). An override-asserted link is
+  drawn dotted; nothing else distinguishes observed from inferred. A client
+  placed from the topology graph, one placed from `stat/sta`, and one whose
+  fingerprint was recovered from its name are drawn identically.
 - **Randomised client MACs** (KAN-129). Every join here is on MAC, so a phone
   rotating its address appears as a new client unrelated to the old one. Explains
   apparent duplicates. Detectable from the locally-administered bit.
@@ -72,7 +72,7 @@ drawn from a thin one look equally authoritative.
 
 ## Cache integrity
 
-- **Make a snapshot an atomic generation.** A fetch now removes recognised
+- **Make a snapshot an atomic generation** (KAN-138). A fetch now removes recognised
   files it did not write, so an uninterrupted run leaves one coherent set. What
   it is not is atomic: several file replacements followed by deletions, so an
   interruption, a full disk or two concurrent fetches can still leave a mix of
@@ -119,6 +119,21 @@ drawn from a thin one look equally authoritative.
 
 ## Correctness
 
+- **The `pip-audit` CI job has never worked** (KAN-132). It installs the local
+  package and runs `pip-audit --strict`; `unifi-map` is not on PyPI, so the
+  audit reports it cannot be audited, `--strict` makes that a failure, and
+  `continue-on-error` swallows it. A real CVE and a clean tree produce the same
+  ignored red. Audit an exported dependency list instead, and keep it
+  non-gating. No known vulnerability is hiding behind it: a scan excluding the
+  project itself found none. The instrument is broken, not the result.
+
+- **An interrupted venv build leaves `make check` broken** (KAN-133). The
+  virtual environment directory is the make target, and `python3 -m venv`
+  creates it before `pip install` runs, so a failed install leaves a directory
+  newer than `pyproject.toml`. Make then skips the recipe forever after and the
+  suite fails with `No module named ruff`, which does not resemble its cause.
+  Fix is a stamp file written only on success.
+
 - **Refuse a repeated `-f` instead of silently honouring the last one**
   (KAN-131). `-f` is `nargs="+"`, so `-f svg -f png` writes png only and says
   nothing, which reads as a format that failed to render. Both spellings look
@@ -126,6 +141,29 @@ drawn from a thin one look equally authoritative.
   repeat is preferred over making it append: an error states what happened,
   whereas appending would quietly change what an existing invocation produces.
   The message should name the working form, `-f svg pdf png`.
+
+- **Cap controller response sizes** (KAN-134). `client.py` reads responses with
+  no ceiling, while `assets.py` caps every fetch from the CDN. That is backwards
+  from how it looks: the untrusted path is defended and the trusted one is not,
+  and the trusted one is the one people reach with `UNIFI_VERIFY_TLS=false`.
+  Low severity and consistency work rather than a live hole, but it is the same
+  threat model that justified stripping the API key across a redirect.
+
+## Tooling
+
+- **A static type checker** (KAN-135). Annotations are used throughout and
+  nothing verifies them, so they drift and the confidence they offer during a
+  refactor is not actually there. Raised independently by two external reviews,
+  which is most of the argument. Decide mypy or pyright, how strict to start,
+  and whether it gates; an advisory checker will be ignored, on the evidence of
+  KAN-132 above.
+
+- **An automated review tool that stays free** (KAN-136). Greptile is connected
+  but reports a 14-day trial rather than the open-source licence applied for.
+  The requirement is not that tool specifically: it is pull-request review that
+  keeps working without a paid plan or a recurring application. A tool that
+  lapses is worse than none, because reviews stop silently. Overlaps with the
+  SAST question below and one tool may answer both.
 
 ## Committed to a version
 
@@ -157,6 +195,15 @@ help and what not to send.
 
 ## Undecided, rather than unstarted
 
+- **Static application security testing**, meaning something like bandit or
+  semgrep in CI, looking for Python-specific security regressions rather than
+  style. Suggested by an external review. Genuinely undecided rather than
+  leaning either way: the security-relevant surfaces here (archive parsing,
+  subprocess invocation, path handling) already have adversarial tests written
+  against the specific threat, which is the thing a generic ruleset is worst at
+  and a human reviewer is best at. May be answered by whatever tool KAN-136
+  settles on, so decide that first.
+
 - **Whether to publish to PyPI.** Building an installable artifact is done and
   needs nothing from anyone: `make build` produces a wheel and an sdist, and
   `pip install dist/*.whl` works. What stays undecided is *publishing* one.
@@ -173,6 +220,25 @@ help and what not to send.
 ## Considered and not planned
 
 Recorded so they are not re-proposed as oversights.
+
+- **A coverage threshold.** Suggested by an external review, declined 2026-08-03.
+
+  A number gates the build, so the cheapest way past a failing build is a test
+  written to move the number. Those tests exercise lines without asserting
+  anything worth asserting, and they are indistinguishable in a report from
+  tests that would catch a regression. This repository has already produced two
+  tests that could not fail, found by inspection rather than by any metric, and
+  a threshold would have counted both as coverage.
+
+  What is actually wanted is that the risky surfaces are tested, and those are
+  known by name rather than by percentage: archive parsing, override resolution,
+  obfuscation, output escaping, the overwrite guard. Each has adversarial tests
+  written against a specific failure.
+
+  **Measuring** coverage is a different question and not declined. A report
+  nobody is graded on can point at a module worth a second look. It is just not
+  worth a gate, and a report with no consequence attached tends to go unread,
+  which is why this is a decline rather than a plan.
 
 - **A dependency lock file.** Hashed constraints are ongoing maintenance for a
   dev-only benefit, and Dependabot plus the advisory job cover staying current.
