@@ -150,6 +150,18 @@ drawn from a thin one look equally authoritative.
   resolve artwork twice, once per output theme, and give `write_outputs` a
   second icons dict for the draw.io pass.
 
+- **The legacy permission repair follows symlinks** (KAN-143). `_make_private()`
+  uses `is_dir()` and `chmod()`, both of which follow links, so a symlink
+  planted at `user-svg/` or one of its PNGs makes it strip permissions from the
+  target instead. It grants nothing and discloses nothing, but an unrelated path
+  can lose access, and in a cache directory somebody else can write to that is a
+  local denial-of-service primitive. Fix is an `is_symlink()` refusal, or an
+  `O_NOFOLLOW` descriptor if racing attackers count.
+
+  Worth deciding at the same time whether the repair should survive 0.9.0 at
+  all: it only exists to fix caches written by development checkouts between two
+  commits on one afternoon, since the world-readable behaviour never shipped.
+
 - **Cap controller response sizes** (KAN-134). `client.py` reads responses with
   no ceiling, while `assets.py` caps every fetch from the CDN. That is backwards
   from how it looks: the untrusted path is defended and the trusted one is not,

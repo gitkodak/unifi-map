@@ -767,6 +767,15 @@ def _make_private(path: Path) -> None:
     Suppressed rather than reported: a mount without POSIX permissions is not a
     reason to fail a render, which is how the snapshot writer treats the same
     situation.
+
+    **Known: this follows symlinks** (KAN-143). `is_dir()` and `chmod()` both
+    do, so a link planted at `user-svg/` or at one of its PNGs makes this strip
+    permissions from the target instead. It grants nothing and discloses
+    nothing — it removes access — but an unrelated path can lose group or world
+    access, and in a cache directory somebody else can write to that is a local
+    denial-of-service primitive. Filed rather than fixed for 0.9.0; the fix is
+    an `is_symlink()` refusal, or an `O_NOFOLLOW` descriptor if racing attackers
+    are in scope.
     """
     if not path.exists():
         return
