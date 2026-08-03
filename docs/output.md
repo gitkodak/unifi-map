@@ -10,7 +10,7 @@ than what it draws.
 | `svg` | Vector. Zoom to any size, labels stay crisp. Artwork is embedded, so it's one portable file. |
 | `pdf` | Vector, for printing. |
 | `png` | Raster, when something insists on it. |
-| `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net). Lucid also documents `.drawio` import, though that has not been tried. |
+| `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net). Lucid documents `.drawio` import but does not work; see [below](#lucid-does-not-import-these-files). |
 | `dot` | Graphviz source, to tweak styling by hand. |
 | `mermaid` | Text that GitHub, GitLab and most wikis draw in place. No artwork; shape only. [More below](#mermaid-for-documentation). |
 | `json` | The normalised topology, for programs rather than people. [More below](#json-for-programs). |
@@ -22,6 +22,22 @@ worth knowing if you only want the source or the data. `drawio` is in between:
 the file is written here, but Graphviz computed the positions in it.
 
 The two text formats below are the ones that need explaining.
+
+## Lucid does not import these files
+
+Lucid documents `.drawio` import. It was tried, against a 52-client map and a
+12-node infrastructure map, and it imports **exactly one cell and stops**, a
+different cell each time.
+
+It is not the embedded artwork: a copy with every image stripped, 25 cells and
+11 edges in 9.5 KiB, behaves identically. It is not the storage form either.
+draw.io can hold its payload deflate-compressed, and a compressed variant was
+round-trip verified and imported the same way.
+
+draw.io is the reference implementation of this format and the file works there,
+so nothing here is going to be reshaped to suit a second tool's parser. If you
+need the diagram in Lucid, open it in draw.io and export from there, or import
+the `svg` or `pdf` output, which Lucid ingests without complaint.
 
 ## JSON, for programs
 

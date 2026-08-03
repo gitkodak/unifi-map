@@ -22,13 +22,17 @@ in draw.io.
   about internal site names comes from how UniFi behaves generally, not from
   something observed here, which is why it points you at the URL and the API
   rather than telling you what the value will look like.
-- **Importing into Lucid.** Lucid documents `.drawio` import; that has not been
-  tried with a file from this tool.
 - **Any controller other than a UDM Pro Max**, or any Network version other than
   10.5.67. Older or newer controllers may move or reshape these endpoints.
 
 If any of these turn out to be broken, that is a bug worth reporting rather than
 a known limitation.
+
+**Checked and does not work:** importing the `.drawio` output into Lucid. Lucid
+reads one cell and stops. Neither stripping the embedded artwork nor writing the
+payload in draw.io's compressed form changes it, so it is not a size or encoding
+problem. [`docs/output.md`](output.md#lucid-does-not-import-these-files) says
+what to do instead. draw.io itself is fine.
 
 ## Which UniFi applications this has seen
 

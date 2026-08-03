@@ -71,6 +71,17 @@ told something untrue and may have acted on it.
   in this repository, one `git add -A` from being published. The ignore rule was
   widened in 0.8.0, and this removes the question rather than guarding it.
 
+### Fixed
+
+- **Documentation said Lucid's `.drawio` import had not been tried. It has, and
+  it does not work.** Lucid reads one cell of the file and stops, a different
+  cell each time. Neither stripping the embedded artwork nor writing the payload
+  in draw.io's own compressed form changes it, so it is not a size or an
+  encoding problem. `docs/output.md` now says so and points at the workarounds,
+  which are to export from draw.io or to import the `svg` or `pdf` output.
+  draw.io itself remains confirmed working. Nothing about the generated file is
+  being reshaped to suit a second tool's parser.
+
 ## 0.8.0 - 2026-08-02
 
 **If you keep an overrides file, read this before upgrading.** A file
