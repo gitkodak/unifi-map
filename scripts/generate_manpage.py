@@ -230,15 +230,14 @@ def render() -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> int:
+def main() -> None:
     text = render()
     if PAGE.is_file() and PAGE.read_text(encoding="utf-8") == text:
         print(f"{PAGE.name} is current.")
-        return 0
+        return
     PAGE.write_text(text, encoding="utf-8")
     print(f"{PAGE.name} updated.")
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

@@ -104,7 +104,7 @@ def render() -> str:
     return "\n".join(out)
 
 
-def main() -> int:
+def main() -> None:
     text = PAGE.read_text(encoding="utf-8")
     section = render()
 
@@ -116,11 +116,10 @@ def main() -> int:
 
     if updated == text:
         print("docs/usage.md flag reference is current.")
-        return 0
+        return
     PAGE.write_text(updated, encoding="utf-8")
     print("docs/usage.md flag reference updated.")
-    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
