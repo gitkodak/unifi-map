@@ -143,6 +143,18 @@ def _resolve_isp_icon(
             icons[node.id] = cloud
 
 
+def _client_glyph_asset(
+    name: str,
+    store: AssetStore,
+    color: str,
+    cache: dict[str, IconAsset | None],
+) -> IconAsset | None:
+    """Resolve one generic client glyph, reusing it for clients of the same kind."""
+    if name not in cache:
+        cache[name] = store.client_glyph(name, color)
+    return cache[name]
+
+
 def _resolve_client_icons(
     topo: Topology,
     store: AssetStore,
@@ -173,9 +185,7 @@ def _resolve_client_icons(
             # Same fallback the UI uses: a generic user/guest x wired/wireless
             # glyph from the controller's icon font.
             name = node.glyph_name
-            if name not in glyph_cache:
-                glyph_cache[name] = store.client_glyph(name, theme.text_muted)
-            asset = glyph_cache[name]
+            asset = _client_glyph_asset(name, store, theme.text_muted, glyph_cache)
             if asset is not None:
                 from_glyph += 1
         if asset is not None:
