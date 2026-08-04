@@ -83,7 +83,9 @@ def test_wireless_and_asserted_links_are_visually_distinct():
         Edge(src="d", dst="a", asserted=True),
     ]
     source = render_mermaid(topo)
-    assert "-->" in source and "-..-" in source and "-.->" in source
+    assert "-->" in source
+    assert "-..-" in source
+    assert "-.->" in source
 
 
 def test_direction_follows_the_layout(snapshot: Snapshot):

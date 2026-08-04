@@ -37,7 +37,8 @@ def test_every_edge_points_at_a_node_in_the_document(snapshot: Snapshot):
     doc = _doc(build_topology(snapshot))
     ids = {n["id"] for n in doc["nodes"]}
     for edge in doc["edges"]:
-        assert edge["child"] in ids and edge["parent"] in ids
+        assert edge["child"] in ids
+        assert edge["parent"] in ids
 
 
 def test_absent_facts_are_omitted_not_null(snapshot: Snapshot):

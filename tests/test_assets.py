@@ -182,7 +182,8 @@ class TestSvgInlining:
 def test_icon_asset_display_size_never_returns_zero():
     tiny = IconAsset(path=None, width=1, height=1000)  # type: ignore[arg-type]
     w, h = tiny.display_size(168, 90)
-    assert w >= 1 and h >= 1
+    assert w >= 1
+    assert h >= 1
 
 
 class TestClientArtwork:
@@ -391,18 +392,21 @@ class TestIconFontFromDisk:
         assert len(codepoints) == 4
 
     def test_a_missing_stylesheet_says_why_it_is_needed(self, tmp_path):
+        directory = self._dir(tmp_path, css=None)
         with pytest.raises(AssetError, match="codepoints"):
-            read_icon_font_dir(self._dir(tmp_path, css=None))
+            read_icon_font_dir(directory)
 
     def test_a_missing_font_is_reported(self, tmp_path):
+        directory = self._dir(tmp_path, self.CSS, font=None)
         with pytest.raises(AssetError, match=r"No \.ttf"):
-            read_icon_font_dir(self._dir(tmp_path, self.CSS, font=None))
+            read_icon_font_dir(directory)
 
     def test_an_unrelated_stylesheet_does_not_pass_silently(self, tmp_path):
         # Failing loudly matters: a silent fallback is indistinguishable from
         # the glyphs simply not rendering.
+        directory = self._dir(tmp_path, "body{color:red}")
         with pytest.raises(AssetError, match="no client glyph codepoints"):
-            read_icon_font_dir(self._dir(tmp_path, "body{color:red}"))
+            read_icon_font_dir(directory)
 
     def test_a_path_that_is_not_a_directory_is_refused(self, tmp_path):
         loose = tmp_path / "ubnt.ttf"
@@ -675,8 +679,9 @@ class TestFetchDoesNotDependOnRequestsInternals:
         from unifi_map.assets import Fetched
 
         Fetched(status_code=200, content=b"", url="u").raise_for_status()
+        missing = Fetched(status_code=404, content=b"", url="u")
         with pytest.raises(requests.RequestException):
-            Fetched(status_code=404, content=b"", url="u").raise_for_status()
+            missing.raise_for_status()
 
 
 class TestColdCacheDownload:
@@ -1107,7 +1112,8 @@ class TestSvgRendersNotJustMeasures:
         icon = tmp_path / "icon.svg"
         icon.write_text(self.HEAD + '<svg width="0.5px" height="0.5px"/>', encoding="utf-8")
         asset = local_icon(icon)
-        assert asset.width >= 1 and asset.height >= 1
+        assert asset.width >= 1
+        assert asset.height >= 1
 
 
 def test_an_oversized_download_is_refused_too(tmp_path):
@@ -1123,8 +1129,9 @@ def test_an_oversized_download_is_refused_too(tmp_path):
     buffer = BytesIO()
     Image.new("RGBA", (side, side), (0, 0, 0, 0)).save(buffer, "PNG")
 
+    raw = buffer.getvalue()
     with pytest.raises(assets.AssetError):
-        assets._downscale(buffer.getvalue(), tmp_path / "out.png", 256)
+        assets._downscale(raw, tmp_path / "out.png", 256)
 
 
 def test_an_xml_escaped_path_is_still_inlined(tmp_path):

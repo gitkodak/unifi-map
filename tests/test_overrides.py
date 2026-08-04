@@ -226,8 +226,9 @@ class TestApplyLinks:
         assert len([e for e in result.topology.edges if e.src == nas]) == 1
 
     def test_linking_a_node_to_itself_is_rejected(self, topo):
+        overrides = parse({"link": [{"from": "nas", "to": "nas"}]})
         with pytest.raises(OverrideError, match="same node"):
-            apply(topo, parse({"link": [{"from": "nas", "to": "nas"}]}))
+            apply(topo, overrides)
 
 
 class TestApplyHosted:
@@ -249,8 +250,9 @@ class TestApplyHosted:
         assert any(e.label == "VM" for e in result.topology.edges if e.asserted)
 
     def test_hosting_itself_is_rejected(self, topo):
+        overrides = parse({"hosted": [{"guest": "nas", "host": "nas"}]})
         with pytest.raises(OverrideError, match="cannot host itself"):
-            apply(topo, parse({"hosted": [{"guest": "nas", "host": "nas"}]}))
+            apply(topo, overrides)
 
 
 class TestApplyNode:
@@ -268,8 +270,9 @@ class TestApplyNode:
         assert (result.icons[node_id].width, result.icons[node_id].height) == (40, 30)
 
     def test_missing_artwork_is_a_loud_error(self, topo, tmp_path):
+        overrides = parse({"node": [{"match": "nas", "icon": str(tmp_path / "nope.png")}]})
         with pytest.raises(AssetError, match="No artwork file"):
-            apply(topo, parse({"node": [{"match": "nas", "icon": str(tmp_path / "nope.png")}]}))
+            apply(topo, overrides)
 
 
 class TestApplyHide:
@@ -287,12 +290,14 @@ class TestApplyHide:
             assert edge.dst in result.topology.nodes
 
     def test_refuses_to_hide_something_with_children(self, topo):
+        overrides = parse({"node": [{"match": "Core Switch", "hide": True}]})
         with pytest.raises(OverrideError, match="depend on it"):
-            apply(topo, parse({"node": [{"match": "Core Switch", "hide": True}]}))
+            apply(topo, overrides)
 
     def test_the_refusal_names_the_children(self, topo):
+        overrides = parse({"node": [{"match": "Core Switch", "hide": True}]})
         with pytest.raises(OverrideError) as excinfo:
-            apply(topo, parse({"node": [{"match": "Core Switch", "hide": True}]}))
+            apply(topo, overrides)
         assert "nas" in str(excinfo.value)
 
     def test_links_are_applied_before_hiding(self, unplaced_topo, tmp_path):
@@ -302,8 +307,9 @@ class TestApplyHide:
             "link": [{"from": "vm-host", "to": "nas"}],
             "node": [{"match": "nas", "hide": True}],
         }
+        overrides = parse(payload)
         with pytest.raises(OverrideError, match="depend on it"):
-            apply(unplaced_topo, parse(payload))
+            apply(unplaced_topo, overrides)
 
 
 def test_apply_does_not_mutate_the_original(topo):
@@ -385,7 +391,8 @@ class TestHideOverride:
     def test_hide_alone_is_a_valid_entry(self):
         node = parse({"node": [{"match": "Garage", "hide": True}]}).nodes[0]
         assert node.hide is True
-        assert node.name is None and node.icon is None
+        assert node.name is None
+        assert node.icon is None
 
     def test_hide_defaults_false(self):
         assert parse({"node": [{"match": "x", "name": "y"}]}).nodes[0].hide is False

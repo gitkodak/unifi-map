@@ -95,7 +95,8 @@ class TestItDrawsWhenSomebodyIsWatching:
 
     def test_an_exception_still_erases(self):
         stream = FakeTty()
-        with pytest.raises(ValueError), spinner("Boom", True, stream):
+        progress = spinner("Boom", True, stream)
+        with pytest.raises(ValueError), progress:
             time.sleep(0.15)
             raise ValueError("x")
         assert stream.getvalue().endswith("\r")

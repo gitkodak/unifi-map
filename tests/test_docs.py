@@ -279,7 +279,10 @@ class TestEveryOverrideBlockIsDocumented:
 
         path = Path(__file__).resolve().parents[1] / "examples" / "overrides.toml"
         result = load(path)
-        assert result.devices and result.links and result.hosted and result.nodes
+        assert result.devices
+        assert result.links
+        assert result.hosted
+        assert result.nodes
 
 
 def test_the_generated_flag_reference_is_current():
@@ -301,7 +304,8 @@ def test_the_generated_flag_reference_is_current():
     text = module.PAGE.read_text(encoding="utf-8")
     start = text.find(module.BEGIN)
     end = text.find(module.END)
-    assert start != -1 and end != -1, f"{module.PAGE.name} has no flag reference; run `make docs`"
+    assert start != -1, f"{module.PAGE.name} has no generated flag reference; run `make docs`"
+    assert end != -1, f"{module.PAGE.name} has no generated flag reference; run `make docs`"
     assert text[start : end + len(module.END)] == module.render(), (
         f"{module.PAGE.name} flag reference is out of date. Run `make docs`."
     )

@@ -182,8 +182,9 @@ class TestCredentials:
         by this point the old name is not part of the interface.
         """
         self._clear(monkeypatch)
+        env = self._env(tmp_path, "UDM_HOST=h\nUDM_API_KEY=secret\nUDM_SITE=s\n")
         with pytest.raises(ConfigError) as excinfo:
-            load_config(self._env(tmp_path, "UDM_HOST=h\nUDM_API_KEY=secret\nUDM_SITE=s\n"))
+            load_config(env)
         assert "UNIFI_HOST" in str(excinfo.value)
         assert "UNIFI_API_KEY" in str(excinfo.value)
 
@@ -207,18 +208,21 @@ class TestCredentials:
 
     def test_missing_key_names_what_is_missing(self, monkeypatch, tmp_path):
         self._clear(monkeypatch)
+        env = self._env(tmp_path, "UNIFI_HOST=h\n")
         with pytest.raises(ConfigError, match=r"API key \(UNIFI_API_KEY\)"):
-            load_config(self._env(tmp_path, "UNIFI_HOST=h\n"))
+            load_config(env)
 
     def test_missing_host_names_what_is_missing(self, monkeypatch, tmp_path):
         self._clear(monkeypatch)
+        env = self._env(tmp_path, "UNIFI_API_KEY=k\n")
         with pytest.raises(ConfigError, match=r"host \(UNIFI_HOST\)"):
-            load_config(self._env(tmp_path, "UNIFI_API_KEY=k\n"))
+            load_config(env)
 
     def test_placeholder_key_is_rejected(self, monkeypatch, tmp_path):
         self._clear(monkeypatch)
+        env = self._env(tmp_path, "UNIFI_HOST=h\nUNIFI_API_KEY=CHANGE_ME\n")
         with pytest.raises(ConfigError, match="CHANGE_ME"):
-            load_config(self._env(tmp_path, "UNIFI_HOST=h\nUNIFI_API_KEY=CHANGE_ME\n"))
+            load_config(env)
 
     def test_host_may_carry_a_port_and_assumes_https(self):
         assert ExporterConfig("unifi.example.com:8443", "k").base_url == (
@@ -1088,7 +1092,8 @@ class TestTransparentBackground:
             topo, "t", Style(theme=get_theme("dark"), icons="builtin", transparent=True)
         )
         assert light != dark
-        assert LIGHT.text in light and LIGHT.text not in dark
+        assert LIGHT.text in light
+        assert LIGHT.text not in dark
 
     @needs_graphviz
     def test_the_rendered_svg_paints_no_canvas(self, snapshot: Snapshot):
@@ -1134,7 +1139,7 @@ class TestTheEnvironmentCanAskForAFlourish:
         before = (len(topo.nodes), len(topo.edges), topo.counts())
         monkeypatch.setenv("HOOPY_FROOD", "map")
         render_dot(topo, "t", UNIFI)
-        assert (len(topo.nodes), len(topo.edges), topo.counts()) == before
+        assert before == (len(topo.nodes), len(topo.edges), topo.counts())
 
     @needs_graphviz
     def test_the_svg_still_renders(self, snapshot: Snapshot, monkeypatch):

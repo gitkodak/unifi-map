@@ -31,7 +31,8 @@ class TestDrawing:
         asset = store.drawn_icon(name, COLOR)
         assert asset is not None, f"{name} did not draw"
         assert asset.path.is_file()
-        assert asset.width > 0 and asset.height > 0
+        assert asset.width > 0
+        assert asset.height > 0
 
     def test_an_unknown_name_raises_rather_than_guessing(self, tmp_path):
         """Same rule as `local_icon()`: never substitute a different picture.
