@@ -433,6 +433,36 @@ class TestDpiFingerprints:
         _write_archive(path, members)
         assert len(load_support_file(path).get("client_active")) == 4
 
+    def test_record_guards_preserve_the_confidence_trust_boundary(self):
+        from unifi_map.support import _dpi_hosts
+
+        raw = (
+            "Response:\n"
+            + json.dumps(
+                {
+                    "hosts": [
+                        None,
+                        {"mac": "", "ip": "10.0.0.1"},
+                        {
+                            "mac": "AA:BB:CC:00:00:01",
+                            "ip": "not-an-address",
+                            "ml": {"deviceNameID": 42, "confidence": 80},
+                        },
+                        {
+                            "mac": "AA:BB:CC:00:00:02",
+                            "ip": "10.0.0.2",
+                            "ml": {"deviceNameID": "43", "confidence": 100},
+                        },
+                    ]
+                }
+            )
+        ).encode()
+
+        assert _dpi_hosts(raw) == {
+            "aa:bb:cc:00:00:01": {"dev_id": 42},
+            "aa:bb:cc:00:00:02": {"ip": "10.0.0.2"},
+        }
+
 
 class TestFingerprintFromName:
     """Recovering `dev_id` from the name the console generated.

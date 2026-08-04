@@ -479,6 +479,31 @@ def _dev_id_from_name(name: str, mac: str, index: dict[str, int]) -> int | None:
     return index.get(_normalize_product(match.group("product")))
 
 
+def _dpi_record(entry: Any) -> tuple[str, dict[str, Any]] | None:
+    """Build one trusted DPI host record, if the entry contains usable data."""
+    if not isinstance(entry, dict):
+        return None
+    mac = str(entry.get("mac") or "").lower()
+    if not mac:
+        return None
+
+    record: dict[str, Any] = {}
+    address = entry.get("ip")
+    if isinstance(address, str) and _is_address(address):
+        record["ip"] = address
+    ml = entry.get("ml")
+    if isinstance(ml, dict):
+        confidence = ml.get("confidence")
+        dev_id = ml.get("deviceNameID")
+        if (
+            isinstance(confidence, int | float)
+            and confidence >= MIN_FINGERPRINT_CONFIDENCE
+            and isinstance(dev_id, int)
+        ):
+            record["dev_id"] = dev_id
+    return (mac, record) if record else None
+
+
 def _dpi_hosts(raw: bytes | None) -> dict[str, dict[str, Any]]:
     """MAC to {ip, dev_id} from the gateway's DPI fingerprint stats.
 
@@ -508,26 +533,9 @@ def _dpi_hosts(raw: bytes | None) -> dict[str, dict[str, Any]]:
         return hosts
 
     for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        mac = str(entry.get("mac") or "").lower()
-        if not mac:
-            continue
-        record: dict[str, Any] = {}
-        address = entry.get("ip")
-        if isinstance(address, str) and _is_address(address):
-            record["ip"] = address
-        ml = entry.get("ml")
-        if isinstance(ml, dict):
-            confidence = ml.get("confidence")
-            dev_id = ml.get("deviceNameID")
-            if (
-                isinstance(confidence, int | float)
-                and confidence >= MIN_FINGERPRINT_CONFIDENCE
-                and isinstance(dev_id, int)
-            ):
-                record["dev_id"] = dev_id
-        if record:
+        parsed = _dpi_record(entry)
+        if parsed is not None:
+            mac, record = parsed
             hosts[mac] = record
     return hosts
 
