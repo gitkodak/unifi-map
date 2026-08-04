@@ -209,49 +209,65 @@ def _graph_attrs(style: Style) -> list[str]:
     ]
 
 
+def _node_accent(node, theme: Theme, colors: dict[str, str]) -> str:
+    if node.kind in _CLIENT_KINDS and node.network in colors:
+        return colors[node.network]
+    return theme.accent(node.kind)
+
+
+def _node_attrs(
+    topo: Topology,
+    node_id: str,
+    style: Style,
+    icons: dict[str, IconAsset],
+    colors: dict[str, str],
+) -> list[str]:
+    theme = style.theme
+    node = topo.nodes[node_id]
+    accent = _node_accent(node, theme, colors)
+
+    # Whatever the caller resolved, without second-guessing it. This used to
+    # be gated on `style.icons == "unifi"`, back when `builtin` meant no
+    # artwork existed at all; now it means artwork we drew ourselves rather
+    # than artwork fetched from Ubiquiti, and there is plenty of it. The gate
+    # also silently discarded icons a user supplied through an overrides file,
+    # which were never fetched from anywhere either.
+    icon = icons.get(node_id)
+    if icon is None:
+        return [
+            f'label="{_plain_label(topo, node_id)}"',
+            f"shape={KIND_SHAPE[node.kind]}",
+            'style="filled,rounded,dotted"'
+            if node.asserted
+            else 'style="filled,rounded,dashed"'
+            if node.offline
+            else 'style="filled,rounded"',
+            f'fillcolor="{theme.card_muted if node.offline else theme.card}"',
+            f'color="{accent}"',
+            f'fontcolor="{theme.text}"',
+            "fontsize=11",
+            "penwidth=2",
+        ]
+
+    attrs = [f"label={_icon_label(topo, node_id, theme, accent, icon)}"]
+    if node.asserted:
+        # Artwork alone would read as something the controller reported, so an
+        # asserted device gets a dotted outline around it. Dotted matches the
+        # asserted edge style; offline uses dashed, so the two stay
+        # distinguishable and both survive greyscale.
+        attrs += ["shape=box", "style=dotted", f'color="{accent}"', "penwidth=1"]
+    return attrs
+
+
 def _node_lines(
     topo: Topology,
     style: Style,
     icons: dict[str, IconAsset],
     colors: dict[str, str],
 ) -> list[str]:
-    theme = style.theme
     lines = []
-    for node_id, node in sorted(topo.nodes.items()):
-        accent = theme.accent(node.kind)
-        if node.kind in _CLIENT_KINDS and node.network in colors:
-            accent = colors[node.network]
-
-        # Whatever the caller resolved, without second-guessing it. This used to
-        # be gated on `style.icons == "unifi"`, back when `builtin` meant no
-        # artwork existed at all; now it means artwork we drew ourselves rather
-        # than artwork fetched from Ubiquiti, and there is plenty of it. The
-        # gate also silently discarded icons a user supplied through an
-        # overrides file, which were never fetched from anywhere either.
-        icon = icons.get(node_id)
-        if icon is not None:
-            attrs = [f"label={_icon_label(topo, node_id, theme, accent, icon)}"]
-            if node.asserted:
-                # Artwork alone would read as something the controller reported,
-                # so an asserted device gets a dotted outline around it. Dotted
-                # matches the asserted edge style; offline uses dashed, so the
-                # two stay distinguishable and both survive greyscale.
-                attrs += ["shape=box", "style=dotted", f'color="{accent}"', "penwidth=1"]
-        else:
-            attrs = [
-                f'label="{_plain_label(topo, node_id)}"',
-                f"shape={KIND_SHAPE[node.kind]}",
-                'style="filled,rounded,dotted"'
-                if node.asserted
-                else 'style="filled,rounded,dashed"'
-                if node.offline
-                else 'style="filled,rounded"',
-                f'fillcolor="{theme.card_muted if node.offline else theme.card}"',
-                f'color="{accent}"',
-                f'fontcolor="{theme.text}"',
-                "fontsize=11",
-                "penwidth=2",
-            ]
+    for node_id in sorted(topo.nodes):
+        attrs = _node_attrs(topo, node_id, style, icons, colors)
         lines.append(f"  {_node_id(node_id)} [{', '.join(attrs)}];")
     return lines
 
