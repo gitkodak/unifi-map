@@ -21,6 +21,7 @@ longer holds.
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import cast
 
 from .model import UNKNOWN_UPLINK_ID, Edge, Kind, Network, Node, Topology
 
@@ -121,23 +122,26 @@ def _obfuscated_node(
         # fingerprint is a catalogue product name and stays.
         detail = None
 
-    return replace(
-        node,
-        id=new_id,
-        label=labels[node.id],
-        ip=ip,
-        network=network,
-        detail=detail,
-        # Kept on purpose: these drive artwork lookup and say nothing about
-        # the owner, only what the hardware is.
-        sysid=node.sysid,
-        dev_id=node.dev_id,
-        oui=node.oui,
-        hardware_type=node.hardware_type,
-        # Dropped, unlike the other artwork keys. An ASN names the ISP as
-        # squarely as `isp_name` does, and it would redraw their brand mark
-        # on a map whose whole point is that it can be shared.
-        asn=None,
+    return cast(
+        Node,
+        replace(
+            node,
+            id=new_id,
+            label=labels[node.id],
+            ip=ip,
+            network=network,
+            detail=detail,
+            # Kept on purpose: these drive artwork lookup and say nothing about
+            # the owner, only what the hardware is.
+            sysid=node.sysid,
+            dev_id=node.dev_id,
+            oui=node.oui,
+            hardware_type=node.hardware_type,
+            # Dropped, unlike the other artwork keys. An ASN names the ISP as
+            # squarely as `isp_name` does, and it would redraw their brand mark
+            # on a map whose whole point is that it can be shared.
+            asn=None,
+        ),
     )
 
 
