@@ -46,7 +46,7 @@ jobs:
 
       - name: Install
         # Do not execute package build code from dependency source distributions.
-        run: pip install --only-binary :all: -e ".[dev]"
+        run: 'pip install --only-binary=:all: -e ".[dev]"'
 
       - name: Format
         run: python -m ruff format --check .
