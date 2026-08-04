@@ -319,6 +319,81 @@ def _title_block(title: str, subtitle: str | None, theme: Theme) -> str:
     )
 
 
+def _legend_swatch(theme: Theme, color: str, label: str) -> str:
+    return (
+        f'<TR><TD WIDTH="16" HEIGHT="12" FIXEDSIZE="TRUE" BGCOLOR="{color}"></TD>'
+        f'<TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="{theme.text_muted}" '
+        f'FACE="{FONT}">{_html(label)}</FONT></TD></TR>'
+    )
+
+
+def _legend_note(theme: Theme, text: str) -> str:
+    return (
+        f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="9" '
+        f'COLOR="{theme.text_faint}" FACE="{FONT}">{_html(text)}</FONT></TD></TR>'
+    )
+
+
+def _legend_role_rows(
+    topo: Topology, theme: Theme, icons: dict[str, IconAsset]
+) -> tuple[list[str], bool]:
+    shaped = {n.kind for n in topo.nodes.values() if n.id not in icons}
+    drawn_as_art = any(n.id in icons for n in topo.nodes.values())
+    rows = []
+
+    if drawn_as_art:
+        rows.append(_legend_note(theme, "Device role: shown by its artwork"))
+    if shaped:
+        if drawn_as_art:
+            rows.append(
+                f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="11" '
+                f'COLOR="{theme.text}" FACE="{FONT}"><BR/><B>Without artwork</B>'
+                f"</FONT></TD></TR>"
+            )
+        for kind in Kind:
+            if kind in shaped:
+                rows.append(_legend_swatch(theme, theme.accent(kind), KIND_LABEL[kind]))
+
+    return rows, drawn_as_art
+
+
+def _legend_network_rows(
+    topo: Topology, theme: Theme, colors: dict[str, str], drawn_as_art: bool
+) -> list[str]:
+    used = sorted({n.network for n in topo.nodes.values() if n.kind in _CLIENT_KINDS and n.network})
+    if not used:
+        return []
+
+    label = "Client network" if not drawn_as_art else "Client network (label colour)"
+    rows = [
+        f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="{theme.text}" '
+        f'FACE="{FONT}"><BR/><B>{label}</B></FONT></TD></TR>'
+    ]
+    for name in used:
+        vlans = {n.vlan for n in topo.nodes.values() if n.network == name and n.vlan}
+        suffix = f" · VLAN {sorted(vlans)[0]}" if vlans else ""
+        rows.append(_legend_swatch(theme, colors[name], f"{name}{suffix}"))
+    return rows
+
+
+def _legend_link_rows(topo: Topology, theme: Theme) -> list[str]:
+    rows = [
+        f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="{theme.text}" '
+        f'FACE="{FONT}"><BR/><B>Links</B></FONT></TD></TR>'
+    ]
+    link_styles = [("&#9472;&#9472;", "Wired"), ("- - -", "Wireless")]
+    if any(e.asserted for e in topo.edges) or any(n.asserted for n in topo.nodes.values()):
+        link_styles.append((". . .", "Stated in overrides"))
+    for glyph, label in link_styles:
+        rows.append(
+            f'<TR><TD ALIGN="RIGHT"><FONT POINT-SIZE="10" COLOR="{theme.edge}" '
+            f'FACE="{FONT}">{glyph}</FONT></TD>'
+            f'<TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="{theme.text_muted}" '
+            f'FACE="{FONT}">{label}</FONT></TD></TR>'
+        )
+    return rows
+
+
 def _legend(
     topo: Topology,
     theme: Theme,
@@ -334,66 +409,14 @@ def _legend(
     render.
     """
     icons = icons or {}
-    shaped = {n.kind for n in topo.nodes.values() if n.id not in icons}
-    drawn_as_art = any(n.id in icons for n in topo.nodes.values())
-
     rows = [
         f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="{theme.text}" '
         f'FACE="{FONT}"><B>Legend</B></FONT></TD></TR>'
     ]
-
-    def swatch(color: str, label: str) -> str:
-        return (
-            f'<TR><TD WIDTH="16" HEIGHT="12" FIXEDSIZE="TRUE" BGCOLOR="{color}"></TD>'
-            f'<TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="{theme.text_muted}" '
-            f'FACE="{FONT}">{_html(label)}</FONT></TD></TR>'
-        )
-
-    def note(text: str) -> str:
-        return (
-            f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="9" '
-            f'COLOR="{theme.text_faint}" FACE="{FONT}">{_html(text)}</FONT></TD></TR>'
-        )
-
-    if drawn_as_art:
-        rows.append(note("Device role: shown by its artwork"))
-    if shaped:
-        if drawn_as_art:
-            rows.append(
-                f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="11" '
-                f'COLOR="{theme.text}" FACE="{FONT}"><BR/><B>Without artwork</B>'
-                f"</FONT></TD></TR>"
-            )
-        for kind in Kind:
-            if kind in shaped:
-                rows.append(swatch(theme.accent(kind), KIND_LABEL[kind]))
-
-    used = sorted({n.network for n in topo.nodes.values() if n.kind in _CLIENT_KINDS and n.network})
-    if used:
-        label = "Client network" if not drawn_as_art else "Client network (label colour)"
-        rows.append(
-            f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="{theme.text}" '
-            f'FACE="{FONT}"><BR/><B>{label}</B></FONT></TD></TR>'
-        )
-        for name in used:
-            vlans = {n.vlan for n in topo.nodes.values() if n.network == name and n.vlan}
-            suffix = f" · VLAN {sorted(vlans)[0]}" if vlans else ""
-            rows.append(swatch(colors[name], f"{name}{suffix}"))
-
-    rows.append(
-        f'<TR><TD COLSPAN="2" ALIGN="LEFT"><FONT POINT-SIZE="11" COLOR="{theme.text}" '
-        f'FACE="{FONT}"><BR/><B>Links</B></FONT></TD></TR>'
-    )
-    link_styles = [("&#9472;&#9472;", "Wired"), ("- - -", "Wireless")]
-    if any(e.asserted for e in topo.edges) or any(n.asserted for n in topo.nodes.values()):
-        link_styles.append((". . .", "Stated in overrides"))
-    for glyph, label in link_styles:
-        rows.append(
-            f'<TR><TD ALIGN="RIGHT"><FONT POINT-SIZE="10" COLOR="{theme.edge}" '
-            f'FACE="{FONT}">{glyph}</FONT></TD>'
-            f'<TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="{theme.text_muted}" '
-            f'FACE="{FONT}">{label}</FONT></TD></TR>'
-        )
+    role_rows, drawn_as_art = _legend_role_rows(topo, theme, icons)
+    rows.extend(role_rows)
+    rows.extend(_legend_network_rows(topo, theme, colors, drawn_as_art))
+    rows.extend(_legend_link_rows(topo, theme))
 
     table = (
         f'<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" CELLPADDING="3" '
