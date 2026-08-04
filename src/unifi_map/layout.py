@@ -181,12 +181,31 @@ def _split_plain(line: str) -> list[str]:
     return fields
 
 
-def parse_plain(plain: str) -> Layout:
-    """Parse `-Tplain` into pixel-space positions.
+def _parse_plain_edge(
+    fields: list[str],
+    raw_edges: dict[tuple[str, str], list[list[tuple[float, float]]]],
+) -> None:
+    """Record one Graphviz edge, leaving malformed routes to draw.io."""
+    try:
+        count = int(fields[3])
+        coords = [float(value) for value in fields[4 : 4 + count * 2]]
+    except (ValueError, IndexError):
+        return
+    if len(coords) == count * 2:
+        points = list(zip(coords[0::2], coords[1::2], strict=True))
+        raw_edges.setdefault((fields[1], fields[2]), []).append(points)
 
-    Graphviz emits inches with a bottom-left origin; draw.io wants pixels with
-    a top-left origin, so y is flipped against the reported graph height.
-    """
+
+def _parse_plain_records(
+    plain: str,
+) -> tuple[
+    float,
+    float,
+    float,
+    dict[str, tuple[float, float, float, float]],
+    dict[tuple[str, str], list[list[tuple[float, float]]]],
+]:
+    """Read Graphviz plain records without applying coordinate transforms."""
     scale = 1.0
     graph_w = graph_h = 0.0
     raw: dict[str, tuple[float, float, float, float]] = {}
@@ -199,24 +218,23 @@ def parse_plain(plain: str) -> Layout:
         if fields[0] == "graph" and len(fields) >= 4:
             scale, graph_w, graph_h = (float(fields[1]), float(fields[2]), float(fields[3]))
         elif fields[0] == "node" and len(fields) >= 6:
-            name, x, y, w, h = fields[1], *map(float, fields[2:6])
-            raw[name] = (x, y, w, h)
+            name, x, y, width, height = fields[1], *map(float, fields[2:6])
+            raw[name] = (x, y, width, height)
         elif fields[0] == "edge" and len(fields) >= 4:
-            # `edge tail head n x1 y1 ... xn yn [label xl yl] style color`.
-            # Anything after the 2n coordinates is ignored: the label position
-            # is draw.io's business and the style is already set by the caller.
-            try:
-                count = int(fields[3])
-                coords = [float(v) for v in fields[4 : 4 + count * 2]]
-            except (ValueError, IndexError):
-                # A line we cannot read is one edge routed by draw.io instead,
-                # which is the old behaviour rather than a failure.
-                continue
-            if len(coords) == count * 2:
-                points = list(zip(coords[0::2], coords[1::2], strict=True))
-                raw_edges.setdefault((fields[1], fields[2]), []).append(points)
+            _parse_plain_edge(fields, raw_edges)
         elif fields[0] == "stop":
             break
+
+    return scale, graph_w, graph_h, raw, raw_edges
+
+
+def parse_plain(plain: str) -> Layout:
+    """Parse `-Tplain` into pixel-space positions.
+
+    Graphviz emits inches with a bottom-left origin; draw.io wants pixels with
+    a top-left origin, so y is flipped against the reported graph height.
+    """
+    scale, graph_w, graph_h, raw, raw_edges = _parse_plain_records(plain)
 
     nodes: dict[str, Placed] = {}
     for name, (x, y, w, h) in raw.items():

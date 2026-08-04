@@ -279,6 +279,19 @@ def _normalise(text: Any) -> str:
     return re.sub(r"[^a-z0-9]", "", str(text or "").lower())
 
 
+def _catalog_entry_matches(entry: dict[str, Any], needle: str, device_type: str | None) -> bool:
+    """Return whether a catalog entry matches a normalized name and type."""
+    if device_type:
+        types = [str(value).lower() for value in (entry.get("deviceTypes") or [])]
+        types.append(str(entry.get("deviceType") or "").lower())
+        if not any(device_type.lower() in candidate for candidate in types):
+            return False
+
+    names = [(entry.get("product") or {}).get("name"), entry.get("sku")]
+    names.extend(entry.get("shortnames") or [])
+    return any(needle in _normalise(name) for name in names if name)
+
+
 def _to_int(value: Any, base: int) -> int | None:
     try:
         return int(str(value).strip(), base)
@@ -712,17 +725,11 @@ class AssetStore:
         if not needle or len(needle) < 4:
             return None
 
-        matches: set[int] = set()
-        for sysid, entry in self.catalog().items():
-            if device_type:
-                types = [str(t).lower() for t in (entry.get("deviceTypes") or [])]
-                types.append(str(entry.get("deviceType") or "").lower())
-                if not any(device_type.lower() in t for t in types):
-                    continue
-            names = [(entry.get("product") or {}).get("name"), entry.get("sku")]
-            names.extend(entry.get("shortnames") or [])
-            if any(needle in _normalise(n) for n in names if n):
-                matches.add(sysid)
+        matches = {
+            sysid
+            for sysid, entry in self.catalog().items()
+            if _catalog_entry_matches(entry, needle, device_type)
+        }
 
         if len(matches) == 1:
             return matches.pop()
