@@ -555,21 +555,13 @@ def _prune_placeholder(topo: Topology) -> None:
         topo.edges[:] = [e for e in topo.edges if UNKNOWN_UPLINK_ID not in (e.src, e.dst)]
 
 
-def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -> ApplyResult:
-    """Apply *overrides* to a copy of *topo*.
-
-    Order matters, in both directions. Declared devices are added first, so a
-    link, a nesting or a rename can refer to one. Hiding comes last, so it sees
-    the children an override just gave a node.
-    """
-    working = Topology(
-        nodes=dict(topo.nodes),
-        edges=list(topo.edges),
-        networks=dict(topo.networks),
-    )
-    result = ApplyResult(topology=working)
-
-    for device in overrides.devices:
+def _apply_devices(
+    working: Topology,
+    devices: list[Device],
+    cache_dir: Path | None,
+    result: ApplyResult,
+) -> None:
+    for device in devices:
         if device.node_id in working.nodes:
             raise OverrideError(
                 f"[[device]] {device.name!r} would collide with an existing node id"
@@ -589,13 +581,15 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
         if device.icon is not None:
             result.icons[device.node_id] = local_icon(device.icon, cache_dir)
 
+
+def _apply_device_parents(working: Topology, devices: list[Device]) -> None:
     # Second pass, and it has to be one. The comment here used to claim parents
     # were "resolved after every declared device exists" while resolving them
     # inside the loop above, so a device could only hang off one declared
     # earlier in the file. Reversing two blocks turned a working file into
     # "'Parent' matches nothing on the map", which reads as a typo rather than
     # as ordering.
-    for device in overrides.devices:
+    for device in devices:
         if not device.parent:
             continue
         parent_id = resolve(device.parent, working)
@@ -608,7 +602,9 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
             )
         )
 
-    for link in overrides.links:
+
+def _apply_links(working: Topology, links: list[Link], result: ApplyResult) -> None:
+    for link in links:
         source = resolve(link.source, working)
         target = resolve(link.target, working)
         if source == target:
@@ -620,7 +616,9 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
         )
         result.links_added += 1
 
-    for entry in overrides.hosted:
+
+def _apply_hosted(working: Topology, hosted: list[Hosted], result: ApplyResult) -> None:
+    for entry in hosted:
         guest = resolve(entry.guest, working)
         host = resolve(entry.host, working)
         if guest == host:
@@ -629,7 +627,14 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
         working.edges.append(Edge(src=guest, dst=host, label=entry.note or "hosted", asserted=True))
         result.hosted_applied += 1
 
-    for node in overrides.nodes:
+
+def _apply_nodes(
+    working: Topology,
+    nodes: list[NodeOverride],
+    cache_dir: Path | None,
+    result: ApplyResult,
+) -> None:
+    for node in nodes:
         node_id = resolve(node.match, working)
         current = working.nodes[node_id]
 
@@ -656,6 +661,26 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
         if node.icon is not None:
             result.icons[node_id] = local_icon(node.icon, cache_dir)
 
+
+def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -> ApplyResult:
+    """Apply *overrides* to a copy of *topo*.
+
+    Order matters, in both directions. Declared devices are added first, so a
+    link, a nesting or a rename can refer to one. Hiding comes last, so it sees
+    the children an override just gave a node.
+    """
+    working = Topology(
+        nodes=dict(topo.nodes),
+        edges=list(topo.edges),
+        networks=dict(topo.networks),
+    )
+    result = ApplyResult(topology=working)
+
+    _apply_devices(working, overrides.devices, cache_dir, result)
+    _apply_device_parents(working, overrides.devices)
+    _apply_links(working, overrides.links, result)
+    _apply_hosted(working, overrides.hosted, result)
+    _apply_nodes(working, overrides.nodes, cache_dir, result)
     _prune_placeholder(working)
     _refuse_cycles(working)
     return result
