@@ -506,6 +506,40 @@ def build_topology(
     return topo
 
 
+def _client_connection(
+    client: dict[str, Any], is_wired: bool
+) -> tuple[str | None, str | None, str | None, bool]:
+    """Return parent, edge label, detail, and wireless state for a client."""
+    if is_wired:
+        parent = _norm_mac(client.get("sw_mac"))
+        port = client.get("sw_port")
+        edge_label = f"port {port}" if port not in (None, "") else None
+        return parent, edge_label, None, False
+
+    parent = _norm_mac(client.get("ap_mac"))
+    essid = client.get("essid")
+    radio = client.get("radio_name") or client.get("radio")
+    edge_label = str(radio) if radio else None
+    detail = str(essid) if essid else None
+    return parent, edge_label, detail, True
+
+
+def _client_label_and_detail(
+    client: dict[str, Any],
+    fingerprint: dict[str, str] | None,
+    detail: str | None,
+) -> tuple[str, str | None]:
+    """Apply fingerprint naming without overriding a controller-side name."""
+    label = _client_label(client)
+    if fingerprint:
+        # Only substitute when the client has no name of its own: a
+        # user-assigned alias is more useful than a catalogue name.
+        if not any(client.get(key) for key in ("name", "hostname", "display_name")):
+            label = _shorten(fingerprint.get("name") or label, limit=28)
+        detail = fingerprint.get("dev_type") or fingerprint.get("family") or detail
+    return label, detail
+
+
 def _add_clients(
     topo: Topology,
     snapshot: Snapshot,
@@ -528,27 +562,8 @@ def _add_clients(
         fp_id = _coerce_int(client.get("dev_id_override")) or _coerce_int(client.get("dev_id"))
         fingerprint = fingerprints.get(fp_id) if fp_id is not None else None
 
-        if is_wired:
-            parent = _norm_mac(client.get("sw_mac"))
-            port = client.get("sw_port")
-            edge_label = f"port {port}" if port not in (None, "") else None
-            detail = None
-            wireless = False
-        else:
-            parent = _norm_mac(client.get("ap_mac"))
-            essid = client.get("essid")
-            radio = client.get("radio_name") or client.get("radio")
-            edge_label = str(radio) if radio else None
-            detail = str(essid) if essid else None
-            wireless = True
-
-        label = _client_label(client)
-        if fingerprint:
-            # Only substitute when the client has no name of its own: a
-            # user-assigned alias is more useful than a catalogue name.
-            if not any(client.get(k) for k in ("name", "hostname", "display_name")):
-                label = _shorten(fingerprint.get("name") or label, limit=28)
-            detail = fingerprint.get("dev_type") or fingerprint.get("family") or detail
+        parent, edge_label, detail, wireless = _client_connection(client, is_wired)
+        label, detail = _client_label_and_detail(client, fingerprint, detail)
 
         topo.add(
             Node(
