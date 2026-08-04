@@ -96,9 +96,14 @@ class TestItDrawsWhenSomebodyIsWatching:
     def test_an_exception_still_erases(self):
         stream = FakeTty()
         progress = spinner("Boom", True, stream)
-        with pytest.raises(ValueError), progress:
-            time.sleep(0.15)
-            raise ValueError("x")
+
+        def fail_while_spinning():
+            with progress:
+                time.sleep(0.15)
+                raise ValueError("x")
+
+        with pytest.raises(ValueError):
+            fail_while_spinning()
         assert stream.getvalue().endswith("\r")
 
     def test_a_terminal_that_cannot_encode_braille_gets_ascii(self):
