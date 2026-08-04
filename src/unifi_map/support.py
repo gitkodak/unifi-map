@@ -274,13 +274,8 @@ def _load_json(members: dict[str, bytes], name: str) -> Any:
         ) from exc
 
 
-def _pick_site(devices: Any, requested: str | None) -> tuple[str, list[dict[str, Any]]]:
-    """Choose which site to map, and return its device records.
-
-    `devices.json` is a list of single-key objects, one per site, plus a `super`
-    entry that is the controller's own pseudo-site and always empty. A console
-    with one site therefore still needs picking apart.
-    """
+def _device_sites(devices: Any) -> dict[str, list[dict[str, Any]]]:
+    """Collect valid per-site device records from devices.json."""
     sites: dict[str, list[dict[str, Any]]] = {}
     if isinstance(devices, list):
         for block in devices:
@@ -288,7 +283,18 @@ def _pick_site(devices: Any, requested: str | None) -> tuple[str, list[dict[str,
                 continue
             for site, records in block.items():
                 if isinstance(records, list):
-                    sites[site] = [r for r in records if isinstance(r, dict)]
+                    sites[site] = [record for record in records if isinstance(record, dict)]
+    return sites
+
+
+def _pick_site(devices: Any, requested: str | None) -> tuple[str, list[dict[str, Any]]]:
+    """Choose which site to map, and return its device records.
+
+    `devices.json` is a list of single-key objects, one per site, plus a `super`
+    entry that is the controller's own pseudo-site and always empty. A console
+    with one site therefore still needs picking apart.
+    """
+    sites = _device_sites(devices)
 
     real = {name: records for name, records in sites.items() if name != "super"}
     if not real:
