@@ -222,6 +222,31 @@ class AssetError(RuntimeError):
     """Raised only for unrecoverable local problems, never for network failures."""
 
 
+_NAME_RESOLUTION_ERRORS = (
+    "nameresolution",
+    "name or service not known",
+    "nodename nor servname",
+    "temporary failure in name resolution",
+)
+
+_CONNECTION_ERRORS = (
+    ("refused", "the connection was refused"),
+    ("no route to host", "there is no route to that host"),
+    ("network is unreachable", "the network is unreachable"),
+)
+
+
+def _describe_connection_error(exc: requests.exceptions.ConnectionError) -> str:
+    """Classify the socket failure hidden inside requests' wrapper."""
+    text = str(exc).lower()
+    if any(message in text for message in _NAME_RESOLUTION_ERRORS):
+        return "the name could not be resolved"
+    for message, description in _CONNECTION_ERRORS:
+        if message in text:
+            return description
+    return "the connection failed"
+
+
 def describe_network_error(exc: BaseException) -> str:
     """A short, plain explanation of a failed request.
 
@@ -243,18 +268,7 @@ def describe_network_error(exc: BaseException) -> str:
     if isinstance(exc, requests.exceptions.Timeout):
         return "timed out"
     if isinstance(exc, requests.exceptions.ConnectionError):
-        text = str(exc).lower()
-        if "nameresolution" in text or "name or service not known" in text:
-            return "the name could not be resolved"
-        if "nodename nor servname" in text or "temporary failure in name resolution" in text:
-            return "the name could not be resolved"
-        if "refused" in text:
-            return "the connection was refused"
-        if "no route to host" in text:
-            return "there is no route to that host"
-        if "network is unreachable" in text:
-            return "the network is unreachable"
-        return "the connection failed"
+        return _describe_connection_error(exc)
     if isinstance(exc, ValueError):
         return "the reply was not valid JSON"
     return type(exc).__name__

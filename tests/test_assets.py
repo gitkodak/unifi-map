@@ -551,10 +551,16 @@ class TestNetworkFailure:
         [
             (requests.exceptions.ConnectTimeout(), "timed out connecting"),
             (requests.exceptions.ReadTimeout(), "timed out waiting for a reply"),
+            (requests.exceptions.Timeout(), "timed out"),
             (requests.exceptions.SSLError(), "TLS verification failed"),
+            (requests.ConnectionError("NameResolutionError"), "the name could not be resolved"),
+            (requests.ConnectionError("nodename nor servname"), "the name could not be resolved"),
             (requests.ConnectionError("Connection refused"), "the connection was refused"),
             (requests.ConnectionError("No route to host"), "there is no route to that host"),
+            (requests.ConnectionError("Network is unreachable"), "the network is unreachable"),
             (requests.ConnectionError("something else entirely"), "the connection failed"),
+            (ValueError(), "the reply was not valid JSON"),
+            (RuntimeError(), "RuntimeError"),
         ],
     )
     def test_each_common_failure_gets_plain_words(self, exc, expected):
