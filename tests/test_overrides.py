@@ -702,6 +702,13 @@ class TestCycleRefusal:
         # only a loop when the node is still on the current path.
         _refuse_cycles(self._topo([Edge(src="a", dst="b"), Edge(src="c", dst="b")]))
 
+    def test_cycle_labels_fall_back_to_ids_for_missing_node_records(self):
+        topo = Topology(edges=[Edge(src="missing-a", dst="missing-b")])
+        topo.edges.append(Edge(src="missing-b", dst="missing-a"))
+
+        with pytest.raises(OverrideError, match=r"missing-a -> missing-b -> missing-a"):
+            _refuse_cycles(topo)
+
 
 class TestMistakesFailLoudly:
     """An overrides file is hand-edited, so the likely mistakes are typos.

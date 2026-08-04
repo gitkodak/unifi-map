@@ -447,6 +447,11 @@ def resolve(selector: str, topo: Topology) -> str:
     )
 
 
+def _node_label(topo: Topology, node_id: str) -> str:
+    """Return a node's display label, or its ID when no node record exists."""
+    return topo.nodes[node_id].label if node_id in topo.nodes else node_id
+
+
 def _refuse_cycles(topo: Topology) -> None:
     """Refuse a graph where something is its own ancestor.
 
@@ -469,9 +474,6 @@ def _refuse_cycles(topo: Topology) -> None:
     for edge in topo.edges:
         # Edges are stored child to parent.
         parents.setdefault(edge.src, []).append(edge.dst)
-
-    def label(node_id: str) -> str:
-        return topo.nodes[node_id].label if node_id in topo.nodes else node_id
 
     # Iterative depth-first search, so a long chain cannot exhaust the stack on
     # a graph that is by definition already malformed. `settled` stops the whole
@@ -496,7 +498,8 @@ def _refuse_cycles(topo: Topology) -> None:
             if parent in on_path:
                 loop = [*path[path.index(parent) :], parent]
                 raise OverrideError(
-                    f"These overrides make a loop: {' -> '.join(label(n) for n in loop)}. "
+                    f"These overrides make a loop: "
+                    f"{' -> '.join(_node_label(topo, node) for node in loop)}. "
                     "Something is its own uplink, which is not a network a cable can make."
                 )
             if parent not in settled:
