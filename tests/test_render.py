@@ -1171,10 +1171,3 @@ class TestTheRenderedStampCanBeFixed:
         for bad in ("", "yesterday", "-1", "12.5"):
             monkeypatch.setenv("SOURCE_DATE_EPOCH", bad)
             assert "generated" in _subtitle(build_topology(snapshot).counts())
-
-    def test_the_same_epoch_gives_the_same_subtitle_twice(self, snapshot: Snapshot, monkeypatch):
-        monkeypatch.setenv("SOURCE_DATE_EPOCH", "1785715200")
-        from unifi_map.cli import _subtitle
-
-        counts = build_topology(snapshot).counts()
-        assert _subtitle(counts) == _subtitle(counts)

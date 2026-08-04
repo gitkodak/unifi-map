@@ -34,6 +34,7 @@ from .model import Kind, Topology
 from .theme import KIND_LABEL, KIND_SHAPE, Theme, network_colors
 
 _CLIENT_KINDS = (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
+_TABLE_END = "</TABLE>>"
 
 FONT = "Helvetica,Arial,sans-serif"
 
@@ -159,7 +160,7 @@ def _icon_label(topo: Topology, node_id: str, theme: Theme, accent: str, icon: I
     return (
         '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="1">'
         + "".join(rows)
-        + "</TABLE>>"
+        + _TABLE_END
     )
 
 
@@ -314,7 +315,7 @@ def _title_block(title: str, subtitle: str | None, theme: Theme) -> str:
     return (
         '<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">'
         + "".join(rows)
-        + "</TABLE>>"
+        + _TABLE_END
     )
 
 
@@ -398,7 +399,7 @@ def _legend(
         f'<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" CELLPADDING="3" '
         f'BGCOLOR="{theme.card}" COLOR="{theme.border}" STYLE="ROUNDED">'
         + "".join(rows)
-        + "</TABLE>>"
+        + _TABLE_END
     )
     return [
         "",
