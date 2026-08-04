@@ -341,6 +341,48 @@ class TestClients:
         clients = {c["mac"]: c for c in load_support_file(support_archive).get("client_active")}
         assert clients[NESTED_CLIENT]["hostname"] is None
 
+    def test_malformed_records_are_ignored_and_the_first_edge_wins(self):
+        from unifi_map.support import _client_active
+
+        topology = {
+            "vertices": [
+                None,
+                {"type": "DEVICE", "mac": SWITCH},
+                {"type": "CLIENT", "mac": ""},
+                {"type": "CLIENT", "mac": WIRED_CLIENT, "name": "nas"},
+            ],
+            "edges": [
+                None,
+                {
+                    "downlinkMac": WIRED_CLIENT,
+                    "uplinkMac": SWITCH,
+                    "type": "WIRED",
+                    "uplinkPortNumber": 7,
+                    "networkId": "net1",
+                },
+                {
+                    "downlinkMac": WIRED_CLIENT,
+                    "uplinkMac": AP,
+                    "type": "WIRELESS",
+                    "networkId": "net100",
+                },
+            ],
+        }
+
+        assert _client_active(topology, {}, {}, {}, set(), {}) == [
+            {
+                "mac": WIRED_CLIENT,
+                "name": "nas",
+                "hostname": None,
+                "is_wired": True,
+                "ip": None,
+                "network_id": "net1",
+                "is_guest": False,
+                "sw_mac": SWITCH,
+                "sw_port": 7,
+            }
+        ]
+
 
 class TestHealth:
     def test_the_active_wan_names_the_isp(self, support_archive):

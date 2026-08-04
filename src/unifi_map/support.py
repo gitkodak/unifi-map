@@ -548,6 +548,60 @@ def _is_address(value: str) -> bool:
     return True
 
 
+def _client_record(
+    vertex: Any,
+    by_downlink: dict[str, dict[str, Any]],
+    leases: dict[str, tuple[str, str | None]],
+    neighbours: dict[str, str],
+    dpi: dict[str, dict[str, Any]],
+    guest_networks: set[str],
+    fingerprint_index: dict[str, int],
+) -> dict[str, Any] | None:
+    """Rebuild one client record from a valid topology vertex."""
+    if not isinstance(vertex, dict) or vertex.get("type") != "CLIENT":
+        return None
+    mac = str(vertex.get("mac") or "").lower()
+    if not mac:
+        return None
+
+    edge = by_downlink.get(mac, {})
+    wired = str(edge.get("type", "")).upper() == "WIRED"
+    network_id = edge.get("networkId")
+    address, lease_name = leases.get(mac, (None, None))
+    seen = dpi.get(mac, {})
+    record: dict[str, Any] = {
+        "mac": mac,
+        "name": vertex.get("name") or None,
+        # The name the client asked DHCP for, used only when the console has no
+        # alias of its own for it.
+        "hostname": lease_name,
+        "is_wired": wired,
+        # A lease is authoritative, the neighbour table is a live observation,
+        # and DPI is a last resort.
+        "ip": address or neighbours.get(mac) or seen.get("ip"),
+        "network_id": network_id,
+        "is_guest": network_id in guest_networks,
+    }
+    # The console's own name is the better fingerprint where it exists,
+    # because it is the answer the controller settled on rather than the
+    # gateway's live guess.
+    named = _dev_id_from_name(str(vertex.get("name") or ""), mac, fingerprint_index)
+    if named is not None:
+        record["dev_id"] = named
+    elif seen.get("dev_id") is not None:
+        record["dev_id"] = seen["dev_id"]
+    if wired:
+        record["sw_mac"] = edge.get("uplinkMac")
+        # The port is the one occupied on the *uplink* device;
+        # downlinkPortNumber is the client's own interface and is absent.
+        record["sw_port"] = edge.get("uplinkPortNumber")
+    else:
+        record["ap_mac"] = edge.get("uplinkMac")
+        record["essid"] = edge.get("essid")
+        record["radio"] = edge.get("radioBand")
+    return record
+
+
 def _client_active(
     topology: dict[str, Any],
     leases: dict[str, tuple[str, str | None]],
@@ -577,48 +631,17 @@ def _client_active(
 
     clients: list[dict[str, Any]] = []
     for vertex in vertices:
-        if not isinstance(vertex, dict) or vertex.get("type") != "CLIENT":
-            continue
-        mac = str(vertex.get("mac") or "").lower()
-        if not mac:
-            continue
-
-        edge = by_downlink.get(mac, {})
-        wired = str(edge.get("type", "")).upper() == "WIRED"
-        network_id = edge.get("networkId")
-        address, lease_name = leases.get(mac, (None, None))
-        seen = dpi.get(mac, {})
-        record: dict[str, Any] = {
-            "mac": mac,
-            "name": vertex.get("name") or None,
-            # The name the client asked DHCP for, used only when the console
-            # has no alias of its own for it.
-            "hostname": lease_name,
-            "is_wired": wired,
-            # A lease is authoritative, the neighbour table is a live
-            # observation, and DPI is a last resort.
-            "ip": address or neighbours.get(mac) or seen.get("ip"),
-            "network_id": network_id,
-            "is_guest": network_id in guest_networks,
-        }
-        # The console's own name is the better fingerprint where it exists,
-        # because it is the answer the controller settled on rather than the
-        # gateway's live guess.
-        named = _dev_id_from_name(str(vertex.get("name") or ""), mac, fingerprint_index)
-        if named is not None:
-            record["dev_id"] = named
-        elif seen.get("dev_id") is not None:
-            record["dev_id"] = seen["dev_id"]
-        if wired:
-            record["sw_mac"] = edge.get("uplinkMac")
-            # The port is the one occupied on the *uplink* device;
-            # downlinkPortNumber is the client's own interface and is absent.
-            record["sw_port"] = edge.get("uplinkPortNumber")
-        else:
-            record["ap_mac"] = edge.get("uplinkMac")
-            record["essid"] = edge.get("essid")
-            record["radio"] = edge.get("radioBand")
-        clients.append(record)
+        record = _client_record(
+            vertex,
+            by_downlink,
+            leases,
+            neighbours,
+            dpi,
+            guest_networks,
+            fingerprint_index,
+        )
+        if record is not None:
+            clients.append(record)
     return clients
 
 
