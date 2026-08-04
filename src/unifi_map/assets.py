@@ -1025,6 +1025,30 @@ def _bomb_types() -> tuple[type[BaseException], type[BaseException]]:
 _SVG_DIM = re.compile(rb"""\b(width|height)\s*=\s*["\']\s*([0-9.]+)\s*(?:px)?\s*["\']""", re.I)
 
 
+def _svg_explicit_dimensions(opening: bytes) -> tuple[float | None, float | None]:
+    """Read width and height attributes from the opening SVG tag only."""
+    found: dict[bytes, float] = {}
+    for match in _SVG_DIM.finditer(opening):
+        # Let ValueError distinguish an invalid number such as "." from an
+        # absent dimension, which is allowed to fall back to the viewBox.
+        found[match.group(1).lower()] = float(match.group(2))
+    return found.get(b"width"), found.get(b"height")
+
+
+def _svg_viewbox_dimensions(opening: bytes) -> tuple[float, float] | None:
+    """Read the drawable width and height from an opening tag's viewBox."""
+    box = re.search(rb"viewBox\s*=\s*[\"']([^\"']+)", opening, re.I)
+    if box is None:
+        return None
+    try:
+        parts = [float(value) for value in box.group(1).replace(b",", b" ").split()]
+    except ValueError:
+        return None
+    if len(parts) != 4:
+        return None
+    return parts[2], parts[3]
+
+
 def _measure_svg(path: Path) -> IconAsset | None:
     """Dimensions of an SVG, which Pillow cannot open.
 
@@ -1059,28 +1083,20 @@ def _measure_svg(path: Path) -> IconAsset | None:
     opening = re.search(rb"<svg\b[^>]*>", head, re.I | re.S)
     if opening is None:
         return None
-    found: dict[bytes, float] = {}
-    for match in _SVG_DIM.finditer(opening.group(0)):
-        try:
-            found[match.group(1).lower()] = float(match.group(2))
-        except ValueError:
-            # `width="."` matches the pattern and is not a number.
-            return None
-    width, height = found.get(b"width"), found.get(b"height")
+    opening_tag = opening.group(0)
+    try:
+        width, height = _svg_explicit_dimensions(opening_tag)
+    except ValueError:
+        # `width="."` matches the pattern and is not a number.
+        return None
     if width is None or height is None:
         # Only the ratio is used downstream, by `display_size()`, so a viewBox
         # carries everything needed. Its first two numbers are the origin and
         # are deliberately ignored.
-        box = re.search(rb"viewBox\s*=\s*[\"']([^\"']+)", opening.group(0), re.I)
-        if box is None:
+        dimensions = _svg_viewbox_dimensions(opening_tag)
+        if dimensions is None:
             return None
-        try:
-            parts = [float(v) for v in box.group(1).replace(b",", b" ").split()]
-        except ValueError:
-            return None
-        if len(parts) != 4:
-            return None
-        width, height = parts[2], parts[3]
+        width, height = dimensions
     if not (math.isfinite(width) and math.isfinite(height)) or width <= 0 or height <= 0:
         return None
     # Rounded, never to zero: `width="0.5"` truncated to a 0x0 icon, which

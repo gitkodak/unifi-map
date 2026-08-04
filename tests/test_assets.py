@@ -1075,6 +1075,22 @@ class TestSvgRendersNotJustMeasures:
         asset = local_icon(icon)
         assert (asset.width, asset.height) == (64, 32)
 
+    def test_viewbox_fallback_distinguishes_missing_from_invalid_dimensions(self, tmp_path):
+        from unifi_map.assets import AssetError, local_icon
+
+        partial = tmp_path / "partial.svg"
+        partial.write_text(self.HEAD + '<svg width="999" viewBox="0 0 64 32"/>', encoding="utf-8")
+        asset = local_icon(partial)
+        assert (asset.width, asset.height) == (64, 32)
+
+        invalid = tmp_path / "invalid.svg"
+        invalid.write_text(
+            self.HEAD + '<svg width="." height="32" viewBox="0 0 64 32"/>',
+            encoding="utf-8",
+        )
+        with pytest.raises(AssetError):
+            local_icon(invalid)
+
     def test_the_refusal_says_which_rule_was_broken(self, tmp_path):
         """ "Could not read" on a file the user can open is a shrug, not an error."""
         from unifi_map.assets import AssetError, local_icon
