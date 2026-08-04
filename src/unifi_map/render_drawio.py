@@ -16,7 +16,7 @@ from xml.etree import ElementTree as ET
 
 from .assets import IconAsset
 from .layout import Layout
-from .model import Kind, Topology
+from .model import Edge, Kind, Node, Topology
 from .render_dot import _node_id
 from .theme import Theme, network_colors
 
@@ -128,6 +128,123 @@ def _node_value(node) -> str:
     return "<br>".join(lines)
 
 
+def _node_accent(node: Node, theme: Theme, colors: dict[str, str]) -> str:
+    if node.kind in _CLIENT_KINDS and node.network in colors:
+        return colors[node.network]
+    return theme.accent(node.kind)
+
+
+def _add_node_cell(
+    root: ET.Element,
+    topo: Topology,
+    layout: Layout,
+    node_id: str,
+    theme: Theme,
+    icons: dict[str, IconAsset],
+    colors: dict[str, str],
+    fallback_y: float,
+) -> float:
+    node = topo.nodes[node_id]
+    cell_id = _cell_id(node_id)
+    placed = layout.nodes.get(cell_id)
+    cell = ET.SubElement(
+        root,
+        "mxCell",
+        id=cell_id,
+        value=_node_value(node),
+        style=_node_style(node, theme, _node_accent(node, theme, colors), icons.get(node_id)),
+        vertex="1",
+        parent="1",
+    )
+    if placed is not None:
+        geometry = {
+            "x": f"{placed.x:.1f}",
+            "y": f"{placed.y:.1f}",
+            "width": f"{placed.width:.1f}",
+            "height": f"{placed.height:.1f}",
+        }
+    else:
+        # Should not happen, but an unplaced node is better stacked in a corner
+        # than silently dropped from the diagram.
+        geometry = {"x": "40", "y": f"{fallback_y:.1f}", "width": "160", "height": "40"}
+        fallback_y += 50.0
+    _geometry(cell, geometry)
+    return fallback_y
+
+
+def _add_node_cells(
+    root: ET.Element,
+    topo: Topology,
+    layout: Layout,
+    theme: Theme,
+    icons: dict[str, IconAsset],
+) -> None:
+    colors = network_colors([n for n in {x.network for x in topo.nodes.values()} if n])
+    fallback_y = 40.0
+    for node_id in sorted(topo.nodes):
+        fallback_y = _add_node_cell(root, topo, layout, node_id, theme, icons, colors, fallback_y)
+
+
+def _edge_style(edge: Edge, theme: Theme) -> str:
+    style = (
+        "edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;"
+        f"endArrow=none;startArrow=none;strokeColor={theme.edge};"
+        f"fontColor={theme.edge_label};fontSize=9;"
+    )
+    if edge.asserted:
+        return style + "dashed=1;dashPattern=1 3;"
+    if edge.wireless:
+        return style + "dashed=1;"
+    return style
+
+
+def _add_edge_cell(
+    root: ET.Element,
+    edge: Edge,
+    index: int,
+    theme: Theme,
+    routes: dict[tuple[str, str], list[list[tuple[float, float]]]],
+) -> None:
+    source, target = _cell_id(edge.dst), _cell_id(edge.src)
+    cell = ET.SubElement(
+        root,
+        "mxCell",
+        id=f"e{index}",
+        value=_text(edge.label or ""),
+        style=_edge_style(edge, theme),
+        edge="1",
+        parent="1",
+        # parent -> child, matching the DOT renderer's direction.
+        source=source,
+        target=target,
+    )
+    geometry = _geometry(cell, {"relative": "1"})
+
+    # Hand draw.io the route Graphviz already computed. Without this the edge
+    # carries only its endpoints, draw.io routes it with its own router, and a
+    # long run is drawn straight through whatever the layout placed in between.
+    # Graphviz avoided those obstacles and we were discarding the answer.
+    waypoints = routes.get((source, target))
+    path = waypoints.pop(0) if waypoints else None
+    if path and len(path) > 2:
+        # The first and last points sit on the node boundaries, which draw.io
+        # derives from the shapes themselves. Passing them as waypoints puts a
+        # redundant bend right at each end.
+        array = ET.SubElement(geometry, "Array")
+        array.set("as", "points")
+        for x, y in path[1:-1]:
+            ET.SubElement(array, "mxPoint", x=f"{x:.1f}", y=f"{y:.1f}")
+
+
+def _add_edge_cells(root: ET.Element, topo: Topology, layout: Layout, theme: Theme) -> None:
+    # Graphviz reported a route per edge; consumed in order, because two nodes
+    # can be joined more than once and the nth here is the nth there.
+    routes = {pair: list(paths) for pair, paths in layout.edges.items()}
+    for index, edge in enumerate(topo.edges):
+        if edge.src in topo.nodes and edge.dst in topo.nodes:
+            _add_edge_cell(root, edge, index, theme, routes)
+
+
 def render_drawio(
     topo: Topology,
     layout: Layout,
@@ -166,86 +283,8 @@ def render_drawio(
     ET.SubElement(root, "mxCell", id="0")
     ET.SubElement(root, "mxCell", id="1", parent="0")
 
-    colors = network_colors([n for n in {x.network for x in topo.nodes.values()} if n])
-
-    fallback_y = 40.0
-    for node_id in sorted(topo.nodes):
-        node = topo.nodes[node_id]
-        accent = theme.accent(node.kind)
-        if node.kind in _CLIENT_KINDS and node.network in colors:
-            accent = colors[node.network]
-
-        cell_id = _cell_id(node_id)
-        placed = layout.nodes.get(cell_id)
-        cell = ET.SubElement(
-            root,
-            "mxCell",
-            id=cell_id,
-            value=_node_value(node),
-            style=_node_style(node, theme, accent, icons.get(node_id)),
-            vertex="1",
-            parent="1",
-        )
-        if placed is not None:
-            geometry = {
-                "x": f"{placed.x:.1f}",
-                "y": f"{placed.y:.1f}",
-                "width": f"{placed.width:.1f}",
-                "height": f"{placed.height:.1f}",
-            }
-        else:
-            # Should not happen, but an unplaced node is better stacked in a
-            # corner than silently dropped from the diagram.
-            geometry = {"x": "40", "y": f"{fallback_y:.1f}", "width": "160", "height": "40"}
-            fallback_y += 50.0
-        _geometry(cell, geometry)
-
-    # Graphviz reported a route per edge; consumed in order, because two nodes
-    # can be joined more than once and the nth here is the nth there.
-    routes = {pair: list(paths) for pair, paths in layout.edges.items()}
-
-    for index, edge in enumerate(topo.edges):
-        if edge.src not in topo.nodes or edge.dst not in topo.nodes:
-            continue
-        style = (
-            "edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;"
-            f"endArrow=none;startArrow=none;strokeColor={theme.edge};"
-            f"fontColor={theme.edge_label};fontSize=9;"
-        )
-        if edge.asserted:
-            style += "dashed=1;dashPattern=1 3;"
-        elif edge.wireless:
-            style += "dashed=1;"
-        source, target = _cell_id(edge.dst), _cell_id(edge.src)
-        cell = ET.SubElement(
-            root,
-            "mxCell",
-            id=f"e{index}",
-            value=_text(edge.label or ""),
-            style=style,
-            edge="1",
-            parent="1",
-            # parent -> child, matching the DOT renderer's direction.
-            source=source,
-            target=target,
-        )
-        geometry = _geometry(cell, {"relative": "1"})
-
-        # Hand draw.io the route Graphviz already computed. Without this the
-        # edge carries only its endpoints, draw.io routes it with its own
-        # router, and a long run is drawn straight through whatever the layout
-        # placed in between: on a real map, lines crossing unrelated devices.
-        # Graphviz avoided those obstacles and we were discarding the answer.
-        waypoints = routes.get((source, target))
-        path = waypoints.pop(0) if waypoints else None
-        if path and len(path) > 2:
-            # The first and last points sit on the node boundaries, which
-            # draw.io derives from the shapes themselves. Passing them as
-            # waypoints puts a redundant bend right at each end.
-            array = ET.SubElement(geometry, "Array")
-            array.set("as", "points")
-            for x, y in path[1:-1]:
-                ET.SubElement(array, "mxPoint", x=f"{x:.1f}", y=f"{y:.1f}")
+    _add_node_cells(root, topo, layout, theme, icons)
+    _add_edge_cells(root, topo, layout, theme)
 
     return ET.tostring(mxfile, encoding="unicode")
 
