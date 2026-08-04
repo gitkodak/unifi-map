@@ -99,23 +99,13 @@ def _hardware_asset(node, store: AssetStore) -> IconAsset | None:
     return asset
 
 
-def resolve_icons(
-    topo: Topology, store: AssetStore, theme, counts: dict[str, int] | None = None
-) -> dict[str, IconAsset]:
-    """Map node id to cached artwork, fetching as needed.
-
-    UniFi devices are matched on sysid against Ubiquiti's hardware catalog.
-    Clients are matched on their fingerprint dev_id against Ubiquiti's client
-    artwork, which is what the topology view itself renders; clients with no
-    usable fingerprint fall back to the controller's own icon-font glyph, the
-    same way the UI does.
-
-    All of it is Ubiquiti's and none of it is vendored into this repository: it
-    is downloaded on first use and cached.
-    """
-    icons: dict[str, IconAsset] = {}
-
-    # --- UniFi hardware ---
+def _resolve_device_icons(
+    topo: Topology,
+    store: AssetStore,
+    icons: dict[str, IconAsset],
+    counts: dict[str, int] | None,
+) -> None:
+    """UniFi hardware, matched on sysid against Ubiquiti's hardware catalog."""
     devices = {n.sysid for n in topo.nodes.values() if n.sysid is not None}
     by_sysid: dict[int, IconAsset | None] = {s: store.icon(s) for s in sorted(devices)}
     for node in topo.nodes.values():
@@ -135,7 +125,11 @@ def resolve_icons(
     if counts is not None:
         counts.update(device_found=device_found, device_total=device_total)
 
-    # --- the upstream provider ---
+
+def _resolve_isp_icon(
+    topo: Topology, store: AssetStore, theme, icons: dict[str, IconAsset]
+) -> None:
+    """The Internet node's artwork: an ISP brand mark if one exists, else our cloud."""
     for node in topo.nodes.values():
         if node.kind is not Kind.INTERNET:
             continue
@@ -148,10 +142,18 @@ def resolve_icons(
             # than the bare polygon the shape renderer would leave behind.
             icons[node.id] = cloud
 
-    # --- clients ---
+
+def _resolve_client_icons(
+    topo: Topology,
+    store: AssetStore,
+    theme,
+    icons: dict[str, IconAsset],
+    counts: dict[str, int] | None,
+) -> None:
+    """Clients: fingerprint artwork, then UniFi hardware, then the icon-font glyph."""
     client_nodes = [n for n in topo.nodes.values() if n.glyph_name is not None]
     if not client_nodes:
-        return icons
+        return
 
     dev_ids = {n.dev_id for n in client_nodes if n.dev_id is not None}
     by_dev_id: dict[int, IconAsset | None] = {d: store.client_icon(d) for d in sorted(dev_ids)}
@@ -198,6 +200,26 @@ def resolve_icons(
         from_glyph,
         plain,
     )
+
+
+def resolve_icons(
+    topo: Topology, store: AssetStore, theme, counts: dict[str, int] | None = None
+) -> dict[str, IconAsset]:
+    """Map node id to cached artwork, fetching as needed.
+
+    UniFi devices are matched on sysid against Ubiquiti's hardware catalog.
+    Clients are matched on their fingerprint dev_id against Ubiquiti's client
+    artwork, which is what the topology view itself renders; clients with no
+    usable fingerprint fall back to the controller's own icon-font glyph, the
+    same way the UI does.
+
+    All of it is Ubiquiti's and none of it is vendored into this repository: it
+    is downloaded on first use and cached.
+    """
+    icons: dict[str, IconAsset] = {}
+    _resolve_device_icons(topo, store, icons, counts)
+    _resolve_isp_icon(topo, store, theme, icons)
+    _resolve_client_icons(topo, store, theme, icons, counts)
     return icons
 
 
