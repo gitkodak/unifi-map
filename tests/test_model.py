@@ -6,6 +6,7 @@ from unifi_map.client import Snapshot, unwrap
 from unifi_map.model import (
     UNKNOWN_UPLINK_ID,
     Kind,
+    build_fingerprints,
     build_topology,
     client_networks,
     filter_by_network,
@@ -345,6 +346,33 @@ class TestClientFingerprints:
     def test_missing_fingerprint_payload_is_harmless(self, snapshot: Snapshot):
         topo = build_topology(snapshot)
         assert topo.nodes["dd:ee:ff:00:00:01"].dev_id is None
+
+    def test_malformed_fingerprint_records_and_tables_are_ignored(self):
+        snapshot = Snapshot(
+            payloads={
+                "fingerprint": {
+                    "dev_ids": {
+                        "42": {
+                            "name": " ",
+                            "family_id": "1",
+                            "dev_type_id": "2",
+                            "vendor_id": "3",
+                        },
+                        "bad-id": {"name": "Ignored"},
+                        "43": "not a record",
+                        "44": {"name": " Known Device "},
+                    },
+                    "family_ids": {"1": " Device Family "},
+                    "dev_type_ids": ["not", "a", "mapping"],
+                    "vendor_ids": {"3": 99},
+                }
+            }
+        )
+
+        assert build_fingerprints(snapshot) == {
+            42: {"family": "Device Family"},
+            44: {"name": "Known Device"},
+        }
 
 
 class TestWanInfo:

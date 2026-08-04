@@ -274,6 +274,36 @@ def protect_camera_macs(snapshot: Snapshot) -> set[str]:
     return macs
 
 
+def _fingerprint_record(
+    raw_id: Any,
+    entry: Any,
+    families: Any,
+    types: Any,
+    vendors: Any,
+) -> tuple[int, dict[str, str]] | None:
+    """Normalize one controller fingerprint record, if it is usable."""
+    if not isinstance(entry, dict):
+        return None
+    try:
+        dev_id = int(raw_id)
+    except (TypeError, ValueError):
+        return None
+
+    record: dict[str, str] = {}
+    name = str(entry.get("name") or "").strip()
+    if name:
+        record["name"] = name
+    for key, table in (
+        ("family", families),
+        ("dev_type", types),
+        ("vendor", vendors),
+    ):
+        value = table.get(entry.get(f"{key}_id")) if isinstance(table, dict) else None
+        if isinstance(value, str) and value.strip():
+            record[key] = value.strip()
+    return (dev_id, record) if record else None
+
+
 def build_fingerprints(snapshot: Snapshot) -> dict[int, dict[str, str]]:
     """Index the controller's fingerprint database by dev_id.
 
@@ -294,25 +324,9 @@ def build_fingerprints(snapshot: Snapshot) -> dict[int, dict[str, str]]:
 
     index: dict[int, dict[str, str]] = {}
     for raw_id, entry in dev_ids.items():
-        if not isinstance(entry, dict):
-            continue
-        try:
-            dev_id = int(raw_id)
-        except (TypeError, ValueError):
-            continue
-        record: dict[str, str] = {}
-        name = str(entry.get("name") or "").strip()
-        if name:
-            record["name"] = name
-        for key, table in (
-            ("family", families),
-            ("dev_type", types),
-            ("vendor", vendors),
-        ):
-            value = table.get(entry.get(f"{key}_id")) if isinstance(table, dict) else None
-            if isinstance(value, str) and value.strip():
-                record[key] = value.strip()
-        if record:
+        parsed = _fingerprint_record(raw_id, entry, families, types, vendors)
+        if parsed is not None:
+            dev_id, record = parsed
             index[dev_id] = record
     return index
 
@@ -380,22 +394,11 @@ def wan_info(snapshot: Snapshot) -> tuple[str | None, str | None, int | None]:
     return None, None, None
 
 
-def build_topology(
-    snapshot: Snapshot,
-    include_clients: bool = True,
-    include_offline: bool = True,
-) -> Topology:
-    """Normalize a snapshot into a graph.
-
-    *include_offline* keeps devices the controller still lists but that are not
-    currently connected. Set it False to drop hardware that has been
-    decommissioned but never forgotten by the controller.
-    """
-    topo = Topology(networks=build_networks(snapshot))
-
-    devices = unwrap(snapshot.get("device"))
+def _build_device_nodes(
+    topo: Topology, devices: list[dict[str, Any]], include_offline: bool
+) -> set[str]:
+    """Add included infrastructure devices and return their MAC addresses."""
     device_macs: set[str] = set()
-
     for device in devices:
         mac = _norm_mac(device.get("mac"))
         if not mac:
@@ -421,9 +424,15 @@ def build_topology(
                 sysid=_coerce_int(device.get("sysid")),
             )
         )
+    return device_macs
 
-    # Infrastructure uplinks. A device whose uplink MAC is not itself a known
-    # device is treated as top-of-tree and attached to the Internet node.
+
+def _build_infrastructure_edges(
+    topo: Topology,
+    devices: list[dict[str, Any]],
+    device_macs: set[str],
+) -> bool:
+    """Add device uplinks and report whether the Internet node is needed."""
     has_internet = False
     for device in devices:
         mac = _norm_mac(device.get("mac"))
@@ -448,6 +457,28 @@ def build_topology(
         elif topo.nodes[mac].kind == Kind.GATEWAY:
             has_internet = True
             topo.edges.append(Edge(src=mac, dst="internet", label="WAN"))
+    return has_internet
+
+
+def build_topology(
+    snapshot: Snapshot,
+    include_clients: bool = True,
+    include_offline: bool = True,
+) -> Topology:
+    """Normalize a snapshot into a graph.
+
+    *include_offline* keeps devices the controller still lists but that are not
+    currently connected. Set it False to drop hardware that has been
+    decommissioned but never forgotten by the controller.
+    """
+    topo = Topology(networks=build_networks(snapshot))
+
+    devices = unwrap(snapshot.get("device"))
+    device_macs = _build_device_nodes(topo, devices, include_offline)
+
+    # A device whose uplink MAC is not itself a known device is treated as
+    # top-of-tree and attached to the Internet node.
+    has_internet = _build_infrastructure_edges(topo, devices, device_macs)
 
     if has_internet:
         isp, wan_ip, asn = wan_info(snapshot)
