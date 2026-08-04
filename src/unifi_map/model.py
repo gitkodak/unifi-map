@@ -540,6 +540,42 @@ def _client_label_and_detail(
     return label, detail
 
 
+def _client_node(
+    client: dict[str, Any],
+    topo: Topology,
+    fingerprints: dict[int, dict[str, str]],
+    camera_macs: set[str],
+) -> tuple[Node, str | None, str | None, bool] | None:
+    """Build one client node and its direct connection fields, if usable."""
+    mac = _norm_mac(client.get("mac"))
+    if not mac or mac in topo.nodes:
+        return None
+
+    is_wired = bool(client.get("is_wired"))
+    net_name, vlan = _resolve_network(client, topo.networks)
+    # dev_id_override is the user's correction in the UI, so it wins.
+    fp_id = _coerce_int(client.get("dev_id_override")) or _coerce_int(client.get("dev_id"))
+    fingerprint = fingerprints.get(fp_id) if fp_id is not None else None
+    parent, edge_label, detail, wireless = _client_connection(client, is_wired)
+    label, detail = _client_label_and_detail(client, fingerprint, detail)
+
+    node = Node(
+        id=mac,
+        label=label,
+        kind=Kind.WIRED_CLIENT if is_wired else Kind.WIRELESS_CLIENT,
+        ip=client.get("ip"),
+        network=net_name,
+        vlan=vlan,
+        detail=detail,
+        is_guest=bool(client.get("is_guest")),
+        wireless=not is_wired,
+        dev_id=fp_id,
+        oui=str(client.get("oui")) if client.get("oui") else None,
+        hardware_type="camera" if mac in camera_macs else None,
+    )
+    return node, parent, edge_label, wireless
+
+
 def _add_clients(
     topo: Topology,
     snapshot: Snapshot,
@@ -552,43 +588,19 @@ def _add_clients(
     camera_macs = camera_macs or set()
     unplaced: list[str] = []
     for client in unwrap(snapshot.get("client_active")):
-        mac = _norm_mac(client.get("mac"))
-        if not mac or mac in topo.nodes:
+        parsed = _client_node(client, topo, fingerprints, camera_macs)
+        if parsed is None:
             continue
-
-        is_wired = bool(client.get("is_wired"))
-        net_name, vlan = _resolve_network(client, topo.networks)
-        # dev_id_override is the user's correction in the UI, so it wins.
-        fp_id = _coerce_int(client.get("dev_id_override")) or _coerce_int(client.get("dev_id"))
-        fingerprint = fingerprints.get(fp_id) if fp_id is not None else None
-
-        parent, edge_label, detail, wireless = _client_connection(client, is_wired)
-        label, detail = _client_label_and_detail(client, fingerprint, detail)
-
-        topo.add(
-            Node(
-                id=mac,
-                label=label,
-                kind=Kind.WIRED_CLIENT if is_wired else Kind.WIRELESS_CLIENT,
-                ip=client.get("ip"),
-                network=net_name,
-                vlan=vlan,
-                detail=detail,
-                is_guest=bool(client.get("is_guest")),
-                wireless=not is_wired,
-                dev_id=fp_id,
-                oui=str(client.get("oui")) if client.get("oui") else None,
-                hardware_type="camera" if mac in camera_macs else None,
-            )
-        )
+        node, parent, edge_label, wireless = parsed
+        topo.add(node)
 
         if parent and parent in device_macs:
-            topo.edges.append(Edge(src=mac, dst=parent, label=edge_label, wireless=wireless))
+            topo.edges.append(Edge(src=node.id, dst=parent, label=edge_label, wireless=wireless))
         else:
             # Deferred. The controller's own graph often knows this client's
             # uplink even when stat/sta does not, and that uplink may be another
             # client that has not been added yet.
-            unplaced.append(mac)
+            unplaced.append(node.id)
 
     _place_remaining(topo, unplaced, uplinks or {})
 
