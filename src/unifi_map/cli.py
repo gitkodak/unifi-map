@@ -400,16 +400,10 @@ def _describe(payload: object) -> str:
     return "no data"
 
 
-def cmd_render(args: argparse.Namespace) -> int:
-    snapshot = Snapshot.read(args.cache_dir)
-    topo = build_topology(
-        snapshot,
-        include_clients=not args.no_clients,
-        include_offline=args.show_offline == "yes",
-    )
-
+def _render_style(args: argparse.Namespace) -> Style:
+    """Build and validate the requested rendering style."""
     try:
-        style = Style(
+        return Style(
             theme=get_theme(args.theme),
             icons=args.icons,
             layout=args.layout,
@@ -419,6 +413,101 @@ def cmd_render(args: argparse.Namespace) -> int:
         )
     except ValueError as exc:
         raise ConfigError(str(exc)) from exc
+
+
+def _apply_render_overrides(
+    topo: Topology, args: argparse.Namespace
+) -> tuple[Topology, dict[str, IconAsset], Path | None]:
+    """Apply the selected overrides and report their visible effects."""
+    path = args.overrides or (DEFAULT_OVERRIDES if DEFAULT_OVERRIDES.is_file() else None)
+    if path is None:
+        return topo, {}, None
+
+    overrides = load_overrides(path)
+    result = apply_overrides(topo, overrides, args.asset_cache)
+    _report_displacements(result, args.obfuscate)
+    # Names of hidden nodes are useful confirmation normally, and a leak under
+    # --obfuscate: the diagram would be scrubbed while the terminal or CI log
+    # it was produced in still carried real labels.
+    hidden = f" ({', '.join(result.hidden)})" if result.hidden and not args.obfuscate else ""
+    log.info(
+        "Overrides from %s: %d device(s) added, %d link(s), %d nested, %d renamed, %d hidden%s",
+        path,
+        result.devices_added,
+        result.links_added,
+        result.hosted_applied,
+        result.renamed,
+        len(result.hidden),
+        hidden,
+    )
+    return result.topology, result.icons, path
+
+
+def _resolve_render_icons(
+    topo: Topology, args: argparse.Namespace, style: Style
+) -> tuple[dict[str, IconAsset], AssetStore]:
+    """Resolve fetched and locally drawn artwork, before user overrides."""
+    icons: dict[str, IconAsset] = {}
+    store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)
+    if style.icons == "unifi":
+        with spinner("Resolving artwork", args.progress):
+            icons = resolve_icons(topo, store, style.theme)
+    else:
+        # `builtin` means "nothing fetched", not "nothing drawn". The cloud is
+        # ours and needs no network, so the Internet node gets it here too.
+        for node in topo.nodes.values():
+            if node.kind is Kind.INTERNET:
+                cloud = store.internet_icon(style.theme.text_muted)
+                if cloud is not None:
+                    icons[node.id] = cloud
+
+    # Both modes: anything still without artwork gets one of ours rather than a
+    # bare Graphviz primitive. In `unifi` that is hardware absent from
+    # Ubiquiti's catalogue; in `builtin` it is everything.
+    drawn_count = apply_drawn_icons(topo, store, style.theme, icons)
+    if drawn_count:
+        log.info("Artwork: %d node(s) drawn locally", drawn_count)
+    return icons, store
+
+
+def _obfuscate_render(
+    topo: Topology,
+    icons: dict[str, IconAsset],
+    store: AssetStore,
+    style: Style,
+) -> tuple[Topology, dict[str, IconAsset]]:
+    """Scrub a topology while carrying non-identifying artwork across."""
+    # Artwork is resolved first and then carried across, because UniFi hardware
+    # appearing as a client is matched on its hostname and scrubbing that first
+    # would lose the picture.
+    mapping = id_map(topo)
+    icons = {mapping[key]: value for key, value in icons.items() if key in mapping}
+    # The one piece of artwork that must not survive. Every other icon says what
+    # a device is; the ISP brand mark says who the owner buys transit from, and
+    # hiding the name while drawing the logo would be theatre. `obfuscate()`
+    # clears the ASN, but this dict was built before that ran, so swap the mark
+    # for the generic cloud rather than just dropping it.
+    cloud = store.internet_icon(style.theme.text_muted)
+    for node in topo.nodes.values():
+        if node.kind is not Kind.INTERNET:
+            continue
+        key = mapping.get(node.id, node.id)
+        if cloud is not None:
+            icons[key] = cloud
+        else:
+            icons.pop(key, None)
+    return obfuscate(topo), icons
+
+
+def cmd_render(args: argparse.Namespace) -> int:
+    snapshot = Snapshot.read(args.cache_dir)
+    topo = build_topology(
+        snapshot,
+        include_clients=not args.no_clients,
+        include_offline=args.show_offline == "yes",
+    )
+
+    style = _render_style(args)
 
     tally = topo.counts()
     log.info(
@@ -451,28 +540,8 @@ def cmd_render(args: argparse.Namespace) -> int:
             "explicitly. See docs/output.md."
         )
 
-    override_icons: dict[str, IconAsset] = {}
-    path = args.overrides or (DEFAULT_OVERRIDES if DEFAULT_OVERRIDES.is_file() else None)
+    topo, override_icons, path = _apply_render_overrides(topo, args)
     if path is not None:
-        overrides = load_overrides(path)
-        result = apply_overrides(topo, overrides, args.asset_cache)
-        topo = result.topology
-        override_icons = result.icons
-        _report_displacements(result, args.obfuscate)
-        # Names of hidden nodes are useful confirmation normally, and a leak
-        # under --obfuscate: the diagram would be scrubbed while the terminal
-        # or CI log it was produced in still carried real labels.
-        hidden = f" ({', '.join(result.hidden)})" if result.hidden and not args.obfuscate else ""
-        log.info(
-            "Overrides from %s: %d device(s) added, %d link(s), %d nested, %d renamed, %d hidden%s",
-            path,
-            result.devices_added,
-            result.links_added,
-            result.hosted_applied,
-            result.renamed,
-            len(result.hidden),
-            hidden,
-        )
         # Recounted, because overrides add declared devices and hide nodes. The
         # log above deliberately reports what was fetched; the subtitle drawn on
         # the diagram has to describe the diagram, and it was still quoting the
@@ -483,51 +552,13 @@ def cmd_render(args: argparse.Namespace) -> int:
     # unplaced, and running first counts the clients an override just placed.
     _hint_about_unplaced(topo, path)
 
-    icons: dict[str, IconAsset] = {}
-    store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)
-    if style.icons == "unifi":
-        with spinner("Resolving artwork", args.progress):
-            icons = resolve_icons(topo, store, style.theme)
-    else:
-        # `builtin` means "nothing fetched", not "nothing drawn". The cloud is
-        # ours and needs no network, so the Internet node gets it here too.
-        for node in topo.nodes.values():
-            if node.kind is Kind.INTERNET:
-                cloud = store.internet_icon(style.theme.text_muted)
-                if cloud is not None:
-                    icons[node.id] = cloud
-
-    # Both modes: anything still without artwork gets one of ours rather than a
-    # bare Graphviz primitive. In `unifi` that is hardware absent from
-    # Ubiquiti's catalogue; in `builtin` it is everything.
-    drawn_count = apply_drawn_icons(topo, store, style.theme, icons)
-    if drawn_count:
-        log.info("Artwork: %d node(s) drawn locally", drawn_count)
+    icons, store = _resolve_render_icons(topo, args, style)
 
     # Artwork the user supplied wins over anything looked up for them.
     icons.update(override_icons)
 
     if args.obfuscate:
-        # Artwork is resolved first and then carried across, because UniFi
-        # hardware appearing as a client is matched on its hostname and
-        # scrubbing that first would lose the picture.
-        mapping = id_map(topo)
-        icons = {mapping[k]: v for k, v in icons.items() if k in mapping}
-        # The one piece of artwork that must not survive. Every other icon says
-        # what a device is; the ISP brand mark says who the owner buys transit
-        # from, and hiding the name while drawing the logo would be theatre.
-        # `obfuscate()` clears the ASN, but this dict was built before that ran,
-        # so swap the mark for the generic cloud rather than just dropping it.
-        cloud = store.internet_icon(style.theme.text_muted)
-        for node in topo.nodes.values():
-            if node.kind is not Kind.INTERNET:
-                continue
-            key = mapping.get(node.id, node.id)
-            if cloud is not None:
-                icons[key] = cloud
-            else:
-                icons.pop(key, None)
-        topo = obfuscate(topo)
+        topo, icons = _obfuscate_render(topo, icons, store, style)
         log.info("Obfuscated: names, addresses, MACs, network names and SSIDs replaced.")
 
     title = args.title or "Network map"
