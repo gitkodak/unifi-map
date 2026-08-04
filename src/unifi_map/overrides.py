@@ -249,22 +249,19 @@ def _refuse_unknown_blocks(payload: dict) -> None:
             )
 
 
-def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
-    """Build :class:`Overrides` from an already-decoded TOML mapping.
+def _block_table(raw: object, block: str, index: int) -> tuple[dict, str]:
+    context = f"[[{block}]] #{index}"
+    if not isinstance(raw, dict):
+        raise OverrideError(f"{context} must be a table")
+    _refuse_unknown_keys(raw, block, context)
+    return raw, context
 
-    *base_dir* is what relative ``icon`` paths resolve against: the directory
-    holding the overrides file, so a config plus an assets folder can be moved
-    around together.
-    """
-    _refuse_unknown_blocks(payload)
-    result = Overrides()
 
+def _parse_devices(payload: dict, base_dir: Path | None) -> list[Device]:
+    devices = []
     seen_names: set[str] = set()
     for index, raw in enumerate(payload.get("device") or [], start=1):
-        if not isinstance(raw, dict):
-            raise OverrideError(f"[[device]] #{index} must be a table")
-        context = f"[[device]] #{index}"
-        _refuse_unknown_keys(raw, "device", context)
+        raw, context = _block_table(raw, "device", index)
         name = _require_str(raw, "name", context)
         if name.lower() in seen_names:
             raise OverrideError(f"{context}: a device named {name!r} is already declared")
@@ -279,7 +276,7 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
         if raw.get("port") is not None and not _optional_str(raw, "parent"):
             raise OverrideError(f"{context}: 'port' means nothing without 'parent'")
 
-        result.devices.append(
+        devices.append(
             Device(
                 name=name,
                 kind=kind,
@@ -291,13 +288,14 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
                 note=_optional_str(raw, "note"),
             )
         )
+    return devices
 
+
+def _parse_links(payload: dict) -> list[Link]:
+    links = []
     for index, raw in enumerate(payload.get("link") or [], start=1):
-        if not isinstance(raw, dict):
-            raise OverrideError(f"[[link]] #{index} must be a table")
-        context = f"[[link]] #{index}"
-        _refuse_unknown_keys(raw, "link", context)
-        result.links.append(
+        raw, context = _block_table(raw, "link", index)
+        links.append(
             Link(
                 source=_require_str(raw, "from", context),
                 target=_require_str(raw, "to", context),
@@ -307,32 +305,34 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
                 wireless=_optional_bool(raw, "wireless", context),
             )
         )
+    return links
 
+
+def _parse_hosted(payload: dict) -> list[Hosted]:
+    hosted = []
     for index, raw in enumerate(payload.get("hosted") or [], start=1):
-        if not isinstance(raw, dict):
-            raise OverrideError(f"[[hosted]] #{index} must be a table")
-        context = f"[[hosted]] #{index}"
-        _refuse_unknown_keys(raw, "hosted", context)
-        result.hosted.append(
+        raw, context = _block_table(raw, "hosted", index)
+        hosted.append(
             Hosted(
                 guest=_require_str(raw, "guest", context),
                 host=_require_str(raw, "host", context),
                 note=_optional_str(raw, "note"),
             )
         )
+    return hosted
 
+
+def _parse_nodes(payload: dict, base_dir: Path | None) -> list[NodeOverride]:
+    nodes = []
     for index, raw in enumerate(payload.get("node") or [], start=1):
-        if not isinstance(raw, dict):
-            raise OverrideError(f"[[node]] #{index} must be a table")
-        context = f"[[node]] #{index}"
-        _refuse_unknown_keys(raw, "node", context)
+        raw, context = _block_table(raw, "node", index)
         icon = _icon_path(raw, base_dir)
         name = _optional_str(raw, "name")
         note = _optional_str(raw, "note")
         hide = _optional_bool(raw, "hide", context)
         if name is None and icon is None and not hide:
             raise OverrideError(f"{context}: needs at least one of 'name', 'icon' or 'hide'")
-        result.nodes.append(
+        nodes.append(
             NodeOverride(
                 match=_require_str(raw, "match", context),
                 name=name,
@@ -341,8 +341,24 @@ def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
                 hide=hide,
             )
         )
+    return nodes
 
-    return result
+
+def parse(payload: dict, base_dir: Path | None = None) -> Overrides:
+    """Build :class:`Overrides` from an already-decoded TOML mapping.
+
+    *base_dir* is what relative ``icon`` paths resolve against: the directory
+    holding the overrides file, so a config plus an assets folder can be moved
+    around together.
+    """
+    _refuse_unknown_blocks(payload)
+
+    return Overrides(
+        devices=_parse_devices(payload, base_dir),
+        links=_parse_links(payload),
+        hosted=_parse_hosted(payload),
+        nodes=_parse_nodes(payload, base_dir),
+    )
 
 
 def load(path: Path) -> Overrides:
