@@ -92,6 +92,55 @@ def id_map(topo: Topology) -> dict[str, str]:
     return ids
 
 
+def _obfuscated_node(
+    node: Node,
+    ids: dict[str, str],
+    labels: dict[str, str],
+    networks: dict[str, str],
+    net_index: dict[str, int],
+    hosts: dict[int, int],
+) -> Node:
+    """Rebuild one node with identifying values replaced."""
+    new_id = ids[node.id]
+    network = networks.get(node.network) if node.network else None
+
+    if node.kind is Kind.INTERNET:
+        # The WAN address is as identifying as anything on the map.
+        ip = PLACEHOLDER_WAN_IP if node.ip else None
+    elif node.ip:
+        idx = net_index.get(network, 0)
+        hosts[idx] = hosts.get(idx, 9) + 1
+        ip = f"10.{idx}.0.{hosts[idx]}"
+    else:
+        ip = None
+
+    detail = None if node.kind is Kind.INTERNET else node.detail
+    if node.kind in (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT) and node.dev_id is None:
+        # Without a fingerprint, `detail` is whatever the controller offered,
+        # which for a wireless client is the SSID. Anything derived from a
+        # fingerprint is a catalogue product name and stays.
+        detail = None
+
+    return replace(
+        node,
+        id=new_id,
+        label=labels[node.id],
+        ip=ip,
+        network=network,
+        detail=detail,
+        # Kept on purpose: these drive artwork lookup and say nothing about
+        # the owner, only what the hardware is.
+        sysid=node.sysid,
+        dev_id=node.dev_id,
+        oui=node.oui,
+        hardware_type=node.hardware_type,
+        # Dropped, unlike the other artwork keys. An ASN names the ISP as
+        # squarely as `isp_name` does, and it would redraw their brand mark
+        # on a map whose whole point is that it can be shared.
+        asn=None,
+    )
+
+
 def obfuscate(topo: Topology) -> Topology:
     """Return a copy of *topo* with identifying detail replaced."""
     networks = _network_names(topo)
@@ -113,45 +162,8 @@ def obfuscate(topo: Topology) -> Topology:
 
     nodes: dict[str, Node] = {}
     for node in _sorted_nodes(topo):
-        new_id = ids[node.id]
-        network = networks.get(node.network) if node.network else None
-
-        if node.kind is Kind.INTERNET:
-            # The WAN address is as identifying as anything on the map.
-            ip = PLACEHOLDER_WAN_IP if node.ip else None
-            detail = None
-        elif node.ip:
-            idx = net_index.get(network, 0)
-            hosts[idx] = hosts.get(idx, 9) + 1
-            ip = f"10.{idx}.0.{hosts[idx]}"
-        else:
-            ip = None
-
-        detail = None if node.kind is Kind.INTERNET else node.detail
-        if node.kind in (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT) and node.dev_id is None:
-            # Without a fingerprint, `detail` is whatever the controller offered,
-            # which for a wireless client is the SSID. Anything derived from a
-            # fingerprint is a catalogue product name and stays.
-            detail = None
-
-        nodes[new_id] = replace(
-            node,
-            id=new_id,
-            label=labels[node.id],
-            ip=ip,
-            network=network,
-            detail=detail,
-            # Kept on purpose: these drive artwork lookup and say nothing about
-            # the owner, only what the hardware is.
-            sysid=node.sysid,
-            dev_id=node.dev_id,
-            oui=node.oui,
-            hardware_type=node.hardware_type,
-            # Dropped, unlike the other artwork keys. An ASN names the ISP as
-            # squarely as `isp_name` does, and it would redraw their brand mark
-            # on a map whose whole point is that it can be shared.
-            asn=None,
-        )
+        new_node = _obfuscated_node(node, ids, labels, networks, net_index, hosts)
+        nodes[new_node.id] = new_node
 
     # `asserted` travels with the edge. Nodes keep theirs for free because they
     # are rebuilt with `replace()`; edges are constructed field by field, so a
