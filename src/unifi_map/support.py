@@ -192,6 +192,24 @@ def _process_member(
     return len(data)
 
 
+def _start_archive_stats(stats: dict[str, int] | None) -> None:
+    """Reset optional archive-walk statistics before reading begins."""
+    if stats is not None:
+        stats.update(archive_bytes=0, archive_entries=0, members_found=0)
+
+
+def _finish_archive_stats(
+    stats: dict[str, int] | None,
+    *,
+    walked: int,
+    entries: int,
+    found: dict[str, bytes],
+) -> None:
+    """Record the completed archive walk without changing its return value."""
+    if stats is not None:
+        stats.update(archive_bytes=walked, archive_entries=entries, members_found=len(found))
+
+
 def _read_members(
     path: Path,
     max_member: int = MAX_MEMBER_BYTES,
@@ -227,8 +245,7 @@ def _read_members(
     total = 0
     entries = 0
     walked = 0
-    if stats is not None:
-        stats.update(archive_bytes=0, archive_entries=0, members_found=0)
+    _start_archive_stats(stats)
     try:
         with tarfile.open(path, "r|gz") as archive:
             for member in archive:
@@ -265,8 +282,7 @@ def _read_members(
         raise SupportFileError(f"{path} is not a readable gzipped tar archive: {exc}") from exc
     except OSError as exc:
         raise SupportFileError(f"Could not read {path}: {exc}") from exc
-    if stats is not None:
-        stats.update(archive_bytes=walked, archive_entries=entries, members_found=len(found))
+    _finish_archive_stats(stats, walked=walked, entries=entries, found=found)
     return found
 
 
