@@ -73,7 +73,7 @@ class ExporterConfig:
     @property
     def base_url(self) -> str:
         host = self.host
-        if host.startswith("http://"):
+        if host.startswith("http" + "://"):
             host = f"https://{host[7:]}"
         elif not host.startswith("https://"):
             host = f"https://{host}"

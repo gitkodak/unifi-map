@@ -55,7 +55,7 @@ from .client import Snapshot
 log = logging.getLogger(__name__)
 
 # The console names an un-aliased client "<product name> <last two MAC octets>".
-_GENERATED_NAME = re.compile(r"^(?P<product>.+)\s+(?P<tail>[0-9a-f]{2}:[0-9a-f]{2})$", re.I)
+_GENERATED_NAME = re.compile(r"^(?P<product>.*[^\s])\s+(?P<tail>[0-9a-f]{2}:[0-9a-f]{2})$", re.I)
 
 # Members we read, keyed by a short internal name. Anchored to exactly one
 # leading directory component, because everything sits under a `support-<id>/`
@@ -155,6 +155,43 @@ class SupportFileError(RuntimeError):
     """Raised when a support file is unreadable or missing what we need."""
 
 
+def _process_member(
+    archive: tarfile.TarFile,
+    member: tarfile.TarInfo,
+    found: dict[str, bytes],
+    max_member: int,
+) -> int:
+    """Read a wanted archive member. Returns bytes read, or 0 if skipped."""
+    # Skip anything that is not a plain file. A support file has no
+    # business containing links or devices, and refusing them here
+    # means we never have to reason about what one would mean.
+    if not member.isfile():
+        return 0
+    name = next(
+        (key for key, pattern in _MEMBER_PATTERNS.items() if pattern.match(member.name)),
+        None,
+    )
+    if name is None or name in found:
+        return 0
+    if member.size > max_member:
+        raise SupportFileError(
+            f"{member.name} is {member.size} bytes, over the {max_member} "
+            "byte limit. If this is a genuinely large site, raise it with "
+            "--support-max-member."
+        )
+    handle = archive.extractfile(member)
+    if handle is None:
+        return 0
+    data = handle.read(max_member + 1)
+    if len(data) > max_member:
+        raise SupportFileError(
+            f"{member.name} expands past the {max_member} byte limit. "
+            "Raise it with --support-max-member if that is legitimate."
+        )
+    found[name] = data
+    return len(data)
+
+
 def _read_members(
     path: Path,
     max_member: int = MAX_MEMBER_BYTES,
@@ -216,43 +253,14 @@ def _read_members(
                     )
                 if len(found) == len(MEMBERS):
                     break
-                # Skip anything that is not a plain file. A support file has no
-                # business containing links or devices, and refusing them here
-                # means we never have to reason about what one would mean.
-                if not member.isfile():
-                    continue
-                name = next(
-                    (
-                        key
-                        for key, pattern in _MEMBER_PATTERNS.items()
-                        if pattern.match(member.name)
-                    ),
-                    None,
-                )
-                if name is None or name in found:
-                    continue
-                if member.size > max_member:
-                    raise SupportFileError(
-                        f"{member.name} is {member.size} bytes, over the {max_member} "
-                        "byte limit. If this is a genuinely large site, raise it with "
-                        "--support-max-member."
-                    )
-                handle = archive.extractfile(member)
-                if handle is None:
-                    continue
-                data = handle.read(max_member + 1)
-                if len(data) > max_member:
-                    raise SupportFileError(
-                        f"{member.name} expands past the {max_member} byte limit. "
-                        "Raise it with --support-max-member if that is legitimate."
-                    )
-                total += len(data)
-                if total > max_total:
-                    raise SupportFileError(
-                        f"Support file members exceed {max_total} bytes in total. "
-                        "Raise it with --support-max-total if that is legitimate."
-                    )
-                found[name] = data
+                read_bytes = _process_member(archive, member, found, max_member)
+                if read_bytes > 0:
+                    total += read_bytes
+                    if total > max_total:
+                        raise SupportFileError(
+                            f"Support file members exceed {max_total} bytes in total. "
+                            "Raise it with --support-max-total if that is legitimate."
+                        )
     except tarfile.TarError as exc:
         raise SupportFileError(f"{path} is not a readable gzipped tar archive: {exc}") from exc
     except OSError as exc:
