@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -72,6 +73,34 @@ jobs:
           unifi-map --cache-dir examples/demo --out-dir out-ob \
             render --obfuscate --icons builtin --offline -f svg --name ci-ob
           test -s out-ob/ci-ob.svg
+
+  sonarqube:
+    name: SonarQube Cloud
+    runs-on: ubuntu-latest
+    steps:
+      # The scanner needs the complete history to identify new code correctly.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Graphviz
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq graphviz
+
+      - name: Install
+        run: 'pip install --only-binary=:all: -e ".[dev]"'
+
+      - name: Create coverage report
+        run: python -m pytest -q --cov=src/unifi_map --cov-report=xml:coverage.xml
+
+      - name: Analyze with SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2  # v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   policy:
     name: Repository hygiene

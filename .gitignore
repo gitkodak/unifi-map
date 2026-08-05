@@ -29,6 +29,8 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+.coverage
+coverage.xml
 
 # Editor scratch files
 *.sw[a-p]
