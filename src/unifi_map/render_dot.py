@@ -234,14 +234,17 @@ def _node_attrs(
     # which were never fetched from anywhere either.
     icon = icons.get(node_id)
     if icon is None:
+        if node.asserted:
+            style_attr = 'style="filled,rounded,dotted"'
+        elif node.offline:
+            style_attr = 'style="filled,rounded,dashed"'
+        else:
+            style_attr = 'style="filled,rounded"'
+
         return [
             f'label="{_plain_label(topo, node_id)}"',
             f"shape={KIND_SHAPE[node.kind]}",
-            'style="filled,rounded,dotted"'
-            if node.asserted
-            else 'style="filled,rounded,dashed"'
-            if node.offline
-            else 'style="filled,rounded"',
+            style_attr,
             f'fillcolor="{theme.card_muted if node.offline else theme.card}"',
             f'color="{accent}"',
             f'fontcolor="{theme.text}"',
@@ -404,7 +407,7 @@ def _legend_network_rows(
     ]
     for name in used:
         vlans = {n.vlan for n in topo.nodes.values() if n.network == name and n.vlan}
-        suffix = f" · VLAN {sorted(vlans)[0]}" if vlans else ""
+        suffix = f" · VLAN {min(vlans)}" if vlans else ""
         rows.append(_legend_swatch(theme, colors[name], f"{name}{suffix}"))
     return rows
 

@@ -55,7 +55,7 @@ from .client import Snapshot
 log = logging.getLogger(__name__)
 
 # The console names an un-aliased client "<product name> <last two MAC octets>".
-_GENERATED_NAME = re.compile(r"^(?P<product>.+?)\s+(?P<tail>[0-9a-f]{2}:[0-9a-f]{2})$", re.I)
+_GENERATED_NAME = re.compile(r"^(?P<product>.+)\s+(?P<tail>[0-9a-f]{2}:[0-9a-f]{2})$", re.I)
 
 # Members we read, keyed by a short internal name. Anchored to exactly one
 # leading directory component, because everything sits under a `support-<id>/`
@@ -268,7 +268,7 @@ def _load_json(members: dict[str, bytes], name: str) -> Any:
         return None
     try:
         return json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError) as exc:
+    except ValueError as exc:
         raise SupportFileError(
             f"{MEMBERS[name]} in the support file is not valid JSON: {exc}"
         ) from exc

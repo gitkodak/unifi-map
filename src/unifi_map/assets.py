@@ -961,17 +961,17 @@ def _why_unreadable(path: Path) -> str:
 
 def _pillow_image():
     try:
-        from PIL import Image
+        from PIL import Image as pil_image
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise AssetError("Pillow is not installed; cannot process artwork.") from exc
     # Applied on every use rather than once at import, since Pillow is imported
     # lazily and a caller could have relaxed it.
-    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
-    return Image
+    pil_image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    return pil_image
 
 
 @contextlib.contextmanager
-def _bomb_guard(Image):
+def _bomb_guard(pil_image):
     """Make `MAX_IMAGE_PIXELS` an actual limit, for the duration of one call.
 
     The threshold alone is not one: Pillow *warns* at `MAX_IMAGE_PIXELS` and
@@ -984,7 +984,7 @@ def _bomb_guard(Image):
     to be scoped and was not.
     """
     with warnings.catch_warnings():
-        warnings.simplefilter("error", Image.DecompressionBombWarning)
+        warnings.simplefilter("error", pil_image.DecompressionBombWarning)
         yield
 
 
@@ -999,8 +999,8 @@ def _measure(path: Path) -> IconAsset | None:
     if path.suffix.lower() == ".svg":
         return _measure_svg(path)
     try:
-        Image = _pillow_image()
-        with _bomb_guard(Image), Image.open(path) as image:
+        pil_image = _pillow_image()
+        with _bomb_guard(pil_image), pil_image.open(path) as image:
             return IconAsset(path=path, width=image.width, height=image.height)
     except (
         AssetError,
@@ -1022,7 +1022,7 @@ def _bomb_types() -> tuple[type[BaseException], type[BaseException]]:
 # `width="64px"`, `height="32"`. Deliberately a regex rather than an XML parser:
 # this file may be attacker-supplied through an overrides file, and an XML
 # parser is an entity-expansion surface that nothing here needs.
-_SVG_DIM = re.compile(rb"""\b(width|height)\s*=\s*["\']\s*([0-9.]+)\s*(?:px)?\s*["\']""", re.I)
+_SVG_DIM = re.compile(rb"""\b(width|height)\s*=\s*["\']\s*([0-9.]+)(?:\s*px)?\s*["\']""", re.I)
 
 
 def _svg_explicit_dimensions(opening: bytes) -> tuple[float | None, float | None]:
@@ -1115,7 +1115,7 @@ def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:
     Drawn oversized and downscaled, the same trick the glyph renderer uses to
     keep curved edges smooth.
     """
-    Image = _pillow_image()
+    pil_image = _pillow_image()
     try:
         from PIL import ImageDraw
     except ImportError as exc:  # pragma: no cover - depends on environment
@@ -1124,7 +1124,7 @@ def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:
     scale = 4
     width = box * scale
     height = int(width * 0.62)
-    canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    canvas = pil_image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
 
     def blob(cx: float, cy: float, r: float) -> None:
@@ -1154,7 +1154,7 @@ def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:
         blob(cx, base - radius, radius)
 
     cropped = canvas.crop(canvas.getbbox() or (0, 0, width, height))
-    cropped.thumbnail((box, box), Image.LANCZOS)
+    cropped.thumbnail((box, box), pil_image.LANCZOS)
     dest.parent.mkdir(parents=True, exist_ok=True)
     cropped.save(dest, "PNG")
     return IconAsset(path=dest, width=cropped.width, height=cropped.height)
@@ -1162,7 +1162,7 @@ def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:
 
 def _render_glyph(font_path: Path, codepoint: int, color: str, dest: Path, box: int) -> IconAsset:
     """Draw a single font glyph, tightly cropped, into a transparent PNG."""
-    Image = _pillow_image()
+    pil_image = _pillow_image()
     try:
         from PIL import ImageDraw, ImageFont
     except ImportError as exc:  # pragma: no cover - depends on environment
@@ -1172,21 +1172,21 @@ def _render_glyph(font_path: Path, codepoint: int, color: str, dest: Path, box: 
     try:
         # Render oversized, then crop and downscale, so edges stay smooth.
         font = ImageFont.truetype(str(font_path), box * 2)
-        canvas = Image.new("RGBA", (box * 4, box * 4), (0, 0, 0, 0))
+        canvas = pil_image.new("RGBA", (box * 4, box * 4), (0, 0, 0, 0))
         draw = ImageDraw.Draw(canvas)
         bbox = draw.textbbox((0, 0), char, font=font)
         if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
             raise AssetError(f"Glyph U+{codepoint:04X} is empty in {font_path.name}.")
         draw.text((-bbox[0] + 4, -bbox[1] + 4), char, font=font, fill=color)
         cropped = canvas.crop(canvas.getbbox() or (0, 0, box, box))
-        cropped.thumbnail((box, box), Image.LANCZOS)
+        cropped.thumbnail((box, box), pil_image.LANCZOS)
         cropped.save(dest, format="PNG", optimize=True)
         return IconAsset(path=dest, width=cropped.width, height=cropped.height)
     except (
         OSError,
         ValueError,
-        Image.DecompressionBombError,
-        Image.DecompressionBombWarning,
+        pil_image.DecompressionBombError,
+        pil_image.DecompressionBombWarning,
     ) as exc:
         raise AssetError(f"Could not render glyph U+{codepoint:04X}: {exc}") from exc
 
@@ -1199,17 +1199,17 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
     """
     from io import BytesIO
 
-    Image = _pillow_image()
+    pil_image = _pillow_image()
     try:
         # Same guard as `_measure`. This is the path that decodes bytes
         # straight off the network, so leaving it out meant the cap applied
         # to artwork already on disk and not to artwork arriving.
-        with _bomb_guard(Image), Image.open(BytesIO(raw)) as image:
+        with _bomb_guard(pil_image), pil_image.open(BytesIO(raw)) as image:
             image = image.convert("RGBA")
             bbox = image.getbbox()
             if bbox:
                 image = image.crop(bbox)
-            image.thumbnail((box, box), Image.LANCZOS)
+            image.thumbnail((box, box), pil_image.LANCZOS)
             # Written aside and renamed into place: a half-written icon is
             # indistinguishable from a good one to the `is_file()` check that
             # decides whether to refetch, so it would be cached corrupt forever.
@@ -1220,8 +1220,8 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
     except (
         OSError,
         ValueError,
-        Image.DecompressionBombError,
-        Image.DecompressionBombWarning,
+        pil_image.DecompressionBombError,
+        pil_image.DecompressionBombWarning,
     ) as exc:
         raise AssetError(f"Could not process artwork: {exc}") from exc
 

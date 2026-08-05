@@ -1111,16 +1111,16 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.func(args))
     except ConfigError as exc:
-        log.error("Configuration error: %s", exc)
+        log.error("Configuration error: %s", exc, exc_info=args.verbose)
         return 2
     except OverrideError as exc:
-        log.error("Overrides: %s", exc)
+        log.error("Overrides: %s", exc, exc_info=args.verbose)
         return 2
     except GraphvizMissing as exc:
-        log.error("%s", exc)
+        log.error("%s", exc, exc_info=args.verbose)
         return 3
     except (UniFiError, GraphvizError, SupportFileError, AssetError, OutputExistsError) as exc:
-        log.error("%s", exc)
+        log.error("%s", exc, exc_info=args.verbose)
         return 1
 
 

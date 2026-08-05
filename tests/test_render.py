@@ -228,7 +228,7 @@ class TestCredentials:
         assert ExporterConfig("unifi.example.com:8443", "k").base_url == (
             "https://unifi.example.com:8443"
         )
-        assert ExporterConfig("http://1.2.3.4", "k").base_url == "http://1.2.3.4"
+        assert ExporterConfig("http://1.2.3.4", "k").base_url == "https://1.2.3.4"
         assert ExporterConfig("unifi.example.com/", "k").base_url == "https://unifi.example.com"
 
     def test_verify_tls_accepts_words_and_a_ca_bundle_path(self, monkeypatch, tmp_path):
