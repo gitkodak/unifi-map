@@ -32,6 +32,10 @@ UNIFI_VERIFY_TLS=true
 | `UNIFI_SITE` | no | `default` | Which site to read; `--site` overrides it (see below) |
 | `UNIFI_VERIFY_TLS` | no | `true` | `true`, `false`, or a path to a CA bundle |
 
+`UNIFI_HOST` may include an `https://` prefix, but does not need one. An
+explicit `http://` prefix is upgraded to HTTPS; the tool never contacts a
+controller over plaintext HTTP.
+
 ### `UNIFI_API_KEY`
 
 Create a key in the UniFi OS settings, under the integrations section (the exact

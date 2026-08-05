@@ -73,8 +73,12 @@ class ExporterConfig:
     @property
     def base_url(self) -> str:
         host = self.host
-        if host.startswith("http" + "://"):
-            host = f"https://{host[7:]}"
+        # A controller is never contacted over plaintext HTTP.  Treating an
+        # explicit legacy scheme as its HTTPS endpoint keeps a mistyped
+        # credential file from silently weakening the connection.
+        insecure_scheme = "http" + "://"
+        if host.startswith(insecure_scheme):
+            host = f"https://{host.removeprefix(insecure_scheme)}"
         elif not host.startswith("https://"):
             host = f"https://{host}"
         return host.rstrip("/")
