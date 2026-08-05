@@ -34,7 +34,11 @@ jobs:
         # is wrong or the code is; do not quietly drop the version.
         python-version: ["3.11", "3.12", "3.13"]
     steps:
+      # The SonarQube scanner (run on 3.12 below) needs complete history to
+      # identify new code correctly.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
@@ -56,7 +60,18 @@ jobs:
         run: python -m ruff check .
 
       - name: Tests
-        run: python -m pytest -q
+        run: |
+          if [ "${{ matrix.python-version }}" = "3.12" ]; then
+            python -m pytest -q --cov=src/unifi_map --cov-report=xml:coverage.xml
+          else
+            python -m pytest -q
+          fi
+
+      - name: Analyze with SonarQube Cloud
+        if: matrix.python-version == '3.12'
+        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2  # v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Render the demo dataset
         # Exercises the whole pipeline including Graphviz, which the unit tests
@@ -73,34 +88,6 @@ jobs:
           unifi-map --cache-dir examples/demo --out-dir out-ob \
             render --obfuscate --icons builtin --offline -f svg --name ci-ob
           test -s out-ob/ci-ob.svg
-
-  sonarqube:
-    name: SonarQube Cloud
-    runs-on: ubuntu-latest
-    steps:
-      # The scanner needs the complete history to identify new code correctly.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install Graphviz
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq graphviz
-
-      - name: Install
-        run: 'pip install --only-binary=:all: -e ".[dev]"'
-
-      - name: Create coverage report
-        run: python -m pytest -q --cov=src/unifi_map --cov-report=xml:coverage.xml
-
-      - name: Analyze with SonarQube Cloud
-        uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2  # v7
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   policy:
     name: Repository hygiene
