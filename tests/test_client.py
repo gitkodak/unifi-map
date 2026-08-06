@@ -110,23 +110,30 @@ class TestFetch:
     def test_an_auth_failure_names_the_api_key(self, status):
         # The two statuses a wrong or revoked key produces; the message must say
         # what to check rather than just report the number.
+        client = self._respond(status=status)
+        path = self._path()
         with pytest.raises(UniFiError, match="API key"):
-            self._respond(status=status)._fetch(self._path())
+            client._fetch(path)
 
     def test_other_statuses_name_the_code_and_url(self):
+        client = self._respond(status=500)
+        path = self._path()
         with pytest.raises(UniFiError, match="HTTP 500"):
-            self._respond(status=500)._fetch(self._path())
+            client._fetch(path)
 
     def test_a_non_json_body_names_the_url(self):
+        client = self._respond(b"<html>not json</html>")
+        path = self._path()
         with pytest.raises(UniFiError, match="Non-JSON"):
-            self._respond(b"<html>not json</html>")._fetch(self._path())
+            client._fetch(path)
 
     def test_a_transport_failure_names_the_remedy(self):
         client = _client(
             _ScriptedSession({self.URL: requests.ConnectionError("Connection refused")})
         )
+        path = self._path()
         with pytest.raises(UniFiError, match="Check UNIFI_HOST"):
-            client._fetch(self._path())
+            client._fetch(path)
 
 
 class TestResponseCaps:
@@ -143,8 +150,9 @@ class TestResponseCaps:
 
         response = _Streamed(b"x" * 16, headers={"Content-Length": str(MAX_RESPONSE_BYTES + 1)})
         client = _client(_ScriptedSession({self.URL: response}))
+        path = self._path()
         with pytest.raises(UniFiError, match="claims"):
-            client._fetch(self._path())
+            client._fetch(path)
         # Refused on the declared length, so the stream is never started.
         assert response.chunks_served == 0
 
@@ -153,8 +161,9 @@ class TestResponseCaps:
 
         response = _Streamed(b"x" * (MAX_RESPONSE_BYTES + 1), headers={"Content-Length": "10"})
         client = _client(_ScriptedSession({self.URL: response}))
+        path = self._path()
         with pytest.raises(UniFiError, match="exceeded"):
-            client._fetch(self._path())
+            client._fetch(path)
         assert response.closed
         # The cap stops the read rather than measuring after the fact, so a
         # body twice the limit is never buffered whole.
@@ -218,8 +227,9 @@ class TestSnapshotFetch:
         responses = self._all_endpoints()
         device_url = self._url("api/s/default/stat/device", proxy=True)
         responses[device_url] = requests.ConnectionError("boom")
+        client = _client(_ScriptedSession(responses))
         with pytest.raises(UniFiError):
-            _client(_ScriptedSession(responses)).snapshot()
+            client.snapshot()
 
     def test_a_failed_optional_endpoint_warns_and_continues(self, caplog):
         responses = self._all_endpoints()
