@@ -12,9 +12,12 @@ with ``/proxy/network``.
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import json
 import logging
+import os
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -24,7 +27,8 @@ import urllib3
 
 from .assets import describe_network_error, parse_glyph_codepoints
 from .config import ExporterConfig
-from .fsio import atomic_write
+from .fsio import atomic_write, mkdir_private
+from .httpio import declared_size, read_capped
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +56,23 @@ ENDPOINTS: dict[str, str] = {
 EXTRA_ENDPOINTS: dict[str, str] = {
     "protect_cameras": "proxy/protect/integration/v1/cameras",
 }
+
+# The largest controller response this tool will read. A payload from a real
+# network of any size sits far below this; the ceiling exists so a hostile or
+# broken response is refused while streaming rather than buffered whole. It is
+# the same cap discipline the CDN artwork has always had, applied to the
+# endpoint people reach with UNIFI_VERIFY_TLS=false.
+MAX_RESPONSE_BYTES = 64 * 1024 * 1024
+
+# A snapshot is a set of files, and a set cannot be replaced atomically in
+# place, so each fetch writes a complete set under `gens/` and switches a
+# pointer to it. See `Snapshot.write` for the full argument.
+GENERATIONS_DIR = "gens"
+CURRENT_POINTER = "snapshot-current"
+# The only shape a pointer may name. The pointer is a path read off disk and
+# handed to `Path` arithmetic, so it is anchored rather than resolved, the same
+# rule support-archive member paths follow: anything else is refused.
+_GEN_NAME = re.compile(rf"^{GENERATIONS_DIR}/[0-9]{{8}}T[0-9]{{12}}-[0-9]+$")
 
 _ASSET_HASH = re.compile(rb"angular/([A-Za-z0-9]+)/")
 
@@ -104,47 +125,85 @@ class Snapshot:
         return self.payloads.get(name)
 
     def write(self, cache_dir: Path) -> None:
-        """Write the snapshot, never leaving a file readable by others.
+        """Write the snapshot as one generation, switched into place at the end.
 
         These hold a MAC, hostname and IP inventory of an entire network, so
         mode is set on a temporary before the rename rather than on the target
         afterwards. Chmod-after-write leaves a window at the umask default, and
         an already-present file keeps its old permissions for the whole write.
+
+        A snapshot is several files, and several files cannot be replaced
+        atomically as a set. Writing them beside each other in place left an
+        interruption or two concurrent fetches able to mix old and new payloads,
+        and `read()` accepted the mixture: a map built from two different
+        moments, looking exactly like one built from one. So each fetch writes a
+        complete set into its own directory under `gens/`, and the last step
+        swaps a pointer file to it. `read()` only ever sees a complete
+        generation, and an interrupted fetch leaves the pointer on the previous
+        one rather than destroying it, which is what keeps `render` working
+        after a fetch that was cut off.
         """
         cache_dir.mkdir(parents=True, exist_ok=True)
         # A mount without POSIX modes is not a reason to refuse to write.
         with contextlib.suppress(OSError):
             cache_dir.chmod(0o700)
-        for name, payload in self.payloads.items():
-            body = json.dumps(payload, indent=2, sort_keys=True)
-            atomic_write(cache_dir / f"{name}.json", body)
 
-        # A snapshot is one generation. `read()` loads every recognised file it
-        # finds, so an optional endpoint that succeeded last time and failed
-        # this time would otherwise leave its old file behind to be read beside
-        # fresh devices and clients: a map built from two different moments,
-        # looking exactly like one built from one. Switching a cache directory
-        # between a live fetch and a support file did the same thing.
+        # Uniquely named per process as well as per moment, so two concurrent
+        # fetches never write into the same directory.
+        generation = f"{dt.datetime.now(dt.UTC).strftime('%Y%m%dT%H%M%S%f')}-{os.getpid()}"
+        gen_dir = cache_dir / GENERATIONS_DIR / generation
+        mkdir_private(gen_dir)
+        for name, payload in sorted(self.payloads.items()):
+            body = json.dumps(payload, indent=2, sort_keys=True)
+            atomic_write(gen_dir / f"{name}.json", body)
+
+        # The commit point: one atomic rename, after which the set above is what
+        # every reader sees.
+        atomic_write(cache_dir / CURRENT_POINTER, f"{GENERATIONS_DIR}/{generation}\n")
+
+        # Best-effort housekeeping, only while we are still the generation the
+        # pointer names. Superseded generations are complete and nothing points
+        # at them any more, so they are removed rather than left to accumulate a
+        # second copy of the inventory. If a concurrent fetch has already
+        # superseded us, its own pass will do this when it finishes, and tidying
+        # from a superseded position could race it.
         #
-        # Only names this tool writes are removed, and only from a directory it
-        # was pointed at as a cache.
+        # One residual stays open on purpose: a fetch that started before ours
+        # and is still writing when we finish first can have its working
+        # directory removed from under it, failing that fetch loudly rather than
+        # leaving a mixed snapshot behind. Closing that needs a lock or an age
+        # guard; the failure is loud, and two simultaneous fetches into one
+        # cache directory were already asking for trouble.
+        try:
+            current = (cache_dir / CURRENT_POINTER).read_text(encoding="utf-8").strip()
+        except OSError:
+            current = f"{GENERATIONS_DIR}/{generation}"
+        if current != f"{GENERATIONS_DIR}/{generation}":
+            return
+
+        try:
+            for old in sorted((cache_dir / GENERATIONS_DIR).iterdir()):
+                if old.is_dir() and old.name != generation:
+                    shutil.rmtree(old, ignore_errors=True)
+        except OSError:
+            # Nothing useful to say: the next fetch tries again, and a leftover
+            # generation is inert now that the pointer has moved.
+            pass
+
+        # A cache that predates generations holds flat endpoint files beside the
+        # pointer. They are a full inventory nothing reads any more, which is
+        # exactly the stale copy this used to remove; take them out once the
+        # pointer is in place.
         for name in (*ENDPOINTS, *EXTRA_ENDPOINTS):
-            if name in self.payloads:
-                continue
             stale = cache_dir / f"{name}.json"
             try:
                 if stale.is_file():
                     stale.unlink()
-                    log.debug("Removed %s, absent from this fetch.", stale)
+                    log.debug("Removed %s, superseded by a generation.", stale)
             except OSError:
-                # Said out loud rather than suppressed: the point of removing it
-                # is that a later read must not mix generations, so failing to
-                # remove it means exactly the thing this guards against is still
-                # possible. Not fatal, because the rest of the snapshot is
-                # written and usable.
                 log.warning(
-                    "Could not remove %s, which is left over from an earlier fetch. "
-                    "It will be read alongside this one; delete it by hand.",
+                    "Could not remove %s, left over from a pre-generation cache. "
+                    "It is no longer read; delete it by hand.",
                     stale,
                 )
 
@@ -152,9 +211,10 @@ class Snapshot:
     def read(cls, cache_dir: Path) -> Snapshot:
         if not cache_dir.is_dir():
             raise UniFiError(f"No cached snapshot at {cache_dir}. Run `unifi-map fetch` first.")
+        snapshot_dir = cls._snapshot_dir(cache_dir)
         payloads: dict[str, Any] = {}
         for name in list(ENDPOINTS) + list(EXTRA_ENDPOINTS):
-            path = cache_dir / f"{name}.json"
+            path = snapshot_dir / f"{name}.json"
             if path.is_file():
                 try:
                     payloads[name] = json.loads(path.read_text(encoding="utf-8"))
@@ -166,6 +226,37 @@ class Snapshot:
         if not payloads:
             raise UniFiError(f"Cache directory {cache_dir} contains no snapshot files.")
         return cls(payloads=payloads)
+
+    @classmethod
+    def _snapshot_dir(cls, cache_dir: Path) -> Path:
+        """The directory holding the current generation, or the cache itself.
+
+        A cache with no pointer is the legacy flat layout: the shipped demo
+        dataset, and anything written before generations existed. Both keep
+        working, and the next `fetch` migrates them.
+        """
+        pointer = cache_dir / CURRENT_POINTER
+        if not pointer.is_file():
+            return cache_dir
+        try:
+            target = pointer.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise UniFiError(
+                f"Could not read the snapshot pointer {pointer} ({exc}). Re-run `unifi-map fetch`."
+            ) from exc
+        if not _GEN_NAME.fullmatch(target):
+            raise UniFiError(
+                f"Snapshot pointer {pointer} names {target!r}, which is not a "
+                "generation. Re-run `unifi-map fetch`."
+            )
+        generation = cache_dir / target
+        if not generation.is_dir():
+            raise UniFiError(
+                f"Snapshot pointer {pointer} names {target}, which is missing. "
+                "The generation was probably removed by hand; re-run "
+                "`unifi-map fetch`."
+            )
+        return generation
 
 
 class UniFiClient:
@@ -182,10 +273,17 @@ class UniFiClient:
             # per-request warning rather than let it drown real output.
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-    def _fetch(self, path: str) -> Any:
-        url = f"{self.config.base_url}/proxy/network/{path.format(site=self.config.site)}"
+    def _get(self, url: str) -> bytes:
+        """GET *url* and return the body, capped like every download here.
+
+        The controller is the endpoint people reach with
+        `UNIFI_VERIFY_TLS=false`, which is the same threat model that strips
+        the API key across a host-changing redirect: anyone in the path can
+        answer. So the response is streamed and read through a size cap, the
+        way CDN artwork has always been, rather than buffered whole.
+        """
         try:
-            response = self.session.get(url, timeout=self.timeout)
+            response = self.session.get(url, timeout=self.timeout, stream=True)
         except requests.RequestException as exc:
             raise UniFiError(
                 f"Could not reach {self.config.host}: {describe_network_error(exc)}. "
@@ -199,8 +297,26 @@ class UniFiClient:
             )
         if not response.ok:
             raise UniFiError(f"HTTP {response.status_code} from {url}")
+        declared = declared_size(response)
+        if declared is not None and declared > MAX_RESPONSE_BYTES:
+            response.close()
+            raise UniFiError(
+                f"Response from {url} claims {declared} bytes, past the "
+                f"{MAX_RESPONSE_BYTES}-byte cap. This is not normal for a "
+                "controller payload."
+            )
+        body = read_capped(response, MAX_RESPONSE_BYTES)
+        if body is None:
+            raise UniFiError(
+                f"Response from {url} exceeded the {MAX_RESPONSE_BYTES}-byte "
+                "cap. This is not normal for a controller payload."
+            )
+        return body
+
+    def _fetch(self, path: str) -> Any:
+        url = f"{self.config.base_url}/proxy/network/{path.format(site=self.config.site)}"
         try:
-            return response.json()
+            return json.loads(self._get(url))
         except ValueError as exc:
             raise UniFiError(f"Non-JSON response from {url}") from exc
 
@@ -208,39 +324,14 @@ class UniFiClient:
         """GET JSON from a path relative to the console root, not /proxy/network/."""
         url = f"{self.config.base_url}/{path}"
         try:
-            response = self.session.get(url, timeout=self.timeout)
-        except requests.RequestException as exc:
-            raise UniFiError(
-                f"Could not reach {self.config.host}: {describe_network_error(exc)}. "
-                "Check UNIFI_HOST, that the console is up, and that this machine "
-                "can route to it."
-            ) from exc
-        if not response.ok:
-            raise UniFiError(f"HTTP {response.status_code} from {url}")
-        try:
-            return response.json()
+            return json.loads(self._get(url))
         except ValueError as exc:
             raise UniFiError(f"Non-JSON response from {url}") from exc
 
     def _fetch_raw(self, path: str) -> bytes:
         """GET a non-JSON asset from under /proxy/network/."""
         url = f"{self.config.base_url}/proxy/network/{path}"
-        try:
-            response = self.session.get(url, timeout=self.timeout)
-        except requests.RequestException as exc:
-            raise UniFiError(
-                f"Could not reach {self.config.host}: {describe_network_error(exc)}. "
-                "Check UNIFI_HOST, that the console is up, and that this machine "
-                "can route to it."
-            ) from exc
-        if response.status_code in (401, 403):
-            raise UniFiError(
-                f"HTTP {response.status_code} from {url}. The API key is wrong, "
-                "revoked, or lacks permission for this site."
-            )
-        if not response.ok:
-            raise UniFiError(f"HTTP {response.status_code} from {url}")
-        return response.content
+        return self._get(url)
 
     def asset_hash(self) -> str:
         """The web app's build hash, needed to address its static assets.

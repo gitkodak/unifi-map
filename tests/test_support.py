@@ -883,8 +883,8 @@ class TestSnapshotGenerations:
     """A cached snapshot is one moment, not an accumulation of several."""
 
     def test_an_endpoint_that_stops_returning_leaves_nothing_behind(self, tmp_path):
-        """`read()` loads every recognised file it finds, so a stale one from an
-        earlier fetch would be read beside fresh devices and clients: a map
+        """`read()` loads every payload of the current generation, so one from an
+        earlier fetch must not be read beside fresh devices and clients: a map
         assembled from two different moments, indistinguishable from one built
         from a single moment.
 
@@ -893,10 +893,11 @@ class TestSnapshotGenerations:
         from unifi_map.client import Snapshot
 
         Snapshot(payloads={"device": {"data": [1]}, "health": {"data": ["old"]}}).write(tmp_path)
-        assert (tmp_path / "health.json").is_file()
+        assert Snapshot.read(tmp_path).get("health") == {"data": ["old"]}
 
         Snapshot(payloads={"device": {"data": [2]}}).write(tmp_path)
-        assert not (tmp_path / "health.json").exists(), "stale payload survived a new fetch"
+        # The new generation carries no health payload, so none may be read: a
+        # stale file would silently extend the new fetch into the old one.
         assert Snapshot.read(tmp_path).get("health") is None
         assert Snapshot.read(tmp_path).get("device") == {"data": [2]}
 

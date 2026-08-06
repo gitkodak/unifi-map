@@ -56,6 +56,28 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+### Added
+
+- **Controller responses are size-capped, like the CDN artwork always was.**
+  `fetch` used to read each response whole with no ceiling, while every
+  download from Ubiquiti's CDN stops at a limit. That was backwards from how it
+  looked: the defended path is the untrusted CDN and the undefended one is the
+  controller, which is the endpoint people are told it is ordinary to reach
+  with `UNIFI_VERIFY_TLS=false`. Both now stream through the same capped-read
+  guard, which moved out of `assets.py` into a shared module so the two cannot
+  drift apart again. A response past 64 MiB is refused with a message; nothing
+  a real network returns comes near that.
+
+- **A cached snapshot is now an atomic generation.** Each payload used to be
+  written as its own file with stale ones deleted afterwards, so a fetch cut
+  off mid-write, or two fetches running at once, could leave a mixture of old
+  and new that a later `render` read without complaint: a map built from two
+  moments, indistinguishable from one built from one. Each fetch now writes a
+  complete set into its own directory and switches a pointer to it as the last
+  step, so a reader only ever sees one complete generation. An interrupted
+  fetch leaves the previous snapshot intact and readable, and an old flat cache
+  keeps working and is migrated by the next fetch.
+
 ### Fixed
 
 - **The permission repair for pre-0.9.0 SVG caches no longer follows symlinks.**

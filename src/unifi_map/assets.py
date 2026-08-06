@@ -42,31 +42,15 @@ import requests
 
 from . import drawn
 from .fsio import atomic_write, mkdir_private
+from .httpio import Fetched, declared_size, read_capped
 
 log = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class Fetched:
-    """The parts of a response callers here actually use.
-
-    `_fetch` used to hand back a `requests.Response` with `_content` and
-    `_content_consumed` assigned by hand, because the body is streamed and read
-    through a cap rather than by `requests` itself. That worked, and depended on
-    two private attributes of somebody else's library staying where they are.
-
-    Callers only ever touch `status_code`, `content` and `raise_for_status`, so
-    those are all this carries.
-    """
-
-    status_code: int
-    content: bytes
-    url: str
-
-    def raise_for_status(self) -> None:
-        """Match `requests` closely enough that existing handlers still catch it."""
-        if self.status_code >= 400:
-            raise requests.HTTPError(f"{self.status_code} for {self.url}")
+# Re-exported so `from unifi_map.assets import Fetched` keeps working; the
+# definition lives in httpio.py, which is where the controller fetch reads it
+# too.
+__all__ = ["Fetched"]
 
 
 def _cache_write(path: Path, data: bytes) -> None:
@@ -186,29 +170,6 @@ MAX_ASSET_BYTES = 16 * 1024 * 1024
 # response cannot be read into memory unbounded, which it previously could:
 # this download had no cap at all.
 MAX_CATALOG_BYTES = 64 * 1024 * 1024
-
-
-def _read_capped(response: requests.Response, limit: int) -> bytes | None:
-    """Body bytes, or None once *limit* is passed.
-
-    Reads in chunks and stops at the cap rather than measuring afterwards, so an
-    oversized or endless response is abandoned instead of buffered whole.
-    """
-    chunks: list[bytes] = []
-    total = 0
-    try:
-        for chunk in response.iter_content(chunk_size=64 * 1024):
-            if not chunk:
-                continue
-            total += len(chunk)
-            if total > limit:
-                response.close()
-                return None
-            chunks.append(chunk)
-    except requests.RequestException:
-        response.close()
-        return None
-    return b"".join(chunks)
 
 
 # Pillow's own decompression-bomb threshold is deliberately generous, because it
@@ -358,12 +319,12 @@ class AssetStore:
             response = requests.get(
                 url, timeout=self.timeout, allow_redirects=allow_redirects, stream=True
             )
-            declared = response.headers.get("Content-Length")
-            if declared and declared.isdigit() and int(declared) > MAX_ASSET_BYTES:
+            declared = declared_size(response)
+            if declared is not None and declared > MAX_ASSET_BYTES:
                 log.warning("%s claims %s bytes; refusing to read it as artwork.", url, declared)
                 response.close()
                 return None
-            body = _read_capped(response, MAX_ASSET_BYTES)
+            body = read_capped(response, MAX_ASSET_BYTES)
             if body is None:
                 log.warning("%s is larger than %d bytes; not artwork.", url, MAX_ASSET_BYTES)
                 return None
@@ -448,7 +409,7 @@ class AssetStore:
         try:
             response = requests.get(CLIENT_CATALOG_URL, timeout=self.timeout, stream=True)
             response.raise_for_status()
-            body = _read_capped(response, MAX_CATALOG_BYTES)
+            body = read_capped(response, MAX_CATALOG_BYTES)
             if body is None:
                 log.warning(
                     "The client fingerprint database is larger than %d bytes; "

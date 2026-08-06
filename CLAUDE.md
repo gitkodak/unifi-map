@@ -562,7 +562,7 @@ at anything requiring knowledge of UniFi.
   moment" and nothing currently reads one that way.
 
   **Two prerequisites, and the first was missed when this was first written
-  here.** `Snapshot.write()` writes `cache_dir/<name>.json` every time, so each
+  here.** `Snapshot.write()` replaces the whole generation every fetch, so each
   fetch overwrites the last and there is no history to diff against. Something
   has to retain snapshots first, as a timestamped mode rather than a changed
   default, since the current behaviour is documented and deliberate. Codex
@@ -779,17 +779,19 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
 
 ### Gaps worth considering
 
-- **The controller path has no response-size cap and the CDN path does**
-  (KAN-134). `assets.py` has `MAX_ASSET_BYTES`, `MAX_CATALOG_BYTES`,
-  `_read_capped()`, `stream=True` and a Pillow pixel cap. `client.py` `_fetch()`
-  reads the whole body with none of that.
+- **The controller path now has the same response cap the CDN path does**
+  (KAN-134, done). The capped-read guard moved out of `assets.py` into
+  `httpio.py`, a sibling of `fsio.py`, so the two callers cannot drift apart
+  again: `client.py`'s three fetch paths now stream through it with a 64 MiB
+  ceiling and refuse an oversized response out loud, exactly as `assets.py`
+  always refused one from the CDN.
 
-  That is backwards from how it looks. The defended path is the untrusted CDN;
-  the undefended one is the controller, which is the endpoint people are told
-  it is ordinary to reach with `UNIFI_VERIFY_TLS=false`. It is the same threat
-  model that justified `_Session.rebuild_auth` stripping the key across a
-  host-changing redirect, so the two should be consistent. Low severity, and
-  consistency is most of the argument rather than the residual risk.
+  The reasoning that motivated it still stands and is the reason to keep the
+  two consistent if anything changes: the controller is the endpoint people
+  are told it is ordinary to reach with `UNIFI_VERIFY_TLS=false`, the same
+  threat model that justified `_Session.rebuild_auth` stripping the key across
+  a host-changing redirect. Low severity, and consistency was most of the
+  argument rather than the residual risk.
 
 - **Provenance and confidence.** `Edge.asserted` marks an override-supplied link
   and nothing else distinguishes observed from inferred. A client placed from
@@ -1037,7 +1039,9 @@ parsed, CI exists, obfuscation exists, `SECURITY.md` and `CONTRIBUTING.md` and
 the issue and PR templates were written, clients behind non-UniFi devices are
 placed from the controller's own graph, `--support-file` is implemented, the
 `sane` alias is gone, `unifi-map shape` and `overrides check` and the Mermaid
-and JSON exports all shipped, the man page exists, and 0.7.2 is released.
+and JSON exports all shipped, the man page exists, controller responses are
+capped (KAN-134), snapshots are atomic generations (KAN-138), and 0.7.2 is
+released.
 
 **Four of those were still written up here as future work well after they
 shipped**, which is the failure this file is most prone to: it is edited for

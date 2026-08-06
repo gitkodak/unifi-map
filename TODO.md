@@ -88,18 +88,6 @@ drawn from a thin one look equally authoritative.
   Not urgent. It is tens of megabytes on a real network, and worth designing
   once rather than adding a flag that has to be redefined later.
 
-## Cache integrity
-
-- **Make a snapshot an atomic generation** (KAN-138). A fetch now removes recognised
-  files it did not write, so an uninterrupted run leaves one coherent set. What
-  it is not is atomic: several file replacements followed by deletions, so an
-  interruption, a full disk or two concurrent fetches can still leave a mix of
-  old and new, and `read()` accepts that mixture without complaint. A failed
-  deletion at least warns now. The fix is a
-  generation directory with a pointer switched at the end, or a manifest that
-  `read()` validates before accepting the set. Worth doing before anything
-  reads snapshots as history, which `diff` below would.
-
 ## Comparing one fetch to another
 
 - **A `diff` subcommand** (KAN-117). What changed between two snapshots: devices
@@ -150,13 +138,6 @@ drawn from a thin one look equally authoritative.
   resolve artwork twice, once per output theme, and give `write_outputs` a
   second icons dict for the draw.io pass.
 
-- **Cap controller response sizes** (KAN-134). `client.py` reads responses with
-  no ceiling, while `assets.py` caps every fetch from the CDN. That is backwards
-  from how it looks: the untrusted path is defended and the trusted one is not,
-  and the trusted one is the one people reach with `UNIFI_VERIFY_TLS=false`.
-  Low severity and consistency work rather than a live hole, but it is the same
-  threat model that justified stripping the API key across a redirect.
-
 ## Tooling
 
 - **A read-only way to show resolved configuration** (KAN-142). There is no way
@@ -191,10 +172,9 @@ drawn from a thin one look equally authoritative.
   Two extractions have a reason of their own. The **SVG conversion adapter**
   (`rasterise_svg`, `_measure_svg`, `_why_unreadable`) is one capability and the
   only part that depends on the optional `svg` extra, so isolating it also puts
-  that import behind a single boundary. The **capped-read primitive**
-  (`_read_capped`) is already exactly what KAN-134 needs `client.py` to do, so
-  lifting it into a shared module first avoids landing two copies of the same
-  guard. That ordering is the reason to schedule the two together.
+  that import behind a single boundary. The **capped-read primitive** was the
+  second and is already done: it lives in `httpio.py`, shared by `client.py`
+  and `assets.py`, which is why the two schedule together no longer applies.
 
 ## Committed to a version
 

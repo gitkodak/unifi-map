@@ -58,6 +58,13 @@ So `unifi-map all` does not skip the fetch when a cache already exists; it
 refreshes unconditionally. If you want to re-render without going near the
 controller, use `render`.
 
+Each `fetch` writes one complete generation of the snapshot and switches a
+pointer to it as its last step. A fetch cut off mid-way therefore never leaves a
+mixture of old and new payloads: `render` reads the previous complete
+generation until the next one is fully in place, and older generations are
+removed. A cache written before this layout still reads, and is migrated by the
+next fetch.
+
 And `render` is not automatically offline. On a cold artwork cache it reaches
 Ubiquiti's CDN for product images. Pass `--offline` to forbid that, or
 `--icons builtin` to avoid needing artwork at all. Once the artwork cache is

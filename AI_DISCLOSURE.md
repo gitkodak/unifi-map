@@ -28,7 +28,7 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
 
 ## What has actually been verified
 
-- **587 automated tests**, none of which touch the network. They cover the
+- **621 automated tests**, none of which touch the network. They cover the
   parsing, the model, obfuscation, override handling, support-file reading, the
   renderers and several security properties directly.
 - **Continuous integration** on every push and pull request, plus a repository
