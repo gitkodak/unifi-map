@@ -103,7 +103,7 @@ make demo
 ```
 
 That builds its own virtual environment and renders the shipped dataset into
-`out/demo/`.
+`examples/demo/out/`, gitignored alongside the input it was rendered from.
 
 **To run it against your own network, start at [Install](#install).** You need
 the tool on your `PATH` and a credential file holding your host and API key,
@@ -223,7 +223,7 @@ pointing this at real infrastructure. No credentials, no controller:
 ```bash
 make demo
 # or:
-unifi-map --cache-dir examples/demo --out-dir out/demo render --per-network
+unifi-map --cache-dir examples/demo --out-dir examples/demo/out render --per-network
 ```
 
 Every MAC, address and hostname in it is invented. Some identifiers are

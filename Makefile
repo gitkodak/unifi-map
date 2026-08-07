@@ -70,11 +70,11 @@ dark: $(STAMP)
 	$(VENV)/bin/unifi-map render --theme dark --per-network -f svg pdf drawio
 
 demo: $(STAMP)
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo/out \
 		render --per-network -f svg pdf drawio html --name demo --title "Demo network"
 
 demo-overrides: $(STAMP)
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo/out \
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
 
