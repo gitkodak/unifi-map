@@ -726,6 +726,40 @@ at anything requiring knowledge of UniFi.
   is not, independent of hue, so it reads the same in greyscale or under
   deuteranopia without needing a special highlight colour at all.
 
+  **Reported "janky" 2026-08-07, and it was two real bugs, not a vague
+  complaint.** Both were verified with the actual pan/zoom math, not by
+  eyeballing a screenshot: a screenshot taken via this project's own browser
+  tooling can look identical whether the fix landed or not, because the tab
+  automation drives is frequently `document.hidden`, and Chrome suspends
+  `requestAnimationFrame` for a hidden tab — which is exactly the step
+  Panzoom defers its transform write through. Reading `getComputedStyle()`
+  synchronously after a synthetic event proved nothing; the fix was to patch
+  `requestAnimationFrame` to run synchronously and re-check.
+
+  1. **Every wheel event zoomed, including a plain two-finger swipe.** A
+     trackpad swipe and a mouse wheel fire the same `wheel` event shape, and
+     the first version treated all of it as zoom. That inverts the gesture
+     every trackpad user has, since a swipe is for panning. Fixed by reading
+     `event.ctrlKey`: browsers set it on their own for a trackpad pinch (no
+     physical Ctrl involved), so it doubles as a real Ctrl+scroll for free.
+     Anything without it now pans via `panzoom.pan(..., {relative: true})`,
+     scaled by the current zoom so pan speed stays constant on screen
+     regardless of how far in you are.
+  2. **`contain: "outside"` fought the pan it was meant to merely bound.**
+     The svg is styled `width:100%;height:100%` so it always fills its
+     container regardless of zoom. Panzoom's containment math finds the
+     element's "natural" size by dividing its current bounding box by the
+     current scale — but that box is always exactly the container's size at
+     every scale, so the natural size always comes out equal to the
+     container too, leaving no slack to pan within before containment
+     clamped straight back to the origin. Removed entirely: panning into
+     empty space around the diagram is normal for a canvas viewer and needs
+     no containment.
+
+  Zoom-to-cursor accuracy was verified directly rather than assumed: the
+  screen position of a node under the cursor before and after a zoom
+  differed by about 0.01px, well inside rounding.
+
 - **Location and rack grouping via overrides.** Philosophically the best fit of
   all of them: a controller cannot know which rack something is in, which is
   precisely what `[[device]]` and friends are for. The unknown is rendering.

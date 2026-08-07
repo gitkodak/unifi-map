@@ -59,11 +59,12 @@ told something untrue and may have acted on it.
 ### Added
 
 - **An interactive HTML viewer, `-f html`.** A single self-contained file:
-  scroll to zoom, drag to pan, search to dim everything that doesn't match,
-  click a client to trace its path back to the gateway, and click a switch or
-  AP to collapse the clients hanging off it. That last one is the actual
-  point — a switch with thirty clients is unreadable in every static format,
-  which is the problem this exists to solve.
+  scroll or drag to pan, pinch or Ctrl+scroll to zoom, search to dim
+  everything that doesn't match, click a client to trace its path back to the
+  gateway, and click a switch or AP to collapse the clients hanging off it.
+  That last one is the actual point — a switch with thirty clients is
+  unreadable in every static format, which is the problem this exists to
+  solve.
 
   Pan and zoom is a vendored copy of [Panzoom](https://github.com/timmywil/panzoom)
   (MIT, zero dependencies of its own), not hand-rolled and not pulled from a

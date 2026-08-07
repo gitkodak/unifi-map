@@ -1,5 +1,5 @@
 .PHONY: help check format lint test map fetch render tree offline dark demo \
-        demo-overrides demo-images demo-snapshot docs build clean
+        demo-dark demo-overrides demo-images demo-snapshot docs build clean
 
 VENV  := .venv
 PY    := $(VENV)/bin/python
@@ -21,6 +21,7 @@ help:
 	@echo "make tree     render in the readable (non-UniFi) layout"
 	@echo "make offline  render with builtin icons, no network access"
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
+	@echo "make demo-dark       the same dataset in the dark theme"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
 	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
 	@echo "make docs           regenerate the flag reference and man page from the parser"
@@ -67,14 +68,19 @@ offline: $(STAMP)
 	$(VENV)/bin/unifi-map render --icons builtin --offline -f svg pdf drawio
 
 dark: $(STAMP)
-	$(VENV)/bin/unifi-map render --theme dark --per-network -f svg pdf drawio
+	$(VENV)/bin/unifi-map render --theme dark --per-network -f svg pdf drawio html
 
 demo: $(STAMP)
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo/out \
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo \
 		render --per-network -f svg pdf drawio html --name demo --title "Demo network"
 
+demo-dark: $(STAMP)
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo \
+		render --theme dark --per-network -f svg pdf drawio html --name demo-dark \
+		--title "Demo network"
+
 demo-overrides: $(STAMP)
-	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo/out \
+	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir examples/demo \
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
 

@@ -114,7 +114,13 @@ because nothing about those formats can hide the leaves you don't currently
 care about. `-f html` is one self-contained file — open it, nothing else to
 install — with four things a still image can't do:
 
-- **Scroll to zoom, drag to pan.**
+- **Scroll or drag to pan, pinch or Ctrl+scroll to zoom.** A trackpad's
+  two-finger swipe and a mouse wheel both fire the same kind of event, so
+  something has to decide which one means what. This follows the convention
+  every other pan/zoom canvas settled on (Figma, Miro, Google Maps): Ctrl
+  means zoom, which a browser also sets on its own for a trackpad pinch, so
+  an actual Ctrl+scroll works the same way for free. Anything else pans,
+  because that is what a swipe is for.
 - **Search** dims every node whose label, address or detail line doesn't
   match, so a busy map narrows to what you typed.
 - **Click a client** to trace its path back to the gateway: everything off

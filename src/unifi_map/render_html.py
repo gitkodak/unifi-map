@@ -158,8 +158,9 @@ _PAGE = (
   <input id="um-search" type="search" placeholder="Search nodes\u2026" autocomplete="off">
   <span id="um-match-count"></span>
   <button id="um-reset" type="button">Reset view</button>
-  <span id="um-hint">Scroll to zoom, drag to pan. Click a client to trace its path to """
-    """the gateway. Click a switch or AP to collapse its clients.</span>
+  <span id="um-hint">Scroll or drag to pan, pinch or Ctrl+scroll to zoom. Click a """
+    """client to trace its path to the gateway. Click a switch or AP to collapse its """
+    """clients.</span>
 </div>
 <div id="um-stage">
 %(svg)s
@@ -222,8 +223,40 @@ _VIEWER_JS = r"""
   }
 
   // ---- Pan and zoom, via the vendored Panzoom. ----
-  var panzoom = Panzoom(svg, { maxScale: 8, minScale: 0.1, contain: "outside" });
-  stage.addEventListener("wheel", panzoom.zoomWithWheel);
+  // No `contain` option. Panzoom's containment math divides the element's
+  // current bounding-box size by the current scale to find its "natural"
+  // size, but the svg is styled `width:100%;height:100%`, so that box is
+  // always exactly the container's size regardless of zoom: dividing it out
+  // makes the "natural" size always equal the container too, leaving no
+  // slack to pan within before containment clamps straight back to the
+  // origin. That is what made panning feel like it was fighting back.
+  // Freely panning into empty space around the diagram is normal for a
+  // canvas viewer (every pan/zoom tool behaves this way) and needs no
+  // containment at all.
+  var panzoom = Panzoom(svg, { maxScale: 8, minScale: 0.1 });
+
+  // A plain wheel event is ambiguous: it is what a two-finger trackpad swipe
+  // sends, and it is what a mouse wheel sends, and those two devices want
+  // opposite things from it. Every pan/zoom canvas that gets this right
+  // (Figma, Miro, Google Maps) agrees on the resolution: ctrlKey means zoom.
+  // Browsers set it on their own for a trackpad pinch — no physical Ctrl
+  // involved — so this also covers an actual Ctrl+scroll for free. Anything
+  // without ctrlKey pans, which is what a two-finger swipe is for. Binding
+  // every wheel event straight to zoom, as an earlier version of this did,
+  // meant the single most common gesture (swipe to pan) zoomed instead.
+  stage.addEventListener(
+    "wheel",
+    function (ev) {
+      if (ev.ctrlKey) {
+        panzoom.zoomWithWheel(ev);
+        return;
+      }
+      ev.preventDefault();
+      var scale = panzoom.getScale();
+      panzoom.pan(-ev.deltaX / scale, -ev.deltaY / scale, { relative: true, force: true });
+    },
+    { passive: false }
+  );
 
   // ---- Search: dims nodes whose label/ip/detail does not match. ----
   var searchInput = document.getElementById("um-search");

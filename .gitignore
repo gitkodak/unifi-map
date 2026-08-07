@@ -18,6 +18,19 @@
 cache*/
 out*/
 
+# `make demo` renders straight into examples/demo/, alongside the committed
+# input snapshot, rather than a separate out/ tree: the two used to live in
+# different top-level directories and that read as duplication even though
+# only the input was ever committed. Rendered output embeds Ubiquiti's
+# artwork as base64, so it must never reach git either way; matched by
+# extension rather than a subdirectory, since there is no subdirectory here
+# to gitignore. The input files (*.json, overrides.toml) do not use any of
+# these extensions, so this cannot hide real fixture data by accident.
+examples/demo/*.svg
+examples/demo/*.pdf
+examples/demo/*.drawio
+examples/demo/*.html
+
 # Build artifacts from `make build`. Regenerable, and a built wheel committed by
 # accident would be a second copy of the source going stale in the tree.
 dist/
