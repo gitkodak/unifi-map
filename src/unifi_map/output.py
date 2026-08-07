@@ -165,6 +165,45 @@ def warn_about_svg_artwork(icons: dict[str, IconAsset], formats: list[str]) -> N
     )
 
 
+def _write_sized(path: Path, data: bytes | str, *, force: bool, guard: bool) -> None:
+    """Write one output and log it with its size on disk.
+
+    The size is measured in bytes for text as well as binary. Reporting
+    `len(str)` counts characters, which understates any file holding non-ASCII,
+    and a label carrying one is ordinary rather than exotic.
+    """
+    write_output(path, data, force=force, guard=guard)
+    size = len(data.encode("utf-8") if isinstance(data, str) else data)
+    log.info("  %s (%.1f KiB)", path, size / 1024)
+
+
+def _write_rasters(
+    dot_source: str,
+    out_dir: Path,
+    stem: str,
+    formats: list[str],
+    *,
+    force: bool,
+    progress: bool,
+) -> None:
+    """Render the formats Graphviz rasterises for us, in a fixed order.
+
+    Split out of `write_outputs` to keep that function's branching flat. These
+    two are the only outputs that are a plain `run_dot` of the same DOT with no
+    post-processing, which is why they share a loop at all.
+
+    The order is spelled out rather than reusing `_CAIRO_FORMATS`, which holds
+    the same two names for a different reason and in the other order. Write
+    order is observable in the log, so it is pinned here deliberately.
+    """
+    for fmt in ("pdf", "png"):
+        if fmt not in formats:
+            continue
+        with spinner(f"Rendering {fmt}", progress):
+            data = run_dot(dot_source, fmt)
+        _write_sized(out_dir / f"{stem}.{fmt}", data, force=force, guard=False)
+
+
 def write_outputs(
     dot_source: str,
     topo: Topology,
@@ -182,6 +221,10 @@ def write_outputs(
 
     # Every icon this render used, and nothing else, may be embedded.
     icon_paths = {asset.path for asset in icons.values() if asset.path is not None}
+
+    # An empty title means "no title" to the renderers that take an optional
+    # one. Resolved once so the two call sites cannot drift apart.
+    opt_title = title or None
 
     # Stagger once, up front, so the SVG/PDF and the draw.io coordinates are
     # computed from byte-identical DOT and therefore agree exactly.
@@ -204,26 +247,15 @@ def write_outputs(
         # SVG is a single portable file.
         svg_data = inline_svg_images(svg_data, allowed=icon_paths)
         if "svg" in formats:
-            path = out_dir / f"{stem}.svg"
-            write_output(path, svg_data, force=force, guard=False)
-            log.info("  %s (%.1f KiB)", path, len(svg_data) / 1024)
+            _write_sized(out_dir / f"{stem}.svg", svg_data, force=force, guard=False)
 
-    for fmt in ("pdf", "png"):
-        if fmt not in formats:
-            continue
-        with spinner(f"Rendering {fmt}", progress):
-            data = run_dot(dot_source, fmt)
-        path = out_dir / f"{stem}.{fmt}"
-        write_output(path, data, force=force, guard=False)
-        log.info("  %s (%.1f KiB)", path, len(data) / 1024)
+    _write_rasters(dot_source, out_dir, stem, formats, force=force, progress=progress)
 
     if "html" in formats:
         # Not hand-edited, same as svg/pdf/png: a generated artifact, not
         # something re-rendering must avoid clobbering.
-        page = render_html(topo, svg_data.decode("utf-8"), style.theme, title or None)
-        path = out_dir / f"{stem}.html"
-        write_output(path, page, force=force, guard=False)
-        log.info("  %s (%.1f KiB)", path, len(page) / 1024)
+        page = render_html(topo, svg_data.decode("utf-8"), style.theme, opt_title)
+        _write_sized(out_dir / f"{stem}.html", page, force=force, guard=False)
 
     if "mermaid" in formats:
         # No Graphviz involved: Mermaid does its own layout, so the staggered
@@ -240,12 +272,10 @@ def write_outputs(
     if "json" in formats:
         # Like mermaid, no Graphviz involved: this is the model, not a drawing.
         path = out_dir / f"{stem}.json"
-        write_output(path, render_json(topo, title or None), force=force, guard=False)
+        write_output(path, render_json(topo, opt_title), force=force, guard=False)
         log.info("  %s", path)
 
     if "drawio" in formats:
         layout = compute_layout(dot_source)
         xml = render_drawio(topo, layout, stem, style.theme, icons, style.transparent)
-        path = out_dir / f"{stem}.drawio"
-        write_output(path, xml, force=force, guard=True)
-        log.info("  %s (%.1f KiB)", path, len(xml.encode()) / 1024)
+        _write_sized(out_dir / f"{stem}.drawio", xml, force=force, guard=True)
