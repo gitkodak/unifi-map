@@ -511,6 +511,18 @@ class TestOutputIsNotClobbered:
         path = self._write(tmp_path, "d.png", "whatever", force=False, guard=False)
         assert path.read_text(encoding="utf-8") == "replacement"
 
+    def test_an_unreadable_existing_path_is_refused_rather_than_trusted(self, tmp_path):
+        # `_is_ours()` cannot read it, so it must not conclude it is ours. A
+        # directory at the target path is a portable way to make `open()` fail
+        # without relying on permission bits, which root and some CI runners
+        # ignore.
+        from unifi_map.output import OutputExistsError, write_output
+
+        path = tmp_path / "f.drawio"
+        path.mkdir()
+        with pytest.raises(OutputExistsError, match="not written by unifi-map"):
+            write_output(path, "replacement", force=False, guard=True)
+
 
 class TestWritesAreAtomic:
     def test_a_failed_write_leaves_the_previous_file_intact(self, tmp_path, monkeypatch):
