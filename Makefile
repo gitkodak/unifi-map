@@ -71,7 +71,7 @@ dark: $(STAMP)
 
 demo: $(STAMP)
 	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
-		render --per-network -f svg pdf drawio --name demo --title "Demo network"
+		render --per-network -f svg pdf drawio html --name demo --title "Demo network"
 
 demo-overrides: $(STAMP)
 	$(VENV)/bin/unifi-map --cache-dir examples/demo --out-dir out/demo \
