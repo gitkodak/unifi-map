@@ -14,6 +14,23 @@ Four images, all from `examples/demo/` so no controller is involved:
     example-overrides-dark.png    the example overrides applied
     example-overrides-detail.png  a crop of the above
 
+Plus two committed copies of the interactive viewer:
+
+    docs/demo-light.html
+    docs/demo-dark.html
+
+**These two are `--icons builtin --offline` on purpose, unlike the PNGs
+above.** A PNG is a flattened raster; whatever product photography went into
+drawing it cannot be pulled back out. `-f html` is the opposite: it embeds
+every icon as a separately extractable base64 image, byte-identical to
+whatever was fetched. Committing that with the default `--icons unifi` would
+mean committing verbatim, re-extractable copies of Ubiquiti's product
+photography into git history, which is exactly what this project never does
+with their artwork elsewhere. `builtin` draws every icon itself, so there is
+nothing Ubiquiti made anywhere in the file, and `--offline` makes the two
+reproducible on a clean clone with no cache and no network, which the PNGs
+above are explicitly not.
+
 **These are not reproducible on a clean clone, and that is not fixable here.**
 The demo *data* is committed, but the artwork is not: product renders come from
 Ubiquiti's CDN, and the generic client glyphs come from an icon font that only a
@@ -52,6 +69,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "examples" / "demo"
 OVERRIDES = DEMO / "overrides.toml"
 IMAGES = ROOT / "docs" / "images"
+DOCS = ROOT / "docs"
 
 # Space left around the cropped region, in layout points. Enough that labels
 # under the lowest node are not sheared off.
@@ -69,7 +87,9 @@ THEMES = ("dark", "light")
 sys.path.insert(0, str(ROOT / "src"))
 
 
-def _render(name: str, theme: str, *extra: str, formats: str = "png") -> None:
+def _render(
+    name: str, theme: str, *extra: str, formats: str = "png", out_dir: Path = IMAGES
+) -> None:
     """Render one image through the CLI, so this uses the documented path."""
     command = [
         sys.executable,
@@ -78,7 +98,7 @@ def _render(name: str, theme: str, *extra: str, formats: str = "png") -> None:
         "--cache-dir",
         str(DEMO),
         "--out-dir",
-        str(IMAGES),
+        str(out_dir),
         "--no-progress",
         "render",
         "-f",
@@ -174,6 +194,23 @@ def main() -> int:
     for path in sorted(IMAGES.glob("example-*.png")):
         with Image.open(path) as image:
             print(f"  {path.relative_to(ROOT)}  {image.width}x{image.height}")
+
+    # builtin + offline: see the module docstring for why these two, alone
+    # among everything this script generates, must never carry --icons unifi.
+    for theme in ("light", "dark"):
+        _render(
+            f"demo-{theme}",
+            theme,
+            "--icons",
+            "builtin",
+            "--offline",
+            "--title",
+            "Demo network",
+            formats="html",
+            out_dir=DOCS,
+        )
+        path = DOCS / f"demo-{theme}.html"
+        print(f"  {path.relative_to(ROOT)}  {path.stat().st_size / 1024:.1f} KiB")
     return 0
 
 

@@ -91,7 +91,9 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
 4. **`make demo-images`**, if anything changed how a map is drawn. The
    screenshots in the README are committed, so they go stale silently: nothing
    fails, the picture is just wrong. They had drifted noticeably by the time
-   regenerating them was scripted.
+   regenerating them was scripted. The same run also regenerates
+   `docs/demo-light.html` and `docs/demo-dark.html`, the committed copies of
+   the interactive viewer.
 
 5. **`make check`.** A test asserts the changelog has a section matching
    `__version__`, so bumping without a changelog entry fails here rather than

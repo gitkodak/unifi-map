@@ -102,8 +102,9 @@ and Python 3.11+ present ([Install](#install) covers both):
 make demo
 ```
 
-That builds its own virtual environment and renders the shipped dataset into
-`examples/demo/out/`, gitignored alongside the input it was rendered from.
+That builds its own virtual environment and renders the shipped dataset
+straight into `examples/demo/`, alongside the input it was rendered from.
+The renders are gitignored by extension; the input is not.
 
 **To run it against your own network, start at [Install](#install).** You need
 the tool on your `PATH` and a credential file holding your host and API key,
@@ -223,7 +224,7 @@ pointing this at real infrastructure. No credentials, no controller:
 ```bash
 make demo
 # or:
-unifi-map --cache-dir examples/demo --out-dir examples/demo/out render --per-network
+unifi-map --cache-dir examples/demo --out-dir examples/demo render --per-network
 ```
 
 Every MAC, address and hostname in it is invented. Some identifiers are
@@ -246,6 +247,16 @@ controller cannot place, so those behaviours are visible too.
 An example overrides file ships alongside it at `examples/demo/overrides.toml`,
 exercising every block against that data. `make demo-overrides` renders it, and
 comparing the two outputs shows what each override actually changes.
+
+**The interactive `-f html` viewer is committed and browsable without running
+anything**: [`docs/demo-light.html`](docs/demo-light.html) and
+[`docs/demo-dark.html`](docs/demo-dark.html). GitHub shows an `.html` file's
+source rather than rendering it, so download the file (or clone the repo) and
+open it locally to actually use it — pan, zoom, search, click a client to
+trace its path, click a switch or AP to collapse its clients. These two are
+rendered with `--icons builtin` rather than the default, specifically so nothing
+Ubiquiti made ends up embedded in a file that's committed; every other demo
+output here is gitignored for exactly that reason.
 
 Regenerate the dataset with `make demo-snapshot` (see
 `scripts/make_demo_snapshot.py`).

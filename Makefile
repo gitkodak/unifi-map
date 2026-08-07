@@ -23,7 +23,7 @@ help:
 	@echo "make demo     render the shipped demo dataset (no controller needed)"
 	@echo "make demo-dark       the same dataset in the dark theme"
 	@echo "make demo-overrides  the same dataset with the example overrides applied"
-	@echo "make demo-images     regenerate the demo PNGs committed under docs/images/"
+	@echo "make demo-images     regenerate committed demo PNGs and the html viewer demos"
 	@echo "make docs           regenerate the flag reference and man page from the parser"
 	@echo "make dark     render from cache in the dark theme"
 	@echo "make build    build a wheel and sdist into dist/"
@@ -84,10 +84,12 @@ demo-overrides: $(STAMP)
 		render --overrides examples/demo/overrides.toml -f svg --name demo-overrides \
 		--title "Demo network, with overrides"
 
-# The demo images committed under docs/images/. Not run by `make check`: they
-# are large binaries, and a rendering change should update them deliberately
-# rather than dirty the tree on every build. See the script for what is
-# generated and why the crop is computed rather than hard-coded.
+# The demo PNGs under docs/images/ plus docs/demo-{light,dark}.html. Not run
+# by `make check`: they are large binaries, and a rendering change should
+# update them deliberately rather than dirty the tree on every build. See the
+# script for what is generated, why the crop is computed rather than
+# hard-coded, and why the two html files are --icons builtin unlike everything
+# else here.
 demo-images: $(STAMP)
 	$(VENV)/bin/python scripts/make_demo_images.py
 
