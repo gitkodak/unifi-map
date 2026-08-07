@@ -58,6 +58,26 @@ told something untrue and may have acted on it.
 
 ### Added
 
+- **An interactive HTML viewer, `-f html`.** A single self-contained file:
+  scroll to zoom, drag to pan, search to dim everything that doesn't match,
+  click a client to trace its path back to the gateway, and click a switch or
+  AP to collapse the clients hanging off it. That last one is the actual
+  point — a switch with thirty clients is unreadable in every static format,
+  which is the problem this exists to solve.
+
+  Pan and zoom is a vendored copy of [Panzoom](https://github.com/timmywil/panzoom)
+  (MIT, zero dependencies of its own), not hand-rolled and not pulled from a
+  CDN: a small permissively-licensed file checked into the repo is a
+  different kind of "vendoring" than the rule against committing Ubiquiti's
+  artwork, which is about somebody else's copyright rather than about
+  third-party code existing at all. Node and edge correlation between the SVG
+  and the topology is computed in Python and stamped onto the SVG as `data-*`
+  attributes, so the JavaScript never has to reverse-engineer anything. The
+  topology payload is embedded base64-encoded rather than as a JSON literal,
+  because a label can come from a controller or a support file, both hostile
+  input by this project's own rule, and a literal `</script>` inside one
+  would end the block early no matter how the JSON around it was escaped.
+
 - **Controller responses are size-capped, like the CDN artwork always was.**
   `fetch` used to read each response whole with no ceiling, while every
   download from Ubiquiti's CDN stops at a limit. That was backwards from how it

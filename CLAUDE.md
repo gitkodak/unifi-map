@@ -674,13 +674,57 @@ at anything requiring knowledge of UniFi.
   output with the front matter stripped, and a test diffs the embedded block
   against real output so that claim cannot rot.
 
-- **An interactive HTML viewer.** Collapsible client subtrees address the exact
-  problem the tool exists for, and path highlighting is genuinely useful on a
-  busy map. Two things to decide before starting: it wants JavaScript, and
-  vendoring a pan/zoom library sits badly beside the rule against vendoring
-  anything else, so either write the few hundred lines by hand or accept the
-  dependency deliberately. It can still be a pure function from `Topology` to
-  text, which is what keeps it in the existing shape rather than beside it.
+- **An interactive HTML viewer. Shipped, as `-f html` (KAN-126), 2026-08-07.**
+  Collapsible client subtrees address the exact problem the tool exists for —
+  a switch with thirty clients is unreadable in any static format — and path
+  highlighting is genuinely useful on a busy map.
+
+  **The dependency question was reopened and answered the other way.** This
+  file previously said vendoring a pan/zoom library "sits badly beside the
+  rule against vendoring anything else" and leaned toward hand-rolling. That
+  was a false equivalence, caught by Jason rather than by a review: the
+  no-vendoring rule is specifically about **Ubiquiti's copyrighted product
+  artwork**, an IP restriction, not a stance against third-party code
+  existing at all. A small, permissively-licensed, dependency-free file is a
+  different category of thing, and reinventing pan/zoom (momentum, pinch,
+  the edge-case math) is exactly where "janky" comes from. Shipped as
+  `vendor_panzoom.py`: [Panzoom](https://github.com/timmywil/panzoom) 4.6.2,
+  MIT, pinned to the release commit rather than a mutable tag (same reasoning
+  as the CI action pins), checked at that commit to have zero runtime
+  dependencies of its own. A CDN pull was considered and rejected outright:
+  it would both add a live dependency on an external host and break
+  `--offline`, which vendoring the file avoids entirely.
+
+  **Node and edge correlation is computed in Python, not guessed in
+  JavaScript.** Graphviz's SVG writer already gives every node and edge group
+  a `<title>` holding `render_dot._node_id()`'s output; `render_html.py`
+  computes the same string from the topology it already has and stamps a
+  `data-id` (or `data-parent`/`data-child`) attribute holding the *real*
+  topology id directly onto the matching `<g>`. The JavaScript never
+  reconstructs the DOT-safe encoding.
+
+  **The topology payload is base64-encoded, not a JSON literal in a
+  `<script>` tag.** A label can come from a controller or a support file,
+  both hostile input by this project's own rule elsewhere, and a label
+  containing a literal `</script>` would end the block early regardless of
+  how carefully the surrounding JSON was escaped. Base64 has no text content
+  for a crafted string to break out of.
+
+  **The interaction model is a single click, split by what was clicked**,
+  rather than a separate collapse control layered on top of the SVG:
+  clicking a client highlights its path to the root, clicking a switch or AP
+  with client children collapses them. A badge or toggle positioned
+  precisely over a Graphviz-placed, pan/zoom-transformed node was considered
+  and dropped — CSS generated content doesn't composite reliably inside an
+  SVG `<g>` across browsers, and the geometry math to place one accurately
+  under a live CSS transform was not worth it for what one contextual click
+  target already gives for free.
+
+  **Dimming, not colour, is what carries both search and path-highlight.**
+  Colour is never the only channel in this project's own rule, and opacity
+  satisfies it for free: full opacity is "in the current selection", `0.15`
+  is not, independent of hue, so it reads the same in greyscale or under
+  deuteranopia without needing a special highlight colour at all.
 
 - **Location and rack grouping via overrides.** Philosophically the best fit of
   all of them: a controller cannot know which rack something is in, which is
@@ -1066,8 +1110,8 @@ the issue and PR templates were written, clients behind non-UniFi devices are
 placed from the controller's own graph, `--support-file` is implemented, the
 `sane` alias is gone, `unifi-map shape` and `overrides check` and the Mermaid
 and JSON exports all shipped, the man page exists, controller responses are
-capped (KAN-134), snapshots are atomic generations (KAN-138), and 0.7.2 is
-released.
+capped (KAN-134), snapshots are atomic generations (KAN-138), the interactive
+HTML viewer shipped as `-f html` (KAN-126), and 0.7.2 is released.
 
 **Four of those were still written up here as future work well after they
 shipped**, which is the failure this file is most prone to: it is edited for

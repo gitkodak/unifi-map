@@ -264,7 +264,7 @@ equivalent. Command options must follow the subcommand.
 | Flag | What it does | Default |
 | --- | --- | --- |
 | `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
-| `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid,json}` | Output formats (default: svg drawio) | `svg drawio` |
+| `-f`, `--formats` `{svg,pdf,png,dot,drawio,mermaid,json,html}` | Output formats (default: svg drawio) | `svg drawio` |
 | `--icons` `{unifi,builtin}` | unifi: real Ubiquiti product artwork, fetched and cached at runtime, falling back to our own drawings for any node it cannot resolve, including unidentified clients when no icon font is cached. builtin: our drawings only, nothing fetched (default: unifi) | `unifi` |
 | `--layout` `{tree,unifi}` | unifi: left-to-right like the UniFi UI, no port labels. tree: top-down and leaf-staggered, with port labels, built to be readable on a busy network (default: unifi) | `unifi` |
 | `--theme` `{dark,light}` | Colour theme (default: light) | `light` |

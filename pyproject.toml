@@ -46,5 +46,11 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# A vendored minified upstream build, kept byte-identical to what
+# `dist/panzoom.min.js` actually ships at the pinned commit. Reflowing it to
+# fit the line length would mean it is no longer that file.
+"src/unifi_map/vendor_panzoom.py" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

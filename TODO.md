@@ -63,13 +63,6 @@ drawn from a thin one look equally authoritative.
   is not evidence of where something is now, so it must never be drawn as a
   current link.
 
-## More things to do with the output
-
-- **An interactive HTML viewer** (KAN-126). Search and filter, pan and zoom,
-  click a node to highlight its path to the gateway, collapse client subtrees.
-  That last one addresses the problem this tool exists for. Wants a decision
-  about JavaScript before it starts.
-
 ## Cache housekeeping
 
 - **Decide what to do about a cache that only grows** (KAN-139). Nothing ever

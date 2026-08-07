@@ -79,7 +79,7 @@ DEFAULT_ASSET_CACHE = Path("cache/assets")
 DEFAULT_OVERRIDES = Path("overrides.toml")
 
 # svg first: it is the format that actually solves the readability problem.
-ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio", "mermaid", "json")
+ALL_FORMATS = ("svg", "pdf", "png", "dot", "drawio", "mermaid", "json", "html")
 
 # Below this many clients a view is not wide enough to need staggering, and
 # unflatten instead chains sibling APs into a pointless diagonal cascade.

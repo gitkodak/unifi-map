@@ -27,6 +27,7 @@ from .model import Topology
 from .progress import spinner
 from .render_dot import Style
 from .render_drawio import render_drawio
+from .render_html import render_html
 from .render_json import render_json
 from .render_mermaid import render_mermaid
 from .svg_post import inline_svg_images
@@ -191,18 +192,38 @@ def write_outputs(
         write_output(path, dot_source, force=force, guard=True)
         log.info("  %s", path)
 
-    for fmt in ("svg", "pdf", "png"):
+    # `html` needs the same inlined SVG as `-f svg` even when svg itself was
+    # not requested, so the two share one render rather than the html branch
+    # below re-deriving it. Only "svg" in *formats* controls whether the
+    # `.svg` file itself gets written.
+    svg_data = b""
+    if "svg" in formats or "html" in formats:
+        with spinner("Rendering svg", progress):
+            svg_data = run_dot(dot_source, "svg")
+        # Graphviz references artwork by filesystem path; inline it so the
+        # SVG is a single portable file.
+        svg_data = inline_svg_images(svg_data, allowed=icon_paths)
+        if "svg" in formats:
+            path = out_dir / f"{stem}.svg"
+            write_output(path, svg_data, force=force, guard=False)
+            log.info("  %s (%.1f KiB)", path, len(svg_data) / 1024)
+
+    for fmt in ("pdf", "png"):
         if fmt not in formats:
             continue
         with spinner(f"Rendering {fmt}", progress):
             data = run_dot(dot_source, fmt)
-        if fmt == "svg":
-            # Graphviz references artwork by filesystem path; inline it so the
-            # SVG is a single portable file.
-            data = inline_svg_images(data, allowed=icon_paths)
         path = out_dir / f"{stem}.{fmt}"
         write_output(path, data, force=force, guard=False)
         log.info("  %s (%.1f KiB)", path, len(data) / 1024)
+
+    if "html" in formats:
+        # Not hand-edited, same as svg/pdf/png: a generated artifact, not
+        # something re-rendering must avoid clobbering.
+        page = render_html(topo, svg_data.decode("utf-8"), style.theme, title or None)
+        path = out_dir / f"{stem}.html"
+        write_output(path, page, force=force, guard=False)
+        log.info("  %s (%.1f KiB)", path, len(page) / 1024)
 
     if "mermaid" in formats:
         # No Graphviz involved: Mermaid does its own layout, so the staggered

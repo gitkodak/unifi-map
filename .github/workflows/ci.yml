@@ -78,10 +78,11 @@ jobs:
         # alone do not. builtin icons plus offline keeps it network-free.
         run: |
           unifi-map --cache-dir examples/demo --out-dir out \
-            render --icons builtin --offline -f svg drawio dot --name ci
+            render --icons builtin --offline -f svg drawio dot html --name ci
           test -s out/ci.svg
           test -s out/ci.drawio
           test -s out/ci.dot
+          test -s out/ci.html
 
       - name: Render the demo dataset obfuscated
         run: |

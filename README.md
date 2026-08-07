@@ -140,8 +140,9 @@ Judge it on that basis.
 ## Output
 
 Vector `svg` and `pdf`, `png` when something insists on it, Graphviz `dot` to
-tweak by hand, editable `drawio`, `mermaid` for a page that renders it in place,
-and `json` for programs. [What each is for](docs/output.md).
+tweak by hand, editable `drawio`, `html` for a searchable pan-and-zoom viewer,
+`mermaid` for a page that renders it in place, and `json` for programs. [What
+each is for](docs/output.md).
 
 ## Install
 
@@ -158,9 +159,10 @@ Either activate it, as above, or spell the path out in full. The `make` targets
 are unaffected; they call the venv's copy directly.
 
 Requires Python 3.11+. Graphviz is required for the graphical formats, which
-are the defaults: `svg`, `pdf`, `png` and the positions inside a `drawio` file.
-`dot`, `mermaid` and `json` are written directly and need nothing installed.
-`unflatten` is optional but improves layout on large networks.
+are the defaults: `svg`, `pdf`, `png`, `html` (it embeds a rendered SVG) and the
+positions inside a `drawio` file. `dot`, `mermaid` and `json` are written
+directly and need nothing installed. `unflatten` is optional but improves
+layout on large networks.
 
 ### If you supply your own SVG artwork
 

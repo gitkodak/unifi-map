@@ -11,6 +11,7 @@ than what it draws.
 | `pdf` | Vector, for printing. |
 | `png` | Raster, when something insists on it. |
 | `drawio` | Real editable shapes, pre-positioned with Graphviz's layout. Confirmed working in [draw.io](https://app.diagrams.net), which [re-themes it on load](#drawio-decides-its-own-light-and-dark). Lucid documents `.drawio` import but does not work; see [below](#lucid-does-not-import-these-files). |
+| `html` | A single file: pan, zoom, search, trace a client's path to the gateway, collapse a switch's clients. [More below](#html-for-exploring-a-busy-map). |
 | `dot` | Graphviz source, to tweak styling by hand. |
 | `mermaid` | Text that GitHub, GitLab and most wikis draw in place. No artwork; shape only. [More below](#mermaid-for-documentation). |
 | `json` | The normalised topology, for programs rather than people. [More below](#json-for-programs). |
@@ -19,7 +20,9 @@ than what it draws.
 does the drawing, so those three are the formats that require it installed.
 `dot`, `mermaid` and `json` are written directly and work without it, which is
 worth knowing if you only want the source or the data. `drawio` is in between:
-the file is written here, but Graphviz computed the positions in it.
+the file is written here, but Graphviz computed the positions in it. `html` is
+in the same position as `drawio`: it embeds a Graphviz-rendered SVG, so it
+needs Graphviz too.
 
 **Your own SVG artwork does not reach `png` or `pdf` on its own.** Graphviz
 loads SVG images only for its own `svg` driver; the cairo-backed formats drop
@@ -102,6 +105,34 @@ draw.io is the reference implementation of this format and the file works there,
 so nothing here is going to be reshaped to suit a second tool's parser. If you
 need the diagram in Lucid, open it in draw.io and export from there, or import
 the `svg` or `pdf` output, which Lucid ingests without complaint.
+
+## HTML, for exploring a busy map
+
+A static picture is the wrong shape for a network with real client counts: a
+switch with thirty clients is unreadable in `svg`, `pdf` or `drawio` alike,
+because nothing about those formats can hide the leaves you don't currently
+care about. `-f html` is one self-contained file — open it, nothing else to
+install — with four things a still image can't do:
+
+- **Scroll to zoom, drag to pan.**
+- **Search** dims every node whose label, address or detail line doesn't
+  match, so a busy map narrows to what you typed.
+- **Click a client** to trace its path back to the gateway: everything off
+  that path dims too.
+- **Click a switch or AP** that has clients to collapse just those clients.
+  Clicking it again brings them back. This is the actual point of the format:
+  the console has no equivalent of hiding the noise to see the skeleton.
+
+**Pan and zoom is a vendored copy of [Panzoom](https://github.com/timmywil/panzoom)**,
+not hand-rolled and not fetched from a CDN. It's MIT-licensed with zero
+dependencies of its own, checked into the repo as a single file. This is a
+different kind of "vendoring" than the rule against committing Ubiquiti's
+artwork: that rule is about somebody else's copyrighted product images, not
+about third-party code existing at all.
+
+Everything is computed once, in Python, from the same `Topology` and the same
+rendered SVG `-f svg` would write — this is not a second renderer, it embeds
+the first one's output. There is nothing to keep in sync by hand.
 
 ## JSON, for programs
 
