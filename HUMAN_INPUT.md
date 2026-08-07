@@ -290,7 +290,7 @@ identifying information. That was the right call for privacy and it cost the
 record. Worth knowing before squashing a history again: the messages are
 evidence, not just labels.
 
-## A second day of it
+## A second session of it
 
 The above was written near the end of one long session. A later one added
 enough to be worth recording rather than folding in, because the shape of his
@@ -302,8 +302,8 @@ perfectly well managed, just not by UniFi. There is no short adjective for the
 real condition, and he said so rather than settling. That is what made me notice
 the name field was the wrong place for the explanation at all.
 
-He also caught `--layout sane`, which I had never questioned in months of
-writing about it. Renamed to `tree`, with a removal version promised, and his
+He also caught `--layout sane`, which I had written about repeatedly and never
+once questioned. Renamed to `tree`, with a removal version promised, and his
 reason for promising one where `UDM_*` deliberately had none was that this is a
 single flag value anyone can change in seconds. (The `UDM_*` names were removed
 in 0.9.0 in the end, without a version ever having been promised for them.)
@@ -327,7 +327,7 @@ that will be wrong later.
 
 **"What is the reasoning for not doing NetBox?"** I had declined it on three
 grounds. One did not survive being asked about, and checking the other exposed a
-blocker I had invented for a service that had been running for a week. Being
+blocker I had invented for a service that was already running. Being
 asked to justify a decision found two errors that reviewing my own work had not.
 
 **"Otherwise we're just guessing blindly."** On multi-site work needing someone
@@ -348,12 +348,22 @@ leaves no trace. He knows it, and it still cannot be recovered.
 - Push only when asked.
 - No real hostnames, addresses or full names in anything public.
 - Screenshots at full resolution.
+- No elapsed-time claims in documentation. This file had said `--layout sane`
+  went unquestioned "in months of writing about it", when the project was days
+  old. An assistant has no reliable sense of how long anything took, and writes
+  a span like that as though it were observed. Say what happened and how often;
+  do not date it.
 
-## Decisions made but not yet built
+## Decisions he made, and what became of them
+
+Nothing here is outstanding any more. The section is kept because the decisions
+were his and the record is worth more than the list was.
 
 - Drawn device icons replace Graphviz primitives in `--icons builtin` **and**
   become the fallback in `--icons unifi` when a device is absent from
-  Ubiquiti's catalogue.
-- (Both other entries once listed here are built: the release process is
-  `RELEASING.md`, and the man page shipped in 0.5.0 as `unifi-map.1`, generated
-  from the parser exactly as he specified.)
+  Ubiquiti's catalogue. Built, in `drawn.py`, as nine icons rather than the
+  seven first specced. The extra two are client icons, and they are what closed
+  the icon-font dead end: that font is served only by a controller, so a
+  support-file user with no console now gets icons rather than bare shapes.
+- The release process is `RELEASING.md`, and the man page shipped in 0.5.0 as
+  `unifi-map.1`, generated from the parser exactly as he specified.

@@ -69,6 +69,28 @@ PNG. In each case the reported symptom was fixed and its sibling was not.
 
 When a fix lands, grep for the same shape elsewhere before calling it done.
 
+### Never write an elapsed-time claim into documentation
+
+`HUMAN_INPUT.md` said a flag name had gone unquestioned "in months of writing
+about it", on a project that was days old. `AI_DISCLOSURE.md` dated two defects
+in hours and minutes. None of those spans was observed; they were invented to
+give a sentence weight, and the one that was checkable was wrong by an order of
+magnitude.
+
+An assistant here has no reliable sense of how much wall-clock time passed
+between two things it did. Say what happened, and how many times, and leave the
+duration out. Absolute dates are fine, because they can be checked.
+
+```bash
+grep -rniE "\b(months?|weeks?|years?|days?|hours?|minutes?|a long time)\b" \
+  README.md docs/*.md *.md
+```
+
+Expect legitimate hits: `CONTRIBUTING.md` and `SECURITY.md` set a response-time
+expectation, which is the maintainer's own commitment rather than an estimate,
+and `TODO.md` names a vendor's 14-day trial. The bad ones are always claims
+about how long *this work* took.
+
 ### `stat` without `-L` reports the symlink, not the target
 
 Symlink mode bits are always `777`, so `stat` on a symlinked credential file
@@ -171,7 +193,7 @@ controller JSON.
   returns a genuine 404 here, so absence is detectable. Do not carry the
   fingerprint paths' "200 means nothing" assumption over to this one.
 
-  This was hunted through the web bundles for a long time and was never there.
+  This was hunted through the web bundles across many passes and was never there.
   It was found in one grep of a **support file's own logs**: the speed-test
   daemon logs the URL it builds as `ispImg`. The bundle search is on the
   do-not-repeat list further down and should have been abandoned much earlier
@@ -242,7 +264,7 @@ controller JSON.
   `sw_mac`. `topology_uplinks()` reads the controller's own `v2` graph, where a
   CLIENT can be another client's uplink, and `_place_remaining()` runs after every
   client exists because an uplink is frequently another client. This was missed
-  for a long time: the placeholder node was blamed on the controller when the
+  repeatedly: the placeholder node was blamed on the controller when the
   data was in an endpoint already being fetched and ignored. Check the console
   against the output before concluding the controller does not know something.
 - **Never invent topology.** Clients whose uplink the controller doesn't report
@@ -504,7 +526,7 @@ Jira needs an account.
 
 **Sweep all three or none.** The handover rule below covered `TODO.md` and this
 file and said nothing about Jira, so Jira drifted furthest: a reconciliation on
-2026-08-03 found the JSON export still open months after it shipped, and two
+2026-08-03 found the JSON export still open long after it shipped, and two
 tickets each covering one shipped thing and one unstarted thing (`overrides
 check` with the candidates generator, the Mermaid export with the HTML viewer).
 Splitting a ticket when half of it ships is not optional bookkeeping; a ticket

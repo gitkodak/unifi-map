@@ -110,9 +110,9 @@ framed a choice between two bad options and the human declined the frame.
 **Writing about the code, rather than the code.** A third category, and the one
 that survived longest, because nothing checks it.
 
-Four consecutive external reviews found defects in prose written minutes
-earlier. `docs/overrides.md` said supplied artwork was never cached, hours after
-the assistant made it cached. The correction then claimed the cached copies were
+Four consecutive external reviews found defects in prose the assistant had just
+written. `docs/overrides.md` said supplied artwork was never cached, in the same
+session the assistant made it cached. The correction then claimed the cached copies were
 private when they were world-readable, and offered a `rm -rf "$VAR/user-svg"`
 that expands to an absolute root path when the variable is unset — which it
 usually is, because that variable normally lives in the credential file. The
