@@ -152,13 +152,6 @@ drawn from a thin one look equally authoritative.
   display is exactly what ends up pasted into a bug report, which is the same
   reasoning that makes `unifi-map shape` allowlist-built.
 
-- **An automated review tool that stays free** (KAN-136). Greptile is connected
-  but reports a 14-day trial rather than the open-source licence applied for.
-  The requirement is not that tool specifically: it is pull-request review that
-  keeps working without a paid plan or a recurring application. A tool that
-  lapses is worse than none, because reviews stop silently. Overlaps with the
-  SAST question below and one tool may answer both.
-
 ## Shape of the code
 
 - **Extract capability-sized pieces out of `assets.py`** (KAN-141). It is 1,129
@@ -205,15 +198,6 @@ help and what not to send.
   `signal`, `channel` and `radio` as present or absent.
 
 ## Undecided, rather than unstarted
-
-- **Static application security testing**, meaning something like bandit or
-  semgrep in CI, looking for Python-specific security regressions rather than
-  style. Suggested by an external review. Genuinely undecided rather than
-  leaning either way: the security-relevant surfaces here (archive parsing,
-  subprocess invocation, path handling) already have adversarial tests written
-  against the specific threat, which is the thing a generic ruleset is worst at
-  and a human reviewer is best at. May be answered by whatever tool KAN-136
-  settles on, so decide that first.
 
 - **Whether to publish to PyPI.** Building an installable artifact is done and
   needs nothing from anyone: `make build` produces a wheel and an sdist, and

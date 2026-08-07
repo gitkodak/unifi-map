@@ -1,0 +1,42 @@
+name: CodeQL
+
+# Security-focused static analysis (SAST), distinct from the SonarQube Cloud
+# job in ci.yml: this looks for exploitable data-flow patterns (injection,
+# unsafe deserialization, path traversal), not style or complexity. Chosen
+# over Greptile (KAN-136): CodeQL is free for public repositories with no
+# application step or trial to lapse, runs entirely inside GitHub Actions, and
+# needs no account or token of its own.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Catches a newly published CodeQL query against unchanged code. Sunday
+    # 09:00 UTC, offset from nothing else in this repo's automation.
+    - cron: "0 9 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: github/codeql-action/init@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3.37.6
+        with:
+          languages: python
+          build-mode: none
+
+      - uses: github/codeql-action/analyze@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3.37.6
+        with:
+          category: "/language:python"

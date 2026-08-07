@@ -793,6 +793,32 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   a host-changing redirect. Low severity, and consistency was most of the
   argument rather than the residual risk.
 
+- **KAN-136 (an automated review tool that stays free) and the SAST question
+  in TODO.md are resolved together, 2026-08-06.** Greptile was connected
+  2026-08-03 on what was hoped to be an open-source licence; it never resolved
+  to anything but a 14-day trial, and nobody heard back on the application. A
+  tool that lapses silently is worse than none, which is exactly the risk the
+  ticket named up front, so it is dropped rather than left to expire.
+
+  In its place: **CodeQL**, `.github/workflows/codeql.yml`, on push to `main`,
+  every pull request, and a weekly schedule so an unchanged tree still gets
+  checked against newly published queries. It answers both open questions at
+  once. Against KAN-136's own criteria — free for public repos with no time
+  limit, no application step to lapse, runs on PRs, no write access granted,
+  nothing sent outside GitHub — it is the cleanest fit of everything the
+  ticket listed, and unlike Greptile there is no account or trial state to
+  monitor. Against the TODO.md SAST question, it is a genuine data-flow
+  security scanner (injection, unsafe deserialization, path traversal),
+  distinct in kind from what SonarQube Cloud already does in `ci.yml`, which
+  is general code quality and complexity rather than a security-flow
+  analysis. `security-events: write` is scoped to that one workflow, not
+  added to `ci.yml`'s permissions.
+
+  Not made a required status check alongside `Python 3.11/3.12/3.13` and
+  `Repository hygiene`. Same reasoning as `Dependency advisories`: a security
+  finding should start a conversation, not block an unrelated pull request the
+  moment the job is still settling in.
+
 - **Provenance and confidence.** `Edge.asserted` marks an override-supplied link
   and nothing else distinguishes observed from inferred. A client placed from
   the v2 topology graph, one placed from `stat/sta`, and one whose fingerprint
