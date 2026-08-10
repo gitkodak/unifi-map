@@ -147,10 +147,11 @@ drawn from a thin one look equally authoritative.
 
 ## Shape of the code
 
-- **Extract capability-sized pieces out of `assets.py`** (KAN-141). It is 1,129
-  lines and has been accumulating unrelated capabilities: CDN retrieval,
-  catalogue parsing, fingerprint lookup, name matching, image measurement,
-  bomb guards, SVG rasterisation, and local rendering of the cloud and glyphs.
+- **Extract capability-sized pieces out of `assets.py`** (KAN-141). It is the
+  largest module here and has been accumulating unrelated capabilities: CDN
+  retrieval, catalogue parsing, fingerprint lookup, name matching, image
+  measurement, bomb guards, SVG rasterisation, and local rendering of the cloud
+  and glyphs.
 
   **Length is not the argument and must not become it.** Same standard as the
   `cli.py` split: by concern, with a reason per file, never by line count.
@@ -246,10 +247,12 @@ Recorded so they are not re-proposed as oversights.
   obfuscation, output escaping, the overwrite guard. Each has adversarial tests
   written against a specific failure.
 
-  **Measuring** coverage is a different question and not declined. A report
-  nobody is graded on can point at a module worth a second look. It is just not
-  worth a gate, and a report with no consequence attached tends to go unread,
-  which is why this is a decline rather than a plan.
+  **Measuring** coverage is a different question and was never declined, and it
+  now happens: CI reports Python coverage to SonarQube Cloud, so the number
+  exists and a module worth a second look can be found from it. What stays
+  declined is the *gate*. Nothing fails a build on that figure, and a proposal
+  to make it do so is a proposal to reverse this decision rather than to finish
+  it.
 
 - **A dependency lock file.** Hashed constraints are ongoing maintenance for a
   dev-only benefit, and Dependabot plus the advisory job cover staying current.

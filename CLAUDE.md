@@ -125,6 +125,16 @@ controller JSON.
    `UDM_*` aliases were removed in 0.9.0; `layout.py` still strips
    `UDM_API_KEY` from Graphviz's environment, which is deliberate and explained
    there.
+
+   **`base_url` forces HTTPS and there is no way to ask for plaintext.** A host
+   with no scheme gets `https://`, and an explicit `http://` is *upgraded*
+   rather than honoured or refused. That is the deliberate choice: the credential
+   file is hand-edited, a mistyped scheme is the likely way a key would go out in
+   clear, and silently weakening the connection because somebody typed four
+   characters is worse than ignoring them. It pairs with `_Session.rebuild_auth`
+   below, which is the same concern one step later. Do not add an opt-out;
+   `UNIFI_VERIFY_TLS=false` already covers the bare-IP case that plaintext would
+   otherwise be reached for.
 2. **`client.py`** is the only module that talks to the controller. Auth is an
    `X-API-KEY` header set once in the constructor; there is no login, session or
    CSRF token. Network application paths are prefixed `/proxy/network`. `unwrap()` absorbs both the v1 `{"data": [...]}`
@@ -523,6 +533,18 @@ not the routine.
 `TODO.md` exists because neither of the others is where somebody with a checkout
 would look: this file is written for agents and runs to hundreds of lines, and
 Jira needs an account.
+
+**There is a second epic, KAN-144**, "SonarQube Cloud triage (2026-08-03)", and
+it is a different kind of thing from KAN-114: a closed batch of findings from
+one analysis run rather than a roadmap. All of it is Done, and it accounts for
+the run of `KAN-145` to `KAN-170` in the git log that nothing else here would
+explain. It is deliberately **not** in `TODO.md`. A reader with a checkout does
+not need a list of complexity refactors that already landed, which is the same
+reason releases are not listed there.
+
+Do not fold a future triage batch into KAN-114. A roadmap epic that never
+closes and a triage epic that closes when the findings are cleared measure
+different things, and merging them makes the first one's open count meaningless.
 
 **Sweep all three or none.** The handover rule below covered `TODO.md` and this
 file and said nothing about Jira, so Jira drifted furthest: a reconciliation on
@@ -944,10 +966,16 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   current. Revisit if this ever ships releases people install.
 
   This used to say "Dependabot **and the advisory job** cover staying current".
-  Half of that was untrue: the advisory job has never reported anything (see
-  KAN-132 above). Dependabot alone still carries the argument, but the reason
-  was weaker than it read, and a decline resting partly on a control that does
-  not work is the kind of thing to notice rather than quietly patch.
+  Half of that was untrue at the time: the advisory job had never reported
+  anything. Dependabot alone still carried the argument, but the reason was
+  weaker than it read, and a decline resting partly on a control that does not
+  work is the kind of thing to notice rather than quietly patch.
+
+  **The job was repaired (KAN-132), so both halves hold again**, and the
+  decline is back on its original footing rather than on the narrowed one.
+  Keep the history above anyway: the lesson was never about `pip-audit`
+  specifically, it was that a control cited in support of a decision has to be
+  confirmed to work before it can carry any of the weight.
 
   Briefly reopened on 2026-08-03 on the argument that the benefit stops being
   dev-only once people install this. **That was wrong** and the decline stands:
@@ -1167,13 +1195,26 @@ placed from the controller's own graph, `--support-file` is implemented, the
 `sane` alias is gone, `unifi-map shape` and `overrides check` and the Mermaid
 and JSON exports all shipped, the man page exists, controller responses are
 capped (KAN-134), snapshots are atomic generations (KAN-138), the interactive
-HTML viewer shipped as `-f html` (KAN-126), and 0.7.2 is released.
+HTML viewer shipped as `-f html` (KAN-126), the controller is reached over
+HTTPS only, and 0.9.0 is released.
 
 **Four of those were still written up here as future work well after they
 shipped**, which is the failure this file is most prone to: it is edited for
 whatever is being discussed, and nothing sweeps it. The same sweep `TODO.md`
 gets at every handover is worth running here, since this file claims to be the
 authoritative one and a stale authority is worse than a stale list.
+
+**This sentence said "0.7.2 is released" until 2026-08-10.** Two releases had
+shipped since: 0.8.0 and 0.9.0, both dated 2026-08-02 and 2026-08-03 in the
+changelog. Worth noticing what kind of error that is: the released version is
+the one fact in this file that is checkable in a single command, and it still
+went stale, because nothing in a release touches this paragraph.
+Check it against the changelog rather than against memory:
+
+```bash
+grep -m2 "^## " CHANGELOG.md
+python -c "from unifi_map import __version__; print(__version__)"
+```
 
 **The GitHub repository description is set**, and matches `pyproject.toml`.
 Verified against the API rather than assumed, because it is a setting rather
@@ -1435,6 +1476,26 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   comment. A tag is mutable, so whoever controls the action decides what runs.
   Dependabot advances the pins and preserves the SHA form; it does not revert
   them to tags.
+- **Three workflows, and they answer different questions.** `ci.yml` is
+  correctness and quality, `codeql.yml` is security data flow, and
+  `dependabot-auto-merge.yml` is bookkeeping. Do not consolidate them: only the
+  CodeQL one is granted `security-events: write`, and that scoping is the point.
+- **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
+  Analysis.** `sonar-project.properties` says why in its first line: only an
+  explicit analysis can import Python coverage, and Automatic Analysis was
+  configured first and then replaced for exactly that reason. It reuses the
+  matrix job's run rather than repeating the suite, so the `coverage.xml` it
+  imports is the one the tests just produced.
+
+  `sonar.coverage.exclusions=scripts/**` is deliberate and worth not
+  "correcting": the repository's utility scripts are still analysed for quality,
+  but they are not the installable package, and letting them into the coverage
+  figure measures something nobody is trying to improve.
+
+  **This is the measuring that `TODO.md` distinguishes from gating.** A coverage
+  *threshold* is declined there and stays declined; a coverage *number* now
+  exists. Adding a quality gate that fails the build on it would reverse a
+  recorded decision, so it needs Jason rather than a reviewer's suggestion.
 - **Dependabot's pull requests merge themselves once the required checks pass**,
   via `.github/workflows/dependabot-auto-merge.yml`. Major bumps are excluded
   and stay manual, because this repository tracks `requests` and `Pillow`, where

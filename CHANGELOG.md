@@ -99,6 +99,18 @@ told something untrue and may have acted on it.
   fetch leaves the previous snapshot intact and readable, and an old flat cache
   keeps working and is migrated by the next fetch.
 
+### Changed
+
+- **A controller is only ever contacted over HTTPS.** `UNIFI_HOST` could
+  previously carry an explicit `http://` prefix, which was honoured, so a
+  mistyped credential file sent the API key over the wire in clear with nothing
+  said about it. An `http://` prefix is now upgraded to HTTPS rather than
+  obeyed, and a host with no scheme at all still gets HTTPS as before.
+
+  No opt-out is offered, because the case people reach for plaintext to solve
+  is a bare IP address with a self-signed certificate, and `UNIFI_VERIFY_TLS`
+  already answers that without giving up encryption.
+
 ### Fixed
 
 - **The permission repair for pre-0.9.0 SVG caches no longer follows symlinks.**
