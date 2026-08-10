@@ -585,12 +585,23 @@ listed twice, and ordered by fit rather than by arrival.
 
 **A second round ran against 2dcf791 on 2026-08-03**, this time asking for a
 maturity and security assessment rather than for features. It produced four
-defects worth acting on, all verified at source before being written down here:
-the `pip-audit` job that has never worked (KAN-132), the venv make target that
-strands a failed install (KAN-133), the missing controller response cap
-(KAN-134), and sparse package metadata that only matters if artifacts are ever
-distributed. It also raised static type checking, which two reviewers now want
-independently, and a coverage threshold, which is declined below.
+defects worth acting on, all verified at source before being written down here.
+**Three are fixed**, so read the list as what a review caught rather than as
+open work: the `pip-audit` job that had never worked (KAN-132, repaired), the
+venv make target that stranded a failed install (KAN-133, now keyed on a
+`.installed` stamp), the missing controller response cap (KAN-134, now
+`httpio.py`), and sparse package metadata, which is the one still outstanding
+and only matters if artifacts are ever distributed. It also raised static type
+checking, which two reviewers now want independently, and a coverage threshold,
+which is declined below.
+
+The tense in that sentence was wrong until 2026-08-10: it said the audit job
+"has never worked" long after it was repaired, three paragraphs from another
+entry recording the repair. Worth keeping as an example, because the sentence
+was accurate on the day it was written and rotted without being touched. A
+finding written up in the present tense becomes a false claim the moment it is
+fixed, and the fix never visits the paragraph that described the problem. Write
+review findings in the past tense and name their outcome.
 
 Both rounds are worth the trouble. Between them they have found things that
 many passes over this file did not, and the pattern is consistent: they are
@@ -1511,11 +1522,11 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   properly a new CVE upstream would block every unrelated pull request.
 
   **That reasoning was correct and incomplete in a way that hid a real bug**
-  (KAN-132, fixed). The job had also never worked. It runs `pip-audit --strict` after
-  installing the local package, and `unifi-map` is not on PyPI, so pip-audit
-  reports it cannot be audited and `--strict` makes that a failure, which
-  `continue-on-error` then swallows. A genuine CVE and a clean tree produce the
-  same ignored red.
+  (KAN-132, fixed). The job had also never worked. It ran `pip-audit --strict`
+  after installing the local package, and `unifi-map` is not on PyPI, so
+  pip-audit reported it could not be audited, `--strict` made that a failure,
+  and `continue-on-error` swallowed it. A genuine CVE and a clean tree produced
+  the same ignored red, for as long as the job existed.
 
   Worth sitting with, because the failure is a documentation failure as much as
   a workflow one. This paragraph explained *why the job does not gate* so
