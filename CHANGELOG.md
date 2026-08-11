@@ -93,12 +93,14 @@ told something untrue and may have acted on it.
 - **A client placed via the controller's own topology graph, rather than its
   own reported uplink, is now marked on the diagram itself.** That link gets a
   small hollow-circle arrowhead at the child end, in every backend that draws
-  pixels (`svg`, `pdf`, `png`, `drawio`) — the one distinction `--report`
-  surfaced in text but the map still drew like any other link. Every other
-  provenance value turned out to already have a channel: node role through
-  `Kind`, an override through the existing dotted style, offline through
-  dashed. Composes with the wireless dashed style rather than competing with
-  it, and a legend row explains the marker when the map uses one.
+  the network as a picture rather than as text or data (`svg`, `pdf`, `png`,
+  `drawio`, and `html`, which embeds the same marked SVG) — the one
+  distinction `--report` surfaced in text but the map still drew like any
+  other link. Every other provenance value turned out to already have a
+  channel: node role through `Kind`, an override through the existing dotted
+  style, offline through dashed. Composes with the wireless dashed style
+  rather than competing with it, and a legend row explains the marker when the
+  map uses one.
 
 - **An interactive HTML viewer, `-f html`.** A single self-contained file:
   scroll or drag to pan, pinch or Ctrl+scroll to zoom, search to dim
