@@ -37,6 +37,7 @@ from .artwork import apply_drawn_icons, obtain_icon_font, resolve_icons
 from .assets import AssetError, AssetStore, IconAsset
 from .client import Snapshot, UniFiClient, UniFiError
 from .config import ConfigError, directory_defaults, load_config, source_date
+from .diagnostics import Sources, build_diagnostics
 from .layout import GraphvizError, GraphvizMissing
 from .model import (
     UNKNOWN_UPLINK_ID,
@@ -444,14 +445,22 @@ def _apply_render_overrides(
 
 
 def _resolve_render_icons(
-    topo: Topology, args: argparse.Namespace, style: Style
+    topo: Topology,
+    args: argparse.Namespace,
+    style: Style,
+    counts: dict[str, int] | None = None,
 ) -> tuple[dict[str, IconAsset], AssetStore]:
-    """Resolve fetched and locally drawn artwork, before user overrides."""
+    """Resolve fetched and locally drawn artwork, before user overrides.
+
+    *counts* is filled with the artwork tally when supplied, which is what
+    `--report` reads. Optional because a normal render has no use for it and
+    should not pay to assemble one.
+    """
     icons: dict[str, IconAsset] = {}
     store = AssetStore(cache_dir=args.asset_cache, offline=args.offline)
     if style.icons == "unifi":
         with spinner("Resolving artwork", args.progress):
-            icons = resolve_icons(topo, store, style.theme)
+            icons = resolve_icons(topo, store, style.theme, counts)
     else:
         # `builtin` means "nothing fetched", not "nothing drawn". The cloud is
         # ours and needs no network, so the Internet node gets it here too.
@@ -464,7 +473,7 @@ def _resolve_render_icons(
     # Both modes: anything still without artwork gets one of ours rather than a
     # bare Graphviz primitive. In `unifi` that is hardware absent from
     # Ubiquiti's catalogue; in `builtin` it is everything.
-    drawn_count = apply_drawn_icons(topo, store, style.theme, icons)
+    drawn_count = apply_drawn_icons(topo, store, style.theme, icons, counts)
     if drawn_count:
         log.info("Artwork: %d node(s) drawn locally", drawn_count)
     return icons, store
@@ -552,7 +561,9 @@ def cmd_render(args: argparse.Namespace) -> int:
     # unplaced, and running first counts the clients an override just placed.
     _hint_about_unplaced(topo, path)
 
-    icons, store = _resolve_render_icons(topo, args, style)
+    # Only assembled when asked for: a normal render has no use for the tally.
+    artwork_counts: dict[str, int] | None = {} if args.report else None
+    icons, store = _resolve_render_icons(topo, args, style, artwork_counts)
 
     # Artwork the user supplied wins over anything looked up for them.
     icons.update(override_icons)
@@ -608,6 +619,29 @@ def cmd_render(args: argparse.Namespace) -> int:
                 progress=args.progress,
                 title=f"{title}: {name}",
             )
+
+    if args.report:
+        # Last, and built from `topo` as it now stands rather than as it was
+        # fetched. Overrides have been applied and obfuscation has run, so this
+        # describes the map that was actually written. Reporting the pre-override
+        # topology would describe a map nobody has, which is the same mistake
+        # `_hint_about_unplaced` was moved after overrides to avoid.
+        #
+        # stdout, while every log line goes to stderr, so `--report > file`
+        # captures the report alone and the progress output still reaches the
+        # terminal.
+        print(
+            build_diagnostics(
+                topo,
+                Sources(
+                    origin="support file" if args.support_file else "cached snapshot",
+                    site=args.site,
+                    artwork=artwork_counts or {},
+                    ambiguous_artwork=list(store.ambiguous_names),
+                ),
+                snapshot.payloads,
+            )
+        )
 
     return 0
 
@@ -1013,6 +1047,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Replace hostnames, addresses, MACs, network names and SSIDs with "
         "stable placeholders, keeping topology, roles and artwork intact, so the "
         "diagram can be shared",
+    )
+    render_flags.add_argument(
+        "--report",
+        action="store_true",
+        help="After rendering, print a diagnostic report on stdout saying where "
+        "the map came from: which endpoint placed each client, what could not be "
+        "placed, and which artwork matches were refused as ambiguous. NOT safe to "
+        "share, since it names your devices; use `unifi-map shape` for that",
     )
     render_flags.add_argument(
         "--title",

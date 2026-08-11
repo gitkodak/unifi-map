@@ -34,7 +34,7 @@ import os
 import re
 import stat
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -301,6 +301,14 @@ class AssetStore:
     # out its own timeout, which is the better part of an hour of apparent
     # hanging. One failure is enough to know the rest will fail too.
     _unreachable: bool = False
+    # Names that matched several catalogue entries, so no artwork was assigned.
+    # Refusing to guess is correct and is why this list exists: the refusal was
+    # previously a debug log, which meant the one case where a user could
+    # actually help (by naming the device more precisely, or with an override)
+    # was invisible at any log level they would normally run. `--report` reads
+    # it. Recorded per lookup, so a name shared by several clients appears once
+    # per client, which is what makes the count meaningful.
+    ambiguous_names: list[tuple[str, int]] = field(default_factory=list)
 
     def _fetch(self, url: str, *, allow_redirects: bool = True) -> Fetched | None:
         """GET *url*, or None if artwork is unavailable for any reason.
@@ -696,6 +704,7 @@ class AssetStore:
             return matches.pop()
         if matches:
             log.debug("Name %r matched %d catalog entries; refusing to guess.", text, len(matches))
+            self.ambiguous_names.append((str(text), len(matches)))
         return None
 
     def icon(self, sysid: int | None) -> IconAsset | None:

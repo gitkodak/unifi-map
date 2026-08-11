@@ -58,6 +58,39 @@ told something untrue and may have acted on it.
 
 ### Added
 
+- **`--report`, saying how much of the map to trust.** A map drawn from a
+  complete fetch and one drawn from a thin one look equally authoritative. This
+  prints where every part of it came from: how many nodes and links came from
+  `stat/device`, from `stat/sta`, from the controller's own topology graph, from
+  an overrides file, or from nowhere at all. Then, where something needs
+  attention, it names the devices rather than only counting them: clients that
+  could not be placed, clients with no address from any source, networks a
+  client claims to be on that the controller does not list, and artwork matches
+  refused as ambiguous.
+
+  It also says what the snapshot carried and what each missing piece costs. An
+  optional endpoint that fails is logged once at fetch time and never mentioned
+  again, so a snapshot cached before an app was installed renders thinner every
+  time with nothing saying why.
+
+  Underneath it, every node and link now records which endpoint or fallback
+  produced it, at the point that decision is made rather than reconstructed
+  afterwards. The tool has always refused to guess; until now that refusal was
+  invisible, because a client the controller reported directly and one recovered
+  from a second endpoint were drawn identically and with equal apparent
+  authority. The diagram still draws them the same way, and this is the first
+  place the difference can be seen.
+
+  **It is not safe to share, and says so at the top.** It names your devices,
+  addresses and networks by design. `unifi-map shape` remains the one built from
+  an allowlist for pasting into a bug report. A device is named only where
+  something is wrong with it, so a healthy map produces a report with no names
+  in it and a short report is a good sign.
+
+  It describes the map as drawn, running after overrides and after
+  `--obfuscate`, so pairing it with `--obfuscate` gives a report carrying the
+  same placeholders as the shared diagram.
+
 - **An interactive HTML viewer, `-f html`.** A single self-contained file:
   scroll or drag to pan, pinch or Ctrl+scroll to zoom, search to dim
   everything that doesn't match, click a client to trace its path back to the

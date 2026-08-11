@@ -630,17 +630,73 @@ at anything requiring knowledge of UniFi.
   and another arriving. A diff would report that as churn every run and be
   ignored within a week.
 
-- **A diagnostic report**, `--report` or `inspect`, saying how good the map it
-  just drew actually is: how many nodes came from which endpoint, which clients
-  were placed from `stat/sta` versus the topology graph versus an override,
-  which could not be placed and why, artwork matches that were ambiguous and
-  refused, networks referenced by a client but absent from `networkconf`.
+- **A diagnostic report. Shipped, as `--report` (KAN-115), 2026-08-10.** It
+  merged two gaps that were listed separately below, "no reconciliation report"
+  and "provenance and confidence"; they were the same feature seen from two
+  ends, and the second is what made the first worth reading.
 
-  Codex picked this as the best near-term work and I agree, with one thing worth
-  noticing: **it merges two gaps already listed below**, "no reconciliation
-  report" and "provenance and confidence". They are the same feature seen from
-  two ends, and the second is what makes the first worth reading. Most of the
-  decisions are already made at runtime and thrown away as log lines.
+  **The feature is the model change, not the printing.** The decisions were
+  already being made at runtime and thrown away as log lines, so the work was to
+  record them where they happen: `Provenance` on `Node` and `Edge`, set at every
+  construction site in `model.py` and `overrides.py`. Once that exists the
+  report is mostly derivation — counts, the unplaced list, dangling network
+  references and the observed/asserted split all fall out of a finished
+  `Topology`. That is why there is no diagnostics object threaded through the
+  pipeline. Only two things genuinely cannot be recovered afterwards: artwork
+  resolution, which happens after the model is built, and facts the caller knows
+  that the map does not.
+
+  **`Provenance.UNSPECIFIED` is the design's own guard.** It is the default, so
+  a new node- or edge-building path that forgets to say where its data came from
+  is caught by a test rather than quietly reporting itself as synthetic. Do not
+  give the field a "sensible" default like `DEVICE` to save typing; that turns a
+  loud failure into a plausible lie.
+
+  **Mutation-testing it found a real hole**, which is the argument for the rule
+  elsewhere in this file. Deleting each `provenance=` in turn reddened its test,
+  except `TOPOLOGY_GRAPH`, which could be removed outright with the whole suite
+  green: nothing covered the path that places a client from the controller's own
+  graph. That is the same path this file records as "missed repeatedly". A test
+  now pins that it and `CLIENT_UPLINK` stay distinguishable, because a report
+  calling both "reported by the controller" would be true and useless.
+
+  **A device is named only where something is wrong with it.** Healthy nodes are
+  counted, never listed, so a clean map yields a report with no names in it.
+  That is a readability decision rather than a privacy guarantee and must not be
+  described as one: the "not safe to share" header has to stay accurate for the
+  map that does have problems. It is written down because the tempting change is
+  to add a full node listing "for completeness", which would turn every clean
+  run into a network inventory on stdout. A test pins it.
+
+  **It runs last, after overrides and after `--obfuscate`.** It describes the
+  map that was written rather than the one that was fetched, which is the same
+  reasoning that moved `_hint_about_unplaced` after overrides. The obfuscation
+  ordering is load-bearing and tested: the report inherits the scrubbing instead
+  of needing its own.
+
+  **The snapshot-contents section is the one part that is not derived**, and it
+  was nearly missed: the ticket asked for "optional endpoints that were missing
+  or malformed" and neither `TODO.md` nor this file carried that line, so the
+  first implementation did not have it. An endpoint that failed at fetch time
+  leaves no trace in the graph it would have enriched, only an absence, so the
+  report takes `Snapshot.payloads` as its one non-derivable input. Each entry
+  names the *consequence* rather than the endpoint, because "topology absent"
+  means nothing to somebody who does not already know the pipeline.
+
+  Two accuracy traps in that section, both caught by checking rather than by
+  reasoning. The `fingerprint` payload supplies **product names in labels, not
+  artwork**: client artwork is keyed on the `dev_id` carried on each client
+  record, and the demo dataset proves it by drawing product icons with no
+  fingerprint payload at all. And an empty `edges` list is *present with zero*
+  rather than unusable, because the controller did answer; only a shape that
+  cannot be read at all is a failure. A comment claiming otherwise was written
+  first and a test was written to match it, which is the exact failure this file
+  warns about under mutation testing.
+
+  Printed to stdout while logs go to stderr, so `--report > file` captures the
+  report alone. `report.py` (the shareable `shape`) and `diagnostics.py` (this)
+  are deliberately opposite in kind, and the naming is the one thing here most
+  likely to be confused later.
 
 - **A normalised JSON export of `Topology`. Shipped, as `-f json`.** Kept here
   for the constraints, which still bind: it honours `--obfuscate`, overrides and
@@ -952,17 +1008,28 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   finding should start a conversation, not block an unrelated pull request the
   moment the job is still settling in.
 
-- **Provenance and confidence.** `Edge.asserted` marks an override-supplied link
-  and nothing else distinguishes observed from inferred. A client placed from
-  the v2 topology graph, one placed from `stat/sta`, and one whose fingerprint
-  was recovered from its name are all drawn identically and with equal apparent
-  authority. The tool refuses to invent; it does not yet say how sure it is.
+- **Provenance and confidence. Half done.** The *data* exists as of KAN-115:
+  `Node.provenance` and `Edge.provenance` record which endpoint, fallback or
+  override produced everything, and `--report` reads it. What is still true is
+  that the **diagram** does not show it. `asserted` gets a dotted line and
+  nothing else distinguishes observed from inferred, so a client placed from the
+  v2 topology graph and one placed from `stat/sta` are still drawn identically.
+  That remainder is KAN-137 and is now purely a rendering question: which
+  distinctions earn a visual channel, given that colour cannot be the only one
+  and dotted is already spent.
 
-- **No reconciliation report.** Counts are logged and unplaceable clients get a
-  visible placeholder, but nothing enumerates what did not match: clients with
-  no address, devices with no artwork, ambiguous name matches that were refused.
-  A `--report` would turn "the map looks plausible" into something checkable,
-  and would have caught at least two of the wrong conclusions recorded here.
+  One thing not carried: a fingerprint recovered from a client's *name* (the
+  support-file path) is not distinguished from one the controller reported.
+  `Provenance` describes how a node was placed, not how it was identified, and
+  conflating the two would make the enum mean two things.
+
+- **A reconciliation report. Shipped as `--report`**, see KAN-115 above. It
+  enumerates what did not match rather than only counting it: unplaced clients,
+  clients with no address, dangling network references and ambiguous artwork
+  matches that were refused. This entry previously said such a report "would
+  have caught at least two of the wrong conclusions recorded here", which was
+  the argument for building it and is worth keeping as the measure of whether it
+  earns its place.
 
 - **Randomised client MACs are not a concept here.** Every join is on MAC, so a
   phone rotating its MAC appears as a new client with no relation to the old

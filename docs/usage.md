@@ -94,6 +94,64 @@ device would drown the output. `-v` is where the detail lives.
 It also raises the detail on everything else, so it is the first thing to
 attach to a bug report. Redact addresses and hostnames before pasting.
 
+### How much to trust the map: `--report`
+
+```bash
+unifi-map render --report
+```
+
+A map drawn from a complete fetch and one drawn from a thin one look equally
+authoritative. `--report` is how you tell them apart: after rendering, it prints
+where every part of the map came from.
+
+```
+WHERE THE MAP CAME FROM
+  nodes               29
+          8  stat/device
+         19  stat/sta
+          2  ours (Internet, placeholder)
+
+  links               27
+          7  stat/device uplink
+          1  gateway to the Internet
+         16  stat/sta sw_mac or ap_mac
+          1  the controller's topology graph
+          2  nothing reported one
+```
+
+It also lists what the snapshot actually carried, and what each missing piece
+costs. An optional endpoint that failed is logged once when it is fetched and
+never mentioned again, so a snapshot cached before an app was installed renders
+thinner every time with nothing saying why:
+
+```
+  MISSING OR UNUSABLE
+  topology          clients behind non-UniFi gear cannot be placed without it
+  protect_cameras   tells a camera from an Access reader of the same name
+```
+
+Then, where anything needs attention, it names the devices involved rather than
+only counting them: clients that could not be placed, clients with no address
+from any source, networks a client claims to be on that the controller does not
+list, and artwork matches [refused as ambiguous](artwork.md). A map with nothing
+wrong prints no device names at all, so a short report is a good sign.
+
+The counts are the point of the first section. A link from `stat/device uplink`
+is a device describing its own connection; one from `the controller's topology
+graph` is a second endpoint filling in what `stat/sta` could not; one from `an
+overrides file` is something you asserted, and nothing observed it. All three
+are drawn identically on the diagram, and this is currently the only place the
+difference is visible.
+
+**This report is not safe to share.** It names your devices, addresses and
+networks by design, and it says so at the top. For something you can paste into
+a bug report, use [`unifi-map shape`](sharing.md), which is built from an
+allowlist and never reports a value from any field.
+
+It reports the map *as drawn*, so it runs after overrides and after
+`--obfuscate`. Combining it with `--obfuscate` gives a report with the same
+placeholders as the diagram, which is the version to keep beside a shared map.
+
 ### Overwriting: `--force`
 
 Rendering refuses to replace a `.dot` or `.drawio` it did not write, so a
@@ -218,6 +276,9 @@ and the link hangs off it. Both are drawn dotted, so the map still distinguishes
 what you asserted from what the controller reported. The placeholder disappears
 once nothing is left under it.
 
+`--report` lists exactly which clients ended up there, with their addresses and
+networks, which is usually enough to recognise them without opening the diagram.
+
 <!-- BEGIN GENERATED FLAGS -->
 
 ## Flag reference
@@ -274,6 +335,7 @@ equivalent. Command options must follow the subcommand.
 | `--force` | Overwrite output files that unifi-map did not write. Without this, an existing .dot or .drawio it does not recognise is left alone, so a diagram you have edited by hand is not silently replaced. |  |
 | `--overrides` | Manual corrections: links the controller cannot see, nesting, renames, your own artwork, and hiding. Defaults to overrides.toml when that file exists |  |
 | `--obfuscate` | Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared |  |
+| `--report` | After rendering, print a diagnostic report on stdout saying where the map came from: which endpoint placed each client, what could not be placed, and which artwork matches were refused as ambiguous. NOT safe to share, since it names your devices; use `unifi-map shape` for that |  |
 | `--title` | Diagram title (default: Network map). Note that --obfuscate cannot clean a title you supply yourself |  |
 | `--no-clients` | Infrastructure only, no clients |  |
 | `--per-network` | Also emit one diagram per client network, which keeps a busy map readable |  |

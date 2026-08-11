@@ -141,6 +141,9 @@ Manual corrections: links the controller cannot see, nesting, renames, your own 
 \fB\-\-obfuscate\fR
 Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared
 .TP
+\fB\-\-report\fR
+After rendering, print a diagnostic report on stdout saying where the map came from: which endpoint placed each client, what could not be placed, and which artwork matches were refused as ambiguous. NOT safe to share, since it names your devices; use `unifi\-map shape` for that
+.TP
 \fB\-\-title\fR
 Diagram title (default: Network map). Note that \-\-obfuscate cannot clean a title you supply yourself
 .TP

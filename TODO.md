@@ -20,23 +20,32 @@ The theme running through the next few items: this tool refuses to guess, and
 currently that refusal is invisible. A map drawn from a perfect fetch and one
 drawn from a thin one look equally authoritative.
 
-- **A diagnostic report** (KAN-115). `--report` describing the map it just drew:
-  how many nodes came from which endpoint, which clients were placed from
-  `stat/sta` versus the topology graph versus an override, what could not be
-  placed and why, artwork matches refused as ambiguous, networks a client
-  references that the controller does not list. Most of this is already decided
-  at runtime and thrown away as log lines.
+- **A diagnostic report. Shipped, as `--report`** (KAN-115). Prints where the
+  map came from after rendering it: how many nodes and links came from each
+  endpoint, which clients were placed from `stat/sta` versus the controller's
+  topology graph versus an override, what could not be placed, clients with no
+  address, networks a client references that the controller does not list,
+  artwork matches refused as ambiguous, and which endpoints the snapshot was
+  missing along with what each absence costs the map.
 
-  **Not the same thing as `unifi-map shape`**, which ships already. That
-  describes a network for somebody else's benefit and is built from an
-  allowlist so it can be shared. This one describes *your* map for *your*
-  benefit and may freely name your devices, because it is never leaving your
-  terminal. Both were briefly called "report", which is why the shipped one
-  is not.
+  **Not the same thing as `unifi-map shape`.** That describes a network for
+  somebody else's benefit and is built from an allowlist so it can be shared.
+  This one describes *your* map for *your* benefit and names your devices,
+  because it is never leaving your terminal; it says so at the top. Both were
+  briefly called "report", which is why the shipped one is not.
+
+  Note that it names a device only where something is wrong with it, so a clean
+  map produces a report with no names in it.
 - **Provenance on the diagram itself** (KAN-137). An override-asserted link is
   drawn dotted; nothing else distinguishes observed from inferred. A client
   placed from the topology graph, one placed from `stat/sta`, and one whose
   fingerprint was recovered from its name are drawn identically.
+
+  **The data half of this now exists.** `--report` needed the same facts, so
+  `Node.provenance` and `Edge.provenance` are recorded at the point each
+  decision is made. What is left is purely a rendering question: which
+  distinctions are worth a visual channel, given that colour cannot be the only
+  one and dotted is already spent on asserted.
 - **Randomised client MACs** (KAN-129). Every join here is on MAC, so a phone
   rotating its address appears as a new client unrelated to the old one. Explains
   apparent duplicates. Detectable from the locally-administered bit.

@@ -275,6 +275,48 @@ class TestHardwareNameLookup:
         assert store.sysid_for_name("g3-flex", device_type="camera") == 0xA534
         assert store.sysid_for_name("g3-flex", device_type="door-access") == 0xB100
 
+    def test_an_ambiguous_refusal_is_recorded_for_the_report(self, tmp_path):
+        """Refusing is correct, and silent refusal is not.
+
+        This was a debug log, so the one case a user could actually act on (by
+        renaming the device or setting an icon in an overrides file) was
+        invisible at any level they would normally run at. `--report` reads
+        `ambiguous_names`, and this is the wiring test for that: the report's own
+        tests feed the list by hand and would pass even if nothing ever appended
+        to it.
+        """
+        catalog = {
+            "devices": [
+                {
+                    "id": "a",
+                    "sysid": "a534",
+                    "product": {"name": "Camera G3 Flex"},
+                    "shortnames": ["UVC-G3-FLEX"],
+                    "images": {},
+                },
+                {
+                    "id": "b",
+                    "sysid": "b100",
+                    "product": {"name": "G3 Reader Flex"},
+                    "shortnames": ["UA-G3-Flex"],
+                    "images": {},
+                },
+            ]
+        }
+        cache = tmp_path / "c"
+        cache.mkdir()
+        (cache / "ui-device-catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
+        store = AssetStore(cache_dir=cache, offline=True)
+
+        assert store.ambiguous_names == []
+        assert store.sysid_for_name("g3-flex") is None
+        assert store.ambiguous_names == [("g3-flex", 2)]
+
+        # A resolved lookup must not add to it, or the report would list names
+        # that worked perfectly well.
+        assert store.sysid_for_name("Camera G3 Flex") == 0xA534
+        assert store.ambiguous_names == [("g3-flex", 2)]
+
     def test_unknown_name_resolves_to_nothing(self, store: AssetStore):
         assert store.sysid_for_name("definitely-not-a-product") is None
 

@@ -36,7 +36,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from .assets import IconAsset, local_icon
-from .model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology
+from .model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Provenance, Topology
 
 
 class OverrideError(ValueError):
@@ -578,6 +578,7 @@ def _apply_devices(
                 model=device.model,
                 detail=device.model,
                 asserted=True,
+                provenance=Provenance.OVERRIDE,
             )
         )
         result.devices_added += 1
@@ -602,6 +603,7 @@ def _apply_device_parents(working: Topology, devices: list[Device]) -> None:
                 dst=parent_id,
                 label=f"port {device.port}" if device.port else None,
                 asserted=True,
+                provenance=Provenance.OVERRIDE,
             )
         )
 
@@ -615,7 +617,14 @@ def _apply_links(working: Topology, links: list[Link], result: ApplyResult) -> N
         _drop_parent_edges(working, source, f"[[link]] {link.source!r}", result)
         label = link.label or link.note
         working.edges.append(
-            Edge(src=source, dst=target, label=label, wireless=link.wireless, asserted=True)
+            Edge(
+                src=source,
+                dst=target,
+                label=label,
+                wireless=link.wireless,
+                asserted=True,
+                provenance=Provenance.OVERRIDE,
+            )
         )
         result.links_added += 1
 
@@ -627,7 +636,15 @@ def _apply_hosted(working: Topology, hosted: list[Hosted], result: ApplyResult) 
         if guest == host:
             raise OverrideError(f"[[hosted]] {entry.guest!r} cannot host itself")
         _drop_parent_edges(working, guest, f"[[hosted]] {entry.guest!r}", result)
-        working.edges.append(Edge(src=guest, dst=host, label=entry.note or "hosted", asserted=True))
+        working.edges.append(
+            Edge(
+                src=guest,
+                dst=host,
+                label=entry.note or "hosted",
+                asserted=True,
+                provenance=Provenance.OVERRIDE,
+            )
+        )
         result.hosted_applied += 1
 
 

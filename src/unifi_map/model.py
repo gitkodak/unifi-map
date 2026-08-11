@@ -42,6 +42,41 @@ class Kind(StrEnum):
     UNKNOWN = "unknown"
 
 
+class Provenance(StrEnum):
+    """Where a node or an edge came from.
+
+    The tool refuses to invent, but until this existed it never said how sure it
+    was: a client placed from the controller's own topology graph, one placed
+    from `stat/sta`, and one placed by a line somebody typed in an overrides file
+    were all drawn identically and with equal apparent authority.
+
+    Recorded at the point the decision is made rather than reconstructed
+    afterwards, because by the time a `Topology` is built the reasoning has been
+    thrown away. `--report` reads this, and it is also what a future
+    provenance-on-the-diagram change needs.
+
+    **`UNSPECIFIED` is not a source, it is a bug.** It is the default only so
+    that constructing a `Node` in a test does not have to name one, and
+    `build_topology` is asserted never to leave it in place. A new node-building
+    path that forgets to say where its data came from fails that test rather
+    than quietly claiming to be synthetic.
+    """
+
+    # Nodes.
+    DEVICE = "device"  # stat/device
+    CLIENT = "client"  # stat/sta
+    SYNTHETIC = "synthetic"  # ours: the Internet node, the unplaced placeholder
+    # Edges.
+    DEVICE_UPLINK = "device_uplink"  # stat/device's own uplink field
+    WAN = "wan"  # a gateway with no uplink, so the Internet
+    CLIENT_UPLINK = "client_uplink"  # stat/sta's sw_mac or ap_mac
+    TOPOLOGY_GRAPH = "topology_graph"  # the v2 graph, which knows more
+    UNPLACED = "unplaced"  # nothing reported one, so the placeholder
+    # Both.
+    OVERRIDE = "override"  # stated in an overrides file
+    UNSPECIFIED = "unspecified"
+
+
 @dataclass
 class Node:
     id: str
@@ -76,6 +111,10 @@ class Node:
     # differently for the same reason `Edge.asserted` is: the map must never
     # present a claim and an observation as though they were the same thing.
     asserted: bool = False
+    # Where this came from. `asserted` is the rendering concern (draw it dotted)
+    # and this is the record; they are set together and a test pins that they
+    # agree, because two fields describing one fact is exactly how drift starts.
+    provenance: Provenance = Provenance.UNSPECIFIED
 
     @property
     def glyph_name(self) -> str | None:
@@ -101,6 +140,8 @@ class Edge:
     # controller. Drawn differently, so an assertion is never mistaken for an
     # observation.
     asserted: bool = False
+    # Which endpoint, or which fallback, produced this link. See `Provenance`.
+    provenance: Provenance = Provenance.UNSPECIFIED
 
 
 @dataclass
@@ -422,6 +463,7 @@ def _build_device_nodes(
                 detail=str(device.get("model") or "") or None,
                 offline=offline,
                 sysid=_coerce_int(device.get("sysid")),
+                provenance=Provenance.DEVICE,
             )
         )
     return device_macs
@@ -452,11 +494,12 @@ def _build_infrastructure_edges(
                     dst=parent,
                     label=f"port {port}" if port else None,
                     wireless=wireless,
+                    provenance=Provenance.DEVICE_UPLINK,
                 )
             )
         elif topo.nodes[mac].kind == Kind.GATEWAY:
             has_internet = True
-            topo.edges.append(Edge(src=mac, dst="internet", label="WAN"))
+            topo.edges.append(Edge(src=mac, dst="internet", label="WAN", provenance=Provenance.WAN))
     return has_internet
 
 
@@ -490,6 +533,7 @@ def build_topology(
                 ip=wan_ip,
                 detail="Internet" if isp else None,
                 asn=asn,
+                provenance=Provenance.SYNTHETIC,
             )
         )
 
@@ -572,6 +616,7 @@ def _client_node(
         dev_id=fp_id,
         oui=str(client.get("oui")) if client.get("oui") else None,
         hardware_type="camera" if mac in camera_macs else None,
+        provenance=Provenance.CLIENT,
     )
     return node, parent, edge_label, wireless
 
@@ -595,7 +640,15 @@ def _add_clients(
         topo.add(node)
 
         if parent and parent in device_macs:
-            topo.edges.append(Edge(src=node.id, dst=parent, label=edge_label, wireless=wireless))
+            topo.edges.append(
+                Edge(
+                    src=node.id,
+                    dst=parent,
+                    label=edge_label,
+                    wireless=wireless,
+                    provenance=Provenance.CLIENT_UPLINK,
+                )
+            )
         else:
             # Deferred. The controller's own graph often knows this client's
             # uplink even when stat/sta does not, and that uplink may be another
@@ -618,7 +671,14 @@ def _place_remaining(
     for mac in unplaced:
         parent, wireless = uplinks.get(mac, (None, False))
         if parent and parent in topo.nodes and parent != mac:
-            topo.edges.append(Edge(src=mac, dst=parent, wireless=wireless))
+            topo.edges.append(
+                Edge(
+                    src=mac,
+                    dst=parent,
+                    wireless=wireless,
+                    provenance=Provenance.TOPOLOGY_GRAPH,
+                )
+            )
             continue
         if UNKNOWN_UPLINK_ID not in topo.nodes:
             topo.add(
@@ -626,9 +686,10 @@ def _place_remaining(
                     id=UNKNOWN_UPLINK_ID,
                     label="Uplink not reported by controller",
                     kind=Kind.UNKNOWN,
+                    provenance=Provenance.SYNTHETIC,
                 )
             )
-        topo.edges.append(Edge(src=mac, dst=UNKNOWN_UPLINK_ID))
+        topo.edges.append(Edge(src=mac, dst=UNKNOWN_UPLINK_ID, provenance=Provenance.UNPLACED))
 
 
 def filter_by_network(topo: Topology, network_name: str) -> Topology:

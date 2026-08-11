@@ -6,6 +6,7 @@ from unifi_map.client import Snapshot, unwrap
 from unifi_map.model import (
     UNKNOWN_UPLINK_ID,
     Kind,
+    Provenance,
     build_fingerprints,
     build_topology,
     client_networks,
@@ -589,3 +590,137 @@ class TestControllerGraphPlacement:
             payloads={"topology": {"edges": [{"downlinkMac": "aa:bb", "uplinkMac": "aa:bb"}]}}
         )
         assert topology_uplinks(snap) == {}
+
+
+class TestProvenance:
+    """Every node and edge must say where it came from.
+
+    The point of these is the first one: `UNSPECIFIED` is the default, so a new
+    node- or edge-building path that forgets to name a source is caught here
+    rather than quietly reporting itself as synthetic. Mutation-tested by
+    dropping `provenance=` from each construction site in `model.py` in turn and
+    confirming this goes red.
+    """
+
+    def test_build_topology_never_leaves_a_node_unspecified(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        unspecified = [n.id for n in topo.nodes.values() if n.provenance is Provenance.UNSPECIFIED]
+        assert unspecified == []
+
+    def test_build_topology_never_leaves_an_edge_unspecified(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        unspecified = [(e.src, e.dst) for e in topo.edges if e.provenance is Provenance.UNSPECIFIED]
+        assert unspecified == []
+
+    def test_devices_and_clients_are_distinguishable(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        by_source: dict[Provenance, set[Kind]] = {}
+        for node in topo.nodes.values():
+            by_source.setdefault(node.provenance, set()).add(node.kind)
+
+        # A device never reports itself as a client and vice versa, which is the
+        # distinction the report is built on.
+        assert Kind.WIRED_CLIENT not in by_source.get(Provenance.DEVICE, set())
+        assert Kind.WIRELESS_CLIENT not in by_source.get(Provenance.DEVICE, set())
+        assert by_source[Provenance.CLIENT] <= {Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT}
+
+    def test_the_internet_node_is_synthetic_not_a_device(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        assert topo.nodes["internet"].provenance is Provenance.SYNTHETIC
+        # It is ours, so it must never be counted as something the controller
+        # inventoried; that would overstate the device count by one on every map.
+        assert topo.nodes["internet"].provenance is not Provenance.DEVICE
+
+    def test_a_client_placed_from_stat_sta_says_so(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        client_edges = [
+            e
+            for e in topo.edges
+            if topo.nodes[e.src].kind in (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
+        ]
+        assert client_edges
+        assert any(e.provenance is Provenance.CLIENT_UPLINK for e in client_edges)
+
+    def test_an_unplaceable_client_edge_is_marked_unplaced(
+        self, devices: dict, clients: dict, networkconf: dict
+    ):
+        clients["data"].append({"mac": "dd:ee:ff:00:00:e1", "hostname": "orphan", "is_wired": True})
+        snap = Snapshot(
+            payloads={"device": devices, "client_active": clients, "networkconf": networkconf}
+        )
+        topo = build_topology(snap)
+        placeholder = [e for e in topo.edges if e.dst == UNKNOWN_UPLINK_ID]
+        assert placeholder
+        assert all(e.provenance is Provenance.UNPLACED for e in placeholder)
+
+    def test_a_client_placed_from_the_controller_graph_says_so(
+        self, devices: dict, clients: dict, networkconf: dict
+    ):
+        """The two placement routes must be distinguishable, which is the point.
+
+        A NAS reported by `stat/sta` and a VM behind it that only the v2 topology
+        graph knows about are drawn identically today. This is the assertion that
+        makes `--report` able to say which is which, and it was written after a
+        mutation test showed `TOPOLOGY_GRAPH` could be deleted outright with the
+        whole suite still green.
+        """
+        clients["data"].append(
+            {
+                "mac": "dd:ee:ff:00:00:a1",
+                "hostname": "nas-host",
+                "is_wired": True,
+                "sw_mac": SWITCH_MAC,
+                "sw_port": 5,
+                "network_id": "net1",
+            }
+        )
+        clients["data"].append(
+            {"mac": "dd:ee:ff:00:00:a2", "hostname": "vm", "is_wired": True, "network_id": "net1"}
+        )
+        snap = Snapshot(
+            payloads={
+                "device": devices,
+                "client_active": clients,
+                "networkconf": networkconf,
+                "topology": {
+                    "edges": [
+                        {
+                            "downlinkMac": "DD:EE:FF:00:00:A2",
+                            "uplinkMac": "dd:ee:ff:00:00:a1",
+                            "type": "WIRED",
+                        }
+                    ]
+                },
+            }
+        )
+        topo = build_topology(snap)
+        by_src = {e.src: e for e in topo.edges}
+
+        assert by_src["dd:ee:ff:00:00:a2"].provenance is Provenance.TOPOLOGY_GRAPH
+        # The host beside it came from stat/sta, so the two must not collapse
+        # onto one value: a report that called both "reported by the controller"
+        # would be true and useless.
+        assert by_src["dd:ee:ff:00:00:a1"].provenance is Provenance.CLIENT_UPLINK
+
+    def test_asserted_and_provenance_never_disagree(self, snapshot: Snapshot, tmp_path):
+        """Two fields describing one fact, so pin that they agree.
+
+        `asserted` drives the dotted rendering and `provenance` is the record.
+        Nothing stops a future override path from setting one and not the other,
+        and the failure would be silent: a link drawn as observed while the
+        report calls it an assertion, or the reverse.
+        """
+        from unifi_map.overrides import apply, load
+
+        path = tmp_path / "o.toml"
+        path.write_text(
+            '[[device]]\nname = "Unmanaged Switch"\nkind = "switch"\n\n'
+            f'[[link]]\nfrom = "Unmanaged Switch"\nto = "{GATEWAY_MAC}"\n',
+            encoding="utf-8",
+        )
+        topo = apply(build_topology(snapshot), load(path), tmp_path).topology
+
+        for node in topo.nodes.values():
+            assert node.asserted == (node.provenance is Provenance.OVERRIDE), node.id
+        for edge in topo.edges:
+            assert edge.asserted == (edge.provenance is Provenance.OVERRIDE), (edge.src, edge.dst)
