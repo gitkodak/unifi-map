@@ -163,7 +163,7 @@ complete:
 ```json
 {
   "schema": 1,
-  "generator": "unifi-map 0.10.1",
+  "generator": "unifi-map 0.10.2",
   "title": "Network map",
   "counts": {
     "gateway": 1, "switch": 4, "ap": 3, "internet": 1,

@@ -56,6 +56,16 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.10.2 - 2026-08-11
+
+### Changed
+
+- **The GPL-3.0-only commitment is now explicit everywhere readers look.** The
+  README, contribution terms, project metadata, artwork documentation, and
+  project site all say that new distributed versions must remain GPLv3 source
+  available. Third-party Panzoom attribution and the historical MIT status of
+  older releases remain accurately identified.
+
 ## 0.10.1 - 2026-08-11
 
 ### Changed

@@ -166,5 +166,10 @@ Small and focused beats large and sweeping. Say what changed and why. If it fixe
 something subtle, a test that would have caught it is more persuasive than a
 description.
 
+By submitting a contribution, you license that contribution under GPL-3.0-only,
+so it can be distributed with the project. The bundled Panzoom library is a
+separate MIT-licensed third-party component and is not a contribution to
+unifi-map.
+
 If you disagree with a decision recorded in `CLAUDE.md`, that is fair game.
 Say so in the pull request rather than quietly reversing it.
