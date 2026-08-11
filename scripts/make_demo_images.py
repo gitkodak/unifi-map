@@ -78,7 +78,7 @@ CROP_PADDING = 38.0
 # The date stamped into the committed screenshots. Any fixed value would do;
 # this is the day the images were last deliberately regenerated. Bump it when
 # they are redone for a real reason, not otherwise.
-SOURCE_DATE_EPOCH = "1785672000"
+SOURCE_DATE_EPOCH = "1786363200"
 
 # Dark first: it is what the README shows. `light` is the tool's default and is
 # generated so the docs can show both rather than describe one.
