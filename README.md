@@ -292,11 +292,12 @@ getting a first map out of it. Everything else is a page of its own.
 
 ## License
 
-**unifi-map is GPL-3.0-only.** You may use it, study it, modify it, and sell
-copies or services around it. If you distribute a modified version, you must
-provide its corresponding source code under GPLv3 as well. There is no
-feature-limited edition, hosted upsell, or proprietary version of this project.
+**unifi-map is AGPL-3.0-only.** You may use it, study it, modify it, and sell
+copies or services around it. If you distribute a modified version, or run one
+for users over a network, you must offer its corresponding source code under
+AGPLv3 as well. There is no feature-limited edition, hosted upsell, or
+proprietary version of this project.
 
-Earlier releases remain under the MIT license with which they were published.
-The bundled Panzoom library is a separate MIT-licensed component; its required
-notice is preserved in the source. See [LICENSE](LICENSE).
+Earlier releases remain under the MIT or GPL-3.0-only license with which they
+were published. The bundled Panzoom library is a separate MIT-licensed
+component; its required notice is preserved in the source. See [LICENSE](LICENSE).

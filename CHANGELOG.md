@@ -56,6 +56,17 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.11.0 - 2026-08-11
+
+### Changed
+
+- **Future releases are AGPL-3.0-only.** GPLv3 protected against closed
+  distributed forks, but not modified versions operated solely as network
+  services. AGPLv3 also requires an operator to offer corresponding source to
+  users who interact with such a modified version over a network. Earlier MIT
+  and GPL-3.0-only releases remain under the licenses with which they were
+  published.
+
 ## 0.10.2 - 2026-08-11
 
 ### Changed
