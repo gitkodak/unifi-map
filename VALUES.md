@@ -5,8 +5,7 @@ technical means in the hands of the people who use them, rather than create
 private leverage over them.
 
 The hammer and sickle marks this commitment to worker ownership, solidarity,
-and the public good. It is not a condition of use or contribution, and it does
-not endorse the abuses of any government or political party.
+and the public good. It is not a condition of use or contribution.
 
 ## What that means here
 
