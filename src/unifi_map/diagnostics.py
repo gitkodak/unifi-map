@@ -154,15 +154,26 @@ def _unplaced_section(topo: Topology) -> list[str]:
 
 
 def _addressless_section(topo: Topology) -> list[str]:
-    """Clients with no address from any source.
+    """Clients that are correctly placed but have no address from any source.
 
     Worth naming separately from unplaced: these are on the map in the right
     place and merely thin, which is a different problem from not knowing where
     something is. On a support file it is normal for a few, since addresses come
     from a lease file and a neighbour table rather than from the client record.
+
+    **Unplaced clients are excluded, not merely listed twice.** One with no
+    address qualifies on both counts, and it was appearing in both sections with
+    this one asserting it was "correctly placed" while the section above said
+    the opposite. Being unplaced is the larger problem and already names it, so
+    this reports what is left. The docstring said so before the code did.
     """
+    unplaced = {e.src for e in topo.edges if e.dst == UNKNOWN_UPLINK_ID}
     nameless = sorted(
-        (n for n in topo.nodes.values() if n.kind in _CLIENT_KINDS and not n.ip),
+        (
+            n
+            for n in topo.nodes.values()
+            if n.kind in _CLIENT_KINDS and not n.ip and n.id not in unplaced
+        ),
         key=lambda n: n.label.lower(),
     )
     if not nameless:
@@ -299,17 +310,30 @@ def _artwork_section(sources: Sources) -> list[str]:
     art = sources.artwork
     out: list[str] = []
     if art:
-        out += [
-            "",
-            "ARTWORK",
-            f"  devices by sysid    {art.get('device_found', 0)} of {art.get('device_total', 0)}",
-            f"  clients             {art.get('client_found', 0)} of {art.get('client_total', 0)}"
-            f"   ({art.get('from_fingerprint', 0)} product,"
-            f" {art.get('from_hardware', 0)} UniFi hardware,"
-            f" {art.get('from_glyph', 0)} console glyph)",
-        ]
+        out += ["", "ARTWORK"]
+        # Keyed on the presence of the totals, not on their value. Under
+        # `--icons builtin` no catalogue lookup is attempted at all, so these
+        # keys are absent and printing "0 of 0" would report a failure that
+        # never happened: nothing was looked up, rather than looked up and not
+        # found. Only `resolve_icons` sets them.
+        looked_up = "device_total" in art or "client_total" in art
+        if "device_total" in art:
+            out.append(
+                f"  devices by sysid    {art.get('device_found', 0)} of {art['device_total']}"
+            )
+        if "client_total" in art:
+            out.append(
+                f"  clients             {art.get('client_found', 0)} of {art['client_total']}"
+                f"   ({art.get('from_fingerprint', 0)} product,"
+                f" {art.get('from_hardware', 0)} UniFi hardware,"
+                f" {art.get('from_glyph', 0)} console glyph)"
+            )
         if art.get("from_drawn"):
-            out.append(f"  drawn by us         {art['from_drawn']}   (no catalogue match)")
+            # The reason differs by mode and the parenthetical has to follow it.
+            # In `builtin` these were drawn because that is what was asked for;
+            # saying "no catalogue match" there would invent a lookup failure.
+            why = "no catalogue match" if looked_up else "--icons builtin, nothing was looked up"
+            out.append(f"  drawn by us         {art['from_drawn']}   ({why})")
 
     if sources.ambiguous_artwork:
         counted = Counter(sources.ambiguous_artwork)

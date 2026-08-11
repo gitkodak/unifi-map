@@ -126,6 +126,48 @@ class TestItNamesWhatWentWrong:
         assert "NO ADDRESS" in text
         assert "no-address-here" in text
 
+    def test_an_unplaced_client_is_not_also_listed_as_merely_addressless(
+        self, devices: dict, clients: dict, networkconf: dict
+    ):
+        """A client can qualify for both sections, and must only appear in one.
+
+        One with no uplink *and* no address was being listed twice, with the
+        second entry asserting it was "correctly placed" while the section above
+        it said the opposite. Being unplaced is the larger problem and already
+        names the device, so the addressless section reports what is left.
+        """
+        clients["data"].append(
+            {"mac": "dd:ee:ff:00:00:99", "hostname": "orphan-no-ip", "is_wired": True}
+        )
+        snap = Snapshot(
+            payloads={"device": devices, "client_active": clients, "networkconf": networkconf}
+        )
+        text = build_diagnostics(build_topology(snap))
+        assert text.count("orphan-no-ip") == 1
+        assert "COULD NOT BE PLACED" in text
+
+    def test_a_placed_client_with_no_address_is_still_reported(
+        self, devices: dict, clients: dict, networkconf: dict
+    ):
+        """The other half of the fix: excluding unplaced ones must not empty the
+        section. A correctly placed client with no address is its own finding."""
+        clients["data"].append(
+            {
+                "mac": "dd:ee:ff:00:00:98",
+                "hostname": "placed-no-ip",
+                "is_wired": True,
+                "sw_mac": SWITCH_MAC,
+                "sw_port": 3,
+                "network_id": "net1",
+            }
+        )
+        snap = Snapshot(
+            payloads={"device": devices, "client_active": clients, "networkconf": networkconf}
+        )
+        text = build_diagnostics(build_topology(snap))
+        assert "NO ADDRESS" in text
+        assert "placed-no-ip" in text
+
     def test_a_network_the_controller_does_not_list_is_reported(
         self, devices: dict, clients: dict, networkconf: dict
     ):
@@ -230,6 +272,38 @@ class TestArtwork:
 
     def test_no_artwork_section_without_artwork_facts(self):
         assert "ARTWORK" not in build_diagnostics(_topo())
+
+    def test_builtin_icons_do_not_report_a_lookup_that_never_ran(self):
+        """`--icons builtin` attempts no catalogue lookup at all.
+
+        The totals used to print as `0 of 0`, which reads as "looked up and
+        found nothing" when the truth is "never looked". Keyed on the presence
+        of the totals rather than their value, since only `resolve_icons` sets
+        them.
+        """
+        text = build_diagnostics(_topo(), Sources(artwork={"from_drawn": 28}))
+        assert "0 of 0" not in text
+        assert "devices by sysid" not in text
+        # And the reason the icons were drawn has to follow the mode: they were
+        # asked for, not fallen back to.
+        assert "nothing was looked up" in text
+        assert "no catalogue match" not in text
+
+    def test_unifi_icons_do_report_the_totals_and_the_fallback_reason(self):
+        text = build_diagnostics(
+            _topo(),
+            Sources(
+                artwork={
+                    "device_total": 7,
+                    "device_found": 7,
+                    "client_total": 19,
+                    "client_found": 19,
+                    "from_drawn": 1,
+                }
+            ),
+        )
+        assert "devices by sysid    7 of 7" in text
+        assert "no catalogue match" in text
 
 
 class TestItIsNotTheShareableOne:
