@@ -2,10 +2,9 @@
 
 Found by a targeted bug-hunt (three parallel audits over artwork resolution,
 overrides/support-file parsing, and render/report/model), not from a user
-report. KAN-176, KAN-178, and KAN-179 are fixed in the working tree; KAN-177
-remains open. Each has a matching Jira ticket (project KAN) with more detail;
-this file is so a fresh agent session can pick one up without re-deriving the
-findings.
+report. KAN-176 through KAN-180 are fixed in the working tree. Each has a
+matching Jira ticket (project KAN) with more detail; this file is so a fresh
+agent session can pick one up without re-deriving the findings.
 
 Ordered by confidence/severity, most urgent first.
 
@@ -48,7 +47,7 @@ despite the bug.
 test fixture to set a non-default provenance so it would actually catch a
 regression. Mutation-test the fix per CLAUDE.md's own rule before trusting it.
 
-## KAN-177: Mermaid draws an asserted/offline node identically to a real one
+## KAN-177: Mermaid draws an asserted/offline node identically to a real one (fixed)
 
 `render_mermaid.py`'s edge function checks `edge.asserted`/`edge.wireless` and
 picks a dotted/dashed/solid arrow — the asserted-vs-observed distinction IS
@@ -74,11 +73,10 @@ distinction; no node-level test exists, and no fixture there uses
 `asserted=True` or `offline=True` on a `Node`. Same fixture-defaults-mask-
 the-bug shape as KAN-176.
 
-**Fix:** give Mermaid node shapes/labels a way to carry the distinction.
-Mermaid's own vocabulary is limited — dashed link styles are already spent on
-wired/wireless/asserted at the edge level — so this needs a small design pass
-(a bracket/marker convention on the node label, most likely) rather than a
-one-line copy of the dot/drawio approach. Add a node-level test alongside it.
+**Fixed:** Mermaid labels now append `OFFLINE` and/or `ASSERTED` markers.
+Mermaid's node shapes already encode the device kind, and the link styles are
+already used for wired/wireless/asserted edges, so the plain-text markers keep
+the node state visible without sacrificing either of those distinctions.
 
 ## KAN-178: A corrupt cached icon PNG returns `None` forever, for 5 of 6 lookups (fixed)
 
@@ -115,6 +113,4 @@ refetched during the same run.
 
 ---
 
-Recommended pickup order: KAN-176 first (confirmed regression in a feature
-shipped the same night this was found), then KAN-177 (confirmed, no fix
-attempted yet), then KAN-178, then KAN-179 (cleanup, lowest urgency).
+All findings from this audit are fixed.

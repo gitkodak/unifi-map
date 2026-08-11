@@ -15,6 +15,10 @@ Node kind survives as shape rather than as colour, matching the rule the rest of
 the tool follows: `([round])` for the internet, `[[switch]]` for a switch,
 `{{hex}}` for an access point, `[box]` for a client. Greyscale and colourblind
 readers lose nothing, because colour was never carrying the meaning.
+
+An `OFFLINE` or `ASSERTED` marker in a node's label carries state Mermaid
+cannot express with an independent border style. Those markers prevent a
+controller observation from being confused with an override or stale device.
 """
 
 from __future__ import annotations
@@ -74,6 +78,10 @@ def _label(node: Node) -> str:
     parts = [node.label]
     if node.ip:
         parts.append(node.ip)
+    if node.offline:
+        parts.append("OFFLINE")
+    if node.asserted:
+        parts.append("ASSERTED")
     return " · ".join(_flatten(p) for p in parts)
 
 

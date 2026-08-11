@@ -88,6 +88,29 @@ def test_wireless_and_asserted_links_are_visually_distinct():
     assert "-.->" in source
 
 
+def test_asserted_and_offline_nodes_are_marked_in_their_labels():
+    topo = Topology()
+    topo.add(Node(id="observed", label="Observed", kind=Kind.SWITCH))
+    topo.add(Node(id="offline", label="Offline", kind=Kind.SWITCH, offline=True))
+    topo.add(Node(id="asserted", label="Asserted", kind=Kind.SWITCH, asserted=True))
+    topo.add(
+        Node(
+            id="both",
+            label="Both",
+            kind=Kind.SWITCH,
+            offline=True,
+            asserted=True,
+        )
+    )
+
+    source = render_mermaid(topo)
+
+    assert 'nobserved[["Observed"]]' in source
+    assert 'noffline[["Offline · OFFLINE"]]' in source
+    assert 'nasserted[["Asserted · ASSERTED"]]' in source
+    assert 'nboth[["Both · OFFLINE · ASSERTED"]]' in source
+
+
 def test_direction_follows_the_layout(snapshot: Snapshot):
     topo = build_topology(snapshot)
     assert "flowchart LR" in render_mermaid(topo, direction="LR")

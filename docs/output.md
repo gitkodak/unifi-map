@@ -244,7 +244,10 @@ survives is the shape, which is what documentation usually wants.
 Node kind is carried by shape rather than colour, the same rule the other
 backends follow: rounded for the Internet, `[[double]]` for a switch, hexagonal
 for an access point. Links keep their meaning too, dashed for wireless and
-dotted for anything asserted in an overrides file.
+dotted for anything asserted in an overrides file. Nodes the controller lists
+as offline carry an `OFFLINE` label marker; nodes stated in overrides carry an
+`ASSERTED` marker. Mermaid has no separate node-border style that can coexist
+with its kind shapes, so the markers keep those facts visible in plain text.
 
 `--no-clients` is doing real work in that example. The full demo is 29 nodes,
 which is a wall of boxes on a page; the infrastructure is nine and reads at a
