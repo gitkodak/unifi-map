@@ -145,6 +145,21 @@ told something untrue and may have acted on it.
   fetch leaves the previous snapshot intact and readable, and an old flat cache
   keeps working and is migrated by the next fetch.
 
+- **`pip install` works straight from GitHub, two ways, with no PyPI account.**
+  `pip install git+https://github.com/gitkodak/unifi-map.git@v0.10.0` builds
+  from a tag at install time and needed no changes at all. From this version
+  on, a release's wheel and sdist are also attached to its GitHub Release, so
+  `pip install <wheel-URL>` installs with no build step and no `git` either.
+  Neither is a PyPI decision: no account, no owned name, nothing that cannot
+  be withdrawn. See `docs/install-from-github.md`.
+
+  **The man page now reaches a wheel install too.** Shipped as installed data
+  at `share/man/man1/unifi-map.1`, so `man unifi-map` resolves with no
+  `MANPATH` configuration once the virtual environment is on `PATH` — both
+  macOS's and GNU man-db's `man` search a venv's `share/man` automatically.
+  Previously the committed `unifi-map.1` only worked as `man ./unifi-map.1`
+  from a checkout.
+
 ### Changed
 
 - **A controller is only ever contacted over HTTPS.** `UNIFI_HOST` could
