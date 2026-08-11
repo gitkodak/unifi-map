@@ -2,9 +2,10 @@
 
 Found by a targeted bug-hunt (three parallel audits over artwork resolution,
 overrides/support-file parsing, and render/report/model), not from a user
-report. Nothing here is fixed yet. Each has a matching Jira ticket (project
-KAN) with more detail; this file is so a fresh agent session can pick one up
-without re-deriving the findings.
+report. KAN-176, KAN-178, and KAN-179 are fixed in the working tree; KAN-177
+remains open. Each has a matching Jira ticket (project KAN) with more detail;
+this file is so a fresh agent session can pick one up without re-deriving the
+findings.
 
 Ordered by confidence/severity, most urgent first.
 
@@ -16,7 +17,8 @@ field-by-field:
 ```python
 edges = [
     Edge(src=ids[e.src], dst=ids[e.dst], label=e.label, wireless=e.wireless, asserted=e.asserted)
-    for e in topo.edges if e.src in ids and e.dst in ids
+    for e in topo.edges
+    if e.src in ids and e.dst in ids
 ]
 ```
 
@@ -78,7 +80,7 @@ wired/wireless/asserted at the edge level — so this needs a small design pass
 (a bracket/marker convention on the node label, most likely) rather than a
 one-line copy of the dot/drawio approach. Add a node-level test alongside it.
 
-## KAN-178: A corrupt cached icon PNG returns `None` forever, for 5 of 6 lookups
+## KAN-178: A corrupt cached icon PNG returns `None` forever, for 5 of 6 lookups (fixed)
 
 `assets.py`'s `icon()` (UniFi-hardware artwork lookup) self-heals a corrupt
 cached PNG: on a measurement failure it unlinks the bad cache file and
@@ -91,24 +93,25 @@ Reproduced: writing garbage bytes to a `drawn-*.png` cache entry makes
 `drawn_icon()` return `None` forever, even though that specific path needs no
 network access at all and would trivially succeed on a retry.
 
-**Fix:** extract the self-heal-on-corrupt-cache logic `icon()` already has
-into a shared helper, and call it from the other five.
+**Fixed:** the self-heal-on-corrupt-cache logic is now a shared helper used by
+all six icon lookups. An unreadable cache entry is deleted and regenerated or
+refetched during the same run.
 
-## KAN-179: Two latent traps in `assets.py` (not live bugs, but real)
+## KAN-179: Two latent traps in `assets.py` (not live bugs, but real; fixed)
 
 1. `fingerprint_db()` bypasses `self._fetch()` and its `_unreachable` circuit
    breaker, using a raw `requests.get()` instead. No current call site
    combines it with other CDN calls on the same `AssetStore`, so it's latent
-   rather than observably broken today. Worth routing through the same fetch
-   path so a network outage degrades consistently.
+   rather than observably broken today. It now uses the shared fetch path,
+   with the fingerprint database's larger size limit, so a network outage
+   degrades consistently.
 
 2. `data_uri()` hardcodes `image/png` — the exact bug `render_drawio.py`'s
    `_drawio_data_uri()` documents having fixed for the same purpose (an SVG
    override icon needs its real media type or draw.io can't draw it).
    `data_uri()` is currently dead code, unreferenced anywhere in the
    codebase, so this is a trap for whoever next reuses it rather than a live
-   bug. Either fix it to match `_drawio_data_uri()`'s media-type detection,
-   or remove it if truly unused.
+   bug. It was removed because it was truly unused.
 
 ---
 

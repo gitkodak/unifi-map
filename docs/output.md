@@ -171,11 +171,11 @@ complete:
   },
   "networks": [ { "id": "net-lan", "name": "lan", "vlan": 1 } ],
   "nodes": [
-    { "id": "02:00:00:00:01:01", "label": "gateway", "kind": "gateway",
+    { "id": "02:00:00:00:01:01", "label": "gateway", "kind": "gateway", "provenance": "device",
       "ip": "10.0.0.1", "model": "UDMPROMAX", "detail": "UDMPROMAX",
       "sysid": 59954 }
   ],
-  "edges": [ { "child": "02:00:00:00:01:01", "parent": "internet", "label": "WAN" } ]
+  "edges": [ { "child": "02:00:00:00:01:01", "parent": "internet", "label": "WAN", "provenance": "wan" } ]
 }
 ```
 
@@ -187,7 +187,9 @@ reader should not have to guess which way round they point. Facts that are not
 known are omitted rather than set to `null`, and flags appear only when true.
 
 **The schema may gain fields and will not lose them**, which is what `schema`
-tracks. Placement provenance is the obvious addition once it exists.
+tracks. Each node and edge includes `provenance`: the source that placed it,
+such as `device`, `client_uplink`, `topology_graph`, `unplaced`, or `override`.
+It is an additive schema-1 field, so an existing reader can ignore it safely.
 
 ## Mermaid, for documentation
 

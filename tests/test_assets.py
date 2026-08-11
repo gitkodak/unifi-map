@@ -16,8 +16,11 @@ import pytest
 import requests
 
 from unifi_map.assets import (
+    CLIENT_CATALOG_URL,
+    MAX_CATALOG_BYTES,
     AssetError,
     AssetStore,
+    Fetched,
     IconAsset,
     describe_network_error,
     read_icon_font_dir,
@@ -205,6 +208,25 @@ class TestClientArtwork:
         assert asset.path == target
         assert (asset.width, asset.height) == (32, 24)
 
+    def test_a_corrupt_cached_client_icon_is_refetched(self, tmp_path, monkeypatch, png_bytes):
+        store = AssetStore(cache_dir=tmp_path / "cache")
+        cached = store.icon_dir / "client-4425-256.png"
+        cached.parent.mkdir(parents=True)
+        cached.write_bytes(b"not an image")
+        calls = []
+
+        def fetch(url, **kwargs):
+            calls.append((url, kwargs))
+            return Fetched(status_code=200, content=png_bytes(32, 24), url=url)
+
+        monkeypatch.setattr(store, "_fetch", fetch)
+        asset = store.client_icon(4425)
+
+        assert asset is not None
+        assert asset.path == cached
+        assert (asset.width, asset.height) == (32, 24)
+        assert len(calls) == 1
+
 
 class TestClientGlyphs:
     def test_no_font_means_no_glyph(self, store: AssetStore):
@@ -391,6 +413,20 @@ class TestClientFingerprintDatabase:
         monkeypatch.setattr("unifi_map.assets.requests.get", explode)
         assert store.fingerprint_db(download=True) is None
 
+    def test_explicit_download_uses_the_shared_fetcher(self, tmp_path, monkeypatch):
+        store = AssetStore(cache_dir=tmp_path / "cache")
+        calls = []
+        payload = {"dev_ids": {"1": {"name": "Thing"}}}
+
+        def fetch(url, **kwargs):
+            calls.append((url, kwargs))
+            return Fetched(status_code=200, content=json.dumps(payload).encode(), url=url)
+
+        monkeypatch.setattr(store, "_fetch", fetch)
+
+        assert store.fingerprint_db(download=True) == payload
+        assert calls == [(CLIENT_CATALOG_URL, {"max_bytes": MAX_CATALOG_BYTES})]
+
 
 class TestIconFontFromDisk:
     """Loading the client glyph font from a copy made by hand.
@@ -513,6 +549,17 @@ class TestInternetCloud:
         # Light and dark themes must not share one cached image.
         store = AssetStore(cache_dir=tmp_path / "cache")
         assert store.internet_icon("#5A626E").path != store.internet_icon("#AAB2BF").path
+
+    def test_a_corrupt_cached_cloud_is_regenerated(self, tmp_path):
+        store = AssetStore(cache_dir=tmp_path / "cache")
+        first = store.internet_icon("#5A626E")
+        first.path.write_bytes(b"not an image")
+
+        repaired = store.internet_icon("#5A626E")
+
+        assert repaired is not None
+        assert repaired.path == first.path
+        assert repaired.width > repaired.height
 
 
 class TestNetworkFailure:

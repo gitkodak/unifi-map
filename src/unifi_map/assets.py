@@ -24,7 +24,6 @@ the plain shape renderer rather than failing the run.
 
 from __future__ import annotations
 
-import base64
 import contextlib
 import hashlib
 import json
@@ -310,8 +309,14 @@ class AssetStore:
     # per client, which is what makes the count meaningful.
     ambiguous_names: list[tuple[str, int]] = field(default_factory=list)
 
-    def _fetch(self, url: str, *, allow_redirects: bool = True) -> Fetched | None:
-        """GET *url*, or None if artwork is unavailable for any reason.
+    def _fetch(
+        self,
+        url: str,
+        *,
+        allow_redirects: bool = True,
+        max_bytes: int = MAX_ASSET_BYTES,
+    ) -> Fetched | None:
+        """GET *url*, or None if an asset is unavailable for any reason.
 
         Transport failures trip `_unreachable` so the rest of the run stops
         trying. An HTTP status is *not* a transport failure: a 404 means this
@@ -328,13 +333,13 @@ class AssetStore:
                 url, timeout=self.timeout, allow_redirects=allow_redirects, stream=True
             )
             declared = declared_size(response)
-            if declared is not None and declared > MAX_ASSET_BYTES:
-                log.warning("%s claims %s bytes; refusing to read it as artwork.", url, declared)
+            if declared is not None and declared > max_bytes:
+                log.warning("%s claims %s bytes; refusing to read it.", url, declared)
                 response.close()
                 return None
-            body = read_capped(response, MAX_ASSET_BYTES)
+            body = read_capped(response, max_bytes)
             if body is None:
-                log.warning("%s is larger than %d bytes; not artwork.", url, MAX_ASSET_BYTES)
+                log.warning("%s is larger than %d bytes; refusing it.", url, max_bytes)
                 return None
             return Fetched(status_code=response.status_code, content=body, url=url)
         except requests.RequestException as exc:
@@ -414,22 +419,16 @@ class AssetStore:
         if cached is not None or not download or self.offline:
             return cached
 
+        response = self._fetch(CLIENT_CATALOG_URL, max_bytes=MAX_CATALOG_BYTES)
+        if response is None:
+            return None
         try:
-            response = requests.get(CLIENT_CATALOG_URL, timeout=self.timeout, stream=True)
             response.raise_for_status()
-            body = read_capped(response, MAX_CATALOG_BYTES)
-            if body is None:
-                log.warning(
-                    "The client fingerprint database is larger than %d bytes; "
-                    "refusing it and disabling client artwork.",
-                    MAX_CATALOG_BYTES,
-                )
-                return None
-            payload = json.loads(body)
+            payload = json.loads(response.content)
         except (requests.RequestException, ValueError) as exc:
             log.warning(
                 "Could not fetch the client fingerprint database (%s); client artwork disabled.",
-                exc,
+                describe_network_error(exc),
             )
             return None
 
@@ -470,8 +469,9 @@ class AssetStore:
             return None
 
         cached = self.icon_dir / f"isp-{asn}-{ICON_PX}.png"
-        if cached.is_file():
-            return _measure(cached)
+        cached_asset = self._cached_icon(cached)
+        if cached_asset is not None:
+            return cached_asset
         if self.offline:
             return None
 
@@ -508,8 +508,9 @@ class AssetStore:
         leave a dark cloud on a dark canvas.
         """
         cached = self.icon_dir / f"internet-{color.lstrip('#')}-{ICON_PX}.png"
-        if cached.is_file():
-            return _measure(cached)
+        cached_asset = self._cached_icon(cached)
+        if cached_asset is not None:
+            return cached_asset
         try:
             return _render_cloud(color, cached, ICON_PX)
         except (AssetError, OSError, ValueError):
@@ -536,8 +537,9 @@ class AssetStore:
         rather than failing a run.
         """
         cached = self.icon_dir / f"drawn-{name}-{color.lstrip('#')}-{ICON_PX}.png"
-        if cached.is_file():
-            return _measure(cached)
+        cached_asset = self._cached_icon(cached)
+        if cached_asset is not None:
+            return cached_asset
         try:
             width, height = drawn.render(name, color, cached, ICON_PX)
         except (ImportError, OSError, ValueError):
@@ -556,8 +558,9 @@ class AssetStore:
             return None
 
         cached = self.icon_dir / f"client-{dev_id}-{ICON_PX}.png"
-        if cached.is_file():
-            return _measure(cached)
+        cached_asset = self._cached_icon(cached)
+        if cached_asset is not None:
+            return cached_asset
         if self.offline:
             return None
 
@@ -598,8 +601,9 @@ class AssetStore:
 
         safe = color.lstrip("#").lower()
         cached = self.icon_dir / f"glyph-{name}-{safe}-{ICON_PX}.png"
-        if cached.is_file():
-            return _measure(cached)
+        cached_asset = self._cached_icon(cached)
+        if cached_asset is not None:
+            return cached_asset
 
         self.icon_dir.mkdir(parents=True, exist_ok=True)
         try:
@@ -607,6 +611,25 @@ class AssetStore:
         except AssetError as exc:
             log.warning("%s", exc)
             return None
+
+    def _cached_icon(self, path: Path) -> IconAsset | None:
+        """Return a readable cached icon, deleting a corrupt cache entry.
+
+        Cache writes are atomic now, but an interrupted older write, a manual
+        edit, or disk damage can still leave an unreadable file behind. Treat
+        it as a cache miss so every icon source can regenerate or refetch it.
+        """
+        if not path.is_file():
+            return None
+        asset = _measure(path)
+        if asset is not None:
+            return asset
+        log.debug("Cached icon %s is unreadable; regenerating.", path)
+        try:
+            path.unlink()
+        except OSError:
+            log.debug("Could not remove unreadable cached icon %s.", path, exc_info=True)
+        return None
 
     def _load_catalog_json(self) -> Any | None:
         if self.catalog_path.is_file():
@@ -721,15 +744,9 @@ class AssetStore:
             return None
 
         cached = self.icon_dir / f"{sysid:04x}-{variant}-{ICON_PX}.png"
-        if cached.is_file():
-            measured = _measure(cached)
-            if measured is not None:
-                return measured
-            # Unreadable: from an interrupted write predating atomic caching, or
-            # a truncated file. Drop it so this run refetches rather than
-            # returning a broken asset forever.
-            log.debug("Cached icon %s is unreadable; refetching.", cached)
-            cached.unlink(missing_ok=True)
+        cached_asset = self._cached_icon(cached)
+        if cached_asset is not None:
+            return cached_asset
         if self.offline:
             return None
 
@@ -1194,9 +1211,3 @@ def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
         pil_image.DecompressionBombWarning,
     ) as exc:
         raise AssetError(f"Could not process artwork: {exc}") from exc
-
-
-def data_uri(path: Path) -> str:
-    """base64 data URI for embedding in SVG or a draw.io style."""
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-    return f"data:image/png;base64,{encoded}"

@@ -10,7 +10,15 @@ from __future__ import annotations
 import json
 
 from unifi_map.client import Snapshot
-from unifi_map.model import build_topology, filter_by_network
+from unifi_map.model import (
+    Edge,
+    Kind,
+    Node,
+    Provenance,
+    Topology,
+    build_topology,
+    filter_by_network,
+)
 from unifi_map.obfuscate import obfuscate
 from unifi_map.render_json import SCHEMA_VERSION, render_json
 
@@ -39,6 +47,41 @@ def test_every_edge_points_at_a_node_in_the_document(snapshot: Snapshot):
     for edge in doc["edges"]:
         assert edge["child"] in ids
         assert edge["parent"] in ids
+
+
+def test_provenance_is_exported_for_every_node_and_edge():
+    """JSON is the programmatic counterpart to the diagram and report, so it
+    must preserve how every item was placed rather than flattening confidence.
+    """
+    topo = Topology(
+        nodes={
+            "device": Node("device", "device", Kind.SWITCH, provenance=Provenance.DEVICE),
+            "client": Node("client", "client", Kind.WIRED_CLIENT, provenance=Provenance.CLIENT),
+            "unknown": Node("unknown", "unknown", Kind.UNKNOWN, provenance=Provenance.SYNTHETIC),
+            "asserted": Node("asserted", "asserted", Kind.SWITCH, provenance=Provenance.OVERRIDE),
+        },
+        edges=[
+            Edge("client", "device", provenance=Provenance.CLIENT_UPLINK),
+            Edge("asserted", "client", provenance=Provenance.TOPOLOGY_GRAPH),
+            Edge("unknown", "device", provenance=Provenance.UNPLACED),
+            Edge("device", "asserted", asserted=True, provenance=Provenance.OVERRIDE),
+        ],
+    )
+
+    doc = _doc(topo)
+    assert {node["provenance"] for node in doc["nodes"]} == {
+        "device",
+        "client",
+        "synthetic",
+        "override",
+    }
+    assert {edge["provenance"] for edge in doc["edges"]} == {
+        "client_uplink",
+        "topology_graph",
+        "unplaced",
+        "override",
+    }
+    assert _doc(obfuscate(topo))["edges"][1]["provenance"] == "topology_graph"
 
 
 def test_absent_facts_are_omitted_not_null(snapshot: Snapshot):

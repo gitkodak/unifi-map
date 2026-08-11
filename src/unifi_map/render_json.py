@@ -11,10 +11,10 @@ snapshot is a full controller dump; this is nodes, edges and networks, subject t
 `--obfuscate`, overrides and per-network filtering exactly like the diagram, so
 whatever cleaning was applied to the picture applies here too.
 
-**The schema may gain fields and will not lose them.** Provenance in particular
-is coming: nothing currently records whether a client was placed from `stat/sta`,
-from the topology graph or from an override, and when that exists it belongs
-here. Written as additive from the start so that arriving does not break a reader.
+**The schema may gain fields and will not lose them.** Provenance records where
+each node or link came from: a controller endpoint, the topology graph, an
+override, or an explicit admission that nothing reported an uplink. It arrived
+as an additive schema-1 field, so existing readers can ignore it safely.
 """
 
 from __future__ import annotations
@@ -35,7 +35,12 @@ def _node(node: Any) -> dict[str, Any]:
     Absent and null would mean the same thing to every reader, and omitting
     keeps the output readable by a human, which is half of why it is JSON.
     """
-    out: dict[str, Any] = {"id": node.id, "label": node.label, "kind": node.kind.value}
+    out: dict[str, Any] = {
+        "id": node.id,
+        "label": node.label,
+        "kind": node.kind.value,
+        "provenance": node.provenance.value,
+    }
     for name in ("ip", "model", "network", "vlan", "detail", "sysid", "dev_id"):
         value = getattr(node, name, None)
         if value is not None:
@@ -49,7 +54,11 @@ def _node(node: Any) -> dict[str, Any]:
 def _edge(edge: Any) -> dict[str, Any]:
     # `src` is the child and `dst` the parent, as everywhere else in this
     # codebase. Named rather than renumbered so the two agree.
-    out: dict[str, Any] = {"child": edge.src, "parent": edge.dst}
+    out: dict[str, Any] = {
+        "child": edge.src,
+        "parent": edge.dst,
+        "provenance": edge.provenance.value,
+    }
     if edge.label:
         out["label"] = edge.label
     for name in ("wireless", "asserted"):

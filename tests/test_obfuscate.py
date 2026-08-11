@@ -493,7 +493,7 @@ def test_obfuscation_keeps_every_model_field_it_does_not_deliberately_change():
     """
     import dataclasses
 
-    from unifi_map.model import Edge, Kind, Network, Node, Topology
+    from unifi_map.model import Edge, Kind, Network, Node, Provenance, Topology
     from unifi_map.obfuscate import obfuscate
 
     # Fields obfuscation is *supposed* to change, with why.
@@ -507,7 +507,16 @@ def test_obfuscation_keeps_every_model_field_it_does_not_deliberately_change():
             "a": Node(id="a", label="A", kind=Kind.SWITCH, asserted=True),
             "b": Node(id="b", label="B", kind=Kind.SWITCH),
         },
-        edges=[Edge(src="a", dst="b", label="port 1", wireless=True, asserted=True)],
+        edges=[
+            Edge(
+                src="a",
+                dst="b",
+                label="port 1",
+                wireless=True,
+                asserted=True,
+                provenance=Provenance.OVERRIDE,
+            )
+        ],
         networks={"n1": Network(id="n1", name="lan", vlan=7, subnet="10.0.0.0/24", is_guest=True)},
     )
     after = obfuscate(topo)

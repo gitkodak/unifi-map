@@ -183,6 +183,7 @@ def obfuscate(topo: Topology) -> Topology:
             label=e.label,
             wireless=e.wireless,
             asserted=e.asserted,
+            provenance=e.provenance,
         )
         for e in topo.edges
         if e.src in ids and e.dst in ids
