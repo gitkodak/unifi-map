@@ -7,12 +7,15 @@ benefit, and it may freely name your devices, addresses and networks, because it
 is never leaving your terminal. The header says so, and the two must not be
 confused: `unifi-map shape` is the shareable one.
 
-The problem it exists for: this tool refuses to invent, and until now that
-refusal was invisible. A map built from a perfect fetch and one built from a thin
-one look equally authoritative, because a client placed from `stat/sta`, one
-placed from the controller's own topology graph, and one placed by a line
-somebody typed into an overrides file are drawn identically. Most of the
-reasoning was already available at runtime and thrown away as log lines.
+The problem it exists for: this tool refuses to invent, and until this existed
+that refusal was invisible. A map built from a perfect fetch and one built from
+a thin one looked equally authoritative, because a client placed from
+`stat/sta`, one placed from the controller's own topology graph, and one placed
+by a line somebody typed into an overrides file were drawn identically. The
+diagram itself now marks the topology-graph and overrides cases (KAN-137); this
+report is the text form of the same underlying `Provenance` data, and existed
+first. Most of the reasoning was already available at runtime and thrown away
+as log lines.
 
 **Almost everything here is derived from the `Topology`, not collected
 separately.** Once `Provenance` is recorded on each node and edge at the moment
@@ -54,17 +57,20 @@ _CLIENT_KINDS = (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
 # what a second endpoint knew, then what a person asserted, then the admission
 # that nothing knew at all.
 _NODE_SOURCES: tuple[tuple[Provenance, str], ...] = (
-    (Provenance.DEVICE, "stat/device"),
-    (Provenance.CLIENT, "stat/sta"),
+    (Provenance.DEVICE, "stat/device (the device inventory)"),
+    (Provenance.CLIENT, "stat/sta (the client list; 'sta' is UniFi's term for a connected client)"),
     (Provenance.SYNTHETIC, "ours (Internet, placeholder)"),
     (Provenance.OVERRIDE, "an overrides file"),
     (Provenance.UNSPECIFIED, "UNRECORDED (a bug, please report)"),
 )
 
 _EDGE_SOURCES: tuple[tuple[Provenance, str], ...] = (
-    (Provenance.DEVICE_UPLINK, "stat/device uplink"),
+    (Provenance.DEVICE_UPLINK, "stat/device uplink (a device reporting its own connection)"),
     (Provenance.WAN, "gateway to the Internet"),
-    (Provenance.CLIENT_UPLINK, "stat/sta sw_mac or ap_mac"),
+    (
+        Provenance.CLIENT_UPLINK,
+        "stat/sta sw_mac or ap_mac (a client reporting which switch or AP it's on)",
+    ),
     (Provenance.TOPOLOGY_GRAPH, "the controller's topology graph"),
     (Provenance.UNPLACED, "nothing reported one"),
     (Provenance.OVERRIDE, "an overrides file"),

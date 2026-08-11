@@ -52,8 +52,8 @@ class Provenance(StrEnum):
 
     Recorded at the point the decision is made rather than reconstructed
     afterwards, because by the time a `Topology` is built the reasoning has been
-    thrown away. `--report` reads this, and it is also what a future
-    provenance-on-the-diagram change needs.
+    thrown away. `--report` reads this, and so does `render_dot.py`/
+    `render_drawio.py`'s marker for a `TOPOLOGY_GRAPH` edge (KAN-137).
 
     **`UNSPECIFIED` is not a source, it is a bug.** It is the default only so
     that constructing a `Node` in a test does not have to name one, and

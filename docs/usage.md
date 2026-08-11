@@ -107,17 +107,35 @@ where every part of the map came from.
 ```
 WHERE THE MAP CAME FROM
   nodes               29
-          8  stat/device
-         19  stat/sta
+          8  stat/device (the device inventory)
+         19  stat/sta (the client list; 'sta' is UniFi's term for a connected client)
           2  ours (Internet, placeholder)
 
   links               27
-          7  stat/device uplink
+          7  stat/device uplink (a device reporting its own connection)
           1  gateway to the Internet
-         16  stat/sta sw_mac or ap_mac
+         16  stat/sta sw_mac or ap_mac (a client reporting which switch or AP it's on)
           1  the controller's topology graph
           2  nothing reported one
 ```
+
+**What these labels mean.** The controller's own web UI draws itself from
+several JSON endpoints, and this tool calls the same ones — the names above are
+theirs, not invented for this report:
+
+- **`stat/device`** is the device inventory: every switch, access point, gateway
+  and other piece of infrastructure the controller manages directly.
+- **`stat/sta`** is the client list: phones, laptops, IoT gear, anything that
+  isn't itself managed UniFi hardware. `sta` is short for "station", a term
+  UniFi borrowed from wireless networking, where every connected device — wired
+  or not — is called a station. It has nothing to do with "static."
+- **The controller's topology graph** is a separate endpoint that tracks link
+  relationships directly, used as a fallback when a client's own record doesn't
+  say what it's plugged into. This happens for anything sitting behind
+  non-UniFi gear — a VM behind a NAS, say — since `stat/sta` only reports an
+  uplink when that uplink is itself a UniFi device.
+- **An overrides file** means a human typed it in; nothing here observed it.
+  See [Overrides](overrides.md).
 
 It also lists what the snapshot actually carried, and what each missing piece
 costs. An optional endpoint that failed is logged once when it is fetched and
@@ -136,12 +154,13 @@ from any source, networks a client claims to be on that the controller does not
 list, and artwork matches [refused as ambiguous](artwork.md). A map with nothing
 wrong prints no device names at all, so a short report is a good sign.
 
-The counts are the point of the first section. A link from `stat/device uplink`
-is a device describing its own connection; one from `the controller's topology
-graph` is a second endpoint filling in what `stat/sta` could not; one from `an
-overrides file` is something you asserted, and nothing observed it. All three
-are drawn identically on the diagram, and this is currently the only place the
-difference is visible.
+The counts are the point of the first section: how much of the map the
+controller reported directly versus filled in from a second endpoint versus
+you asserted yourself. A link from the topology graph also gets a small
+hollow-circle marker on the diagram itself — see [Reading the
+diagram](#reading-the-diagram) — and an asserted one is drawn dotted, so this
+report and the picture agree rather than the report being the only place the
+distinction shows.
 
 **This report is not safe to share.** It names your devices, addresses and
 networks by design, and it says so at the top. For something you can paste into
