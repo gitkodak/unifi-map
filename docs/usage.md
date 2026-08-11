@@ -243,6 +243,7 @@ shape, or line style, so the diagram survives greyscale printing.
 | Wired link | Solid line |
 | Wireless link | Dashed line |
 | Offline device | Dashed border, `OFFLINE` in the label |
+| Client placed via the topology graph, not its own uplink report | Small hollow circle at the child end of the link |
 
 With `--layout tree`, edge labels are switch port numbers (`port 12`) or the
 radio for wireless clients.
@@ -262,7 +263,10 @@ controller genuinely does not know where something is attached.
 anything behind a non-UniFi box (VMs and containers behind a NAS, or a client on
 a switch the controller does not manage) comes back with no `sw_mac` at all. Those are resolved
 against the controller's own topology graph, where a client can be another
-client's uplink, which is how the console draws them correctly.
+client's uplink, which is how the console draws them correctly. That link is
+still something the controller reported, just from a different endpoint than
+usual, so it gets the small hollow-circle marker from the table above rather
+than the dotted style reserved for what you asserted yourself.
 
 Anything still unresolved after that is anchored to an explicit placeholder,
 rather than left floating (which looks like a bug) or attached to a guessed

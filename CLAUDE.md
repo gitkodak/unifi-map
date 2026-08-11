@@ -1008,20 +1008,41 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   finding should start a conversation, not block an unrelated pull request the
   moment the job is still settling in.
 
-- **Provenance and confidence. Half done.** The *data* exists as of KAN-115:
-  `Node.provenance` and `Edge.provenance` record which endpoint, fallback or
-  override produced everything, and `--report` reads it. What is still true is
-  that the **diagram** does not show it. `asserted` gets a dotted line and
-  nothing else distinguishes observed from inferred, so a client placed from the
-  v2 topology graph and one placed from `stat/sta` are still drawn identically.
-  That remainder is KAN-137 and is now purely a rendering question: which
-  distinctions earn a visual channel, given that colour cannot be the only one
-  and dotted is already spent.
+- **Provenance and confidence. Shipped, as the KAN-137 rendering change.** The
+  data existed since KAN-115: `Node.provenance` and `Edge.provenance` record
+  which endpoint, fallback or override produced everything, and `--report`
+  reads it. What was still true afterward was that the **diagram** did not
+  show it: `asserted` got a dotted line and nothing else distinguished
+  observed from inferred, so a client placed from the v2 topology graph and
+  one placed from `stat/sta` were drawn identically.
 
-  One thing not carried: a fingerprint recovered from a client's *name* (the
-  support-file path) is not distinguished from one the controller reported.
-  `Provenance` describes how a node was placed, not how it was identified, and
-  conflating the two would make the enum mean two things.
+  **The scope turned out narrower than it first read.** Re-reading the
+  `Provenance` enum before touching a renderer showed most of it needs no new
+  channel at all: node provenance (`DEVICE`, `CLIENT`, `SYNTHETIC`) is already
+  carried by `Kind` (shape or artwork already separates device, client and the
+  Internet/placeholder nodes), and `asserted`/`offline` already cover the two
+  node states that aren't implied by kind. `UNPLACED` edges already terminate
+  at the `UNKNOWN_UPLINK_ID` placeholder, which already renders with its own
+  distinct diamond shape. `OVERRIDE` was already dotted. That leaves exactly
+  one real gap: `TOPOLOGY_GRAPH` edges — a client placed via the controller's
+  v2 graph because whatever it's plugged into isn't a UniFi device and so
+  never reported a `sw_mac`/`ap_mac` — were indistinguishable from a directly
+  reported `DEVICE_UPLINK`/`CLIENT_UPLINK`/`WAN` edge.
+
+  **Line style was already spent** (dashed for wireless, dotted for
+  asserted), so the new distinction is a small hollow-circle arrowhead at the
+  child end: `arrowhead=odot` in DOT, `endArrow=oval;endFill=0` in draw.io.
+  Both backends left edges arrow-less before this, so the channel was free,
+  and a shape-based marker composes with the dashed/dotted line styles
+  instead of competing with them — a wireless client placed via the topology
+  graph gets both. `_legend_link_rows` grew a fourth conditional row, matching
+  the existing pattern for "Stated in overrides": present only when such an
+  edge exists.
+
+  One thing not carried, on purpose: a fingerprint recovered from a client's
+  *name* (the support-file path) is not distinguished from one the controller
+  reported. `Provenance` describes how a node was placed, not how it was
+  identified, and conflating the two would make the enum mean two things.
 
 - **A reconciliation report. Shipped as `--report`**, see KAN-115 above. It
   enumerates what did not match rather than only counting it: unplaced clients,

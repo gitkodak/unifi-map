@@ -36,16 +36,12 @@ drawn from a thin one look equally authoritative.
 
   Note that it names a device only where something is wrong with it, so a clean
   map produces a report with no names in it.
-- **Provenance on the diagram itself** (KAN-137). An override-asserted link is
-  drawn dotted; nothing else distinguishes observed from inferred. A client
-  placed from the topology graph, one placed from `stat/sta`, and one whose
-  fingerprint was recovered from its name are drawn identically.
-
-  **The data half of this now exists.** `--report` needed the same facts, so
-  `Node.provenance` and `Edge.provenance` are recorded at the point each
-  decision is made. What is left is purely a rendering question: which
-  distinctions are worth a visual channel, given that colour cannot be the only
-  one and dotted is already spent on asserted.
+- **Provenance on the diagram itself. Shipped** (KAN-137). A client placed via
+  the controller's v2 topology graph, rather than reporting its own uplink, now
+  gets a small hollow-circle arrowhead on that link, in both the SVG/PDF/PNG
+  and draw.io outputs. Everything else `Provenance` distinguishes turned out to
+  already have a channel: node role via `Kind`, asserted via dotted, offline
+  via dashed.
 - **Randomised client MACs** (KAN-129). Every join here is on MAC, so a phone
   rotating its address appears as a new client unrelated to the old one. Explains
   apparent duplicates. Detectable from the locally-administered bit.

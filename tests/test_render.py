@@ -53,6 +53,48 @@ def test_wireless_edges_are_dashed_for_greyscale_readability(snapshot: Snapshot)
     assert [line for line in dot_source.splitlines() if "style=dashed" in line]
 
 
+def _topo_with_topology_graph_edge(also_wireless: bool = False):
+    from unifi_map.model import Edge, Kind, Node, Provenance, Topology
+
+    topo = Topology()
+    topo.add(Node(id="gw", label="gateway", kind=Kind.GATEWAY, provenance=Provenance.DEVICE))
+    topo.add(Node(id="c1", label="direct", kind=Kind.WIRED_CLIENT, provenance=Provenance.CLIENT))
+    topo.add(Node(id="c2", label="inferred", kind=Kind.WIRED_CLIENT, provenance=Provenance.CLIENT))
+    topo.edges.append(Edge(src="c1", dst="gw", provenance=Provenance.CLIENT_UPLINK))
+    topo.edges.append(
+        Edge(
+            src="c2",
+            dst="c1",
+            provenance=Provenance.TOPOLOGY_GRAPH,
+            wireless=also_wireless,
+        )
+    )
+    return topo
+
+
+def test_topology_graph_edges_get_a_hollow_circle_arrowhead():
+    """A client placed via the v2 graph, not its own uplink report, is real but
+    a step removed from what the device itself said — see CLAUDE.md's KAN-137
+    notes. Nothing distinguished it from a directly reported edge before this.
+    """
+    dot_source = render_dot(_topo_with_topology_graph_edge(), "t", TREE)
+    lines = dot_source.splitlines()
+    # Edges render dst -> src (parent -> child), the reverse of how they're
+    # stored, so the topology-graph edge c2->c1 (dst=c1, src=c2) prints as
+    # n_c1 -> n_c2.
+    inferred = [line for line in lines if '"n_c1" -> "n_c2"' in line]
+    direct = [line for line in lines if '"n_gw" -> "n_c1"' in line]
+    assert inferred and "arrowhead=odot" in inferred[0]
+    assert direct and "arrowhead=odot" not in direct[0]
+
+
+def test_topology_graph_marker_composes_with_wireless_dashing():
+    dot_source = render_dot(_topo_with_topology_graph_edge(also_wireless=True), "t", TREE)
+    inferred = next(line for line in dot_source.splitlines() if '"n_c1" -> "n_c2"' in line)
+    assert "arrowhead=odot" in inferred
+    assert "style=dashed" in inferred
+
+
 def test_mac_colons_are_stripped_from_dot_identifiers(snapshot: Snapshot):
     dot_source = render_dot(build_topology(snapshot), "t", TREE)
     # A raw colon in an identifier would parse as a DOT port specifier.
@@ -425,6 +467,14 @@ class TestLegendHonesty:
         assert "Client network (label colour)" in self._legend_text(topo, style, icons)
         assert "Client network (label colour)" not in self._legend_text(topo, TREE)
 
+    def test_topology_graph_row_appears_only_when_such_an_edge_exists(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        # The fixture's edges are all direct reports, so the row must be absent.
+        assert "Inferred from the topology graph" not in self._legend_text(topo, TREE)
+
+        topo = _topo_with_topology_graph_edge()
+        assert "Inferred from the topology graph" in self._legend_text(topo, TREE)
+
 
 class TestApiKeyIsNotCarriedAcrossHosts:
     """`requests` strips `Authorization` on a cross-host redirect and nothing else.
@@ -602,6 +652,49 @@ class TestDrawioLabelsAreNotMarkup:
     def test_our_own_markup_is_still_markup(self):
         # Single-escaped, so draw.io renders real bold rather than showing tags.
         assert "&lt;b&gt;switch&lt;/b&gt;" in self._render("switch")
+
+
+class TestDrawioProvenanceMarker:
+    """The draw.io twin of the DOT `arrowhead=odot` marker: KAN-137."""
+
+    def _render(self, provenance, wireless=False):
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Edge, Kind, Node, Topology
+        from unifi_map.render_drawio import render_drawio
+        from unifi_map.theme import LIGHT
+
+        topo = Topology()
+        topo.add(Node(id="a", label="a", kind=Kind.SWITCH))
+        topo.add(Node(id="b", label="b", kind=Kind.WIRED_CLIENT))
+        topo.edges.append(Edge(src="b", dst="a", provenance=provenance, wireless=wireless))
+        layout = Layout(
+            nodes={
+                "a": Placed(x=0.0, y=0.0, width=10.0, height=10.0),
+                "b": Placed(x=0.0, y=20.0, width=10.0, height=10.0),
+            },
+            width=10.0,
+            height=30.0,
+        )
+        return render_drawio(topo, layout, "t", LIGHT)
+
+    def test_topology_graph_edge_gets_a_hollow_oval_arrow(self):
+        from unifi_map.model import Provenance
+
+        assert "endArrow=oval;endFill=0" in self._render(Provenance.TOPOLOGY_GRAPH)
+
+    def test_a_direct_report_gets_no_arrow(self):
+        from unifi_map.model import Provenance
+
+        xml = self._render(Provenance.CLIENT_UPLINK)
+        assert "endArrow=oval" not in xml
+        assert "endArrow=none" in xml
+
+    def test_marker_composes_with_the_wireless_dash(self):
+        from unifi_map.model import Provenance
+
+        xml = self._render(Provenance.TOPOLOGY_GRAPH, wireless=True)
+        assert "endArrow=oval;endFill=0" in xml
+        assert "dashed=1" in xml
 
 
 class TestDrawioGeometryIsAddressable:

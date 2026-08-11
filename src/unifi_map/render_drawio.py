@@ -16,7 +16,7 @@ from xml.etree import ElementTree as ET
 
 from .assets import IconAsset
 from .layout import Layout
-from .model import Edge, Kind, Node, Topology
+from .model import Edge, Kind, Node, Provenance, Topology
 from .render_dot import _node_id
 from .theme import Theme, network_colors
 
@@ -186,16 +186,24 @@ def _add_node_cells(
 
 
 def _edge_style(edge: Edge, theme: Theme) -> str:
-    style = (
-        "edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;"
-        f"endArrow=none;startArrow=none;strokeColor={theme.edge};"
-        f"fontColor={theme.edge_label};fontSize=9;"
-    )
+    parts = [
+        "edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;",
+        f"strokeColor={theme.edge};fontColor={theme.edge_label};fontSize=9;",
+    ]
+    if edge.provenance is Provenance.TOPOLOGY_GRAPH:
+        # A client placed via the v2 topology graph rather than its own
+        # reported uplink. Independent of the dash styles below, so it
+        # composes with a wireless edge instead of competing with it.
+        # Edges run dst -> src (parent -> child, matching the DOT renderer),
+        # so the child end is the target, i.e. `endArrow`.
+        parts.append("startArrow=none;endArrow=oval;endFill=0;")
+    else:
+        parts.append("startArrow=none;endArrow=none;")
     if edge.asserted:
-        return style + "dashed=1;dashPattern=1 3;"
-    if edge.wireless:
-        return style + "dashed=1;"
-    return style
+        parts.append("dashed=1;dashPattern=1 3;")
+    elif edge.wireless:
+        parts.append("dashed=1;")
+    return "".join(parts)
 
 
 def _add_edge_cell(

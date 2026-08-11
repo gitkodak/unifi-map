@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .assets import IconAsset
-from .model import Kind, Topology
+from .model import Kind, Provenance, Topology
 from .theme import KIND_LABEL, KIND_SHAPE, Theme, network_colors
 
 _CLIENT_KINDS = (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
@@ -290,6 +290,12 @@ def _edge_lines(topo: Topology, style: Style) -> list[str]:
         elif edge.wireless:
             # The wired/wireless distinction must survive greyscale printing.
             attrs.append("style=dashed")
+        if edge.provenance is Provenance.TOPOLOGY_GRAPH:
+            # A client placed via the v2 topology graph rather than its own
+            # reported uplink: real, but a step removed from what the device
+            # itself said. Independent of the line style above, so it composes
+            # with a wireless edge instead of competing for the same channel.
+            attrs.append("arrowhead=odot")
         suffix = f" [{', '.join(attrs)}]" if attrs else ""
         # Emitted parent -> child, the reverse of how edges are stored, so the
         # root lands at the top (rankdir=TB) or the left (rankdir=LR) instead of
@@ -420,6 +426,8 @@ def _legend_link_rows(topo: Topology, theme: Theme) -> list[str]:
     link_styles = [("&#9472;&#9472;", "Wired"), ("- - -", "Wireless")]
     if any(e.asserted for e in topo.edges) or any(n.asserted for n in topo.nodes.values()):
         link_styles.append((". . .", "Stated in overrides"))
+    if any(e.provenance is Provenance.TOPOLOGY_GRAPH for e in topo.edges):
+        link_styles.append(("&#9472;&#9675;", "Inferred from the topology graph"))
     for glyph, label in link_styles:
         rows.append(
             f'<TR><TD ALIGN="RIGHT"><FONT POINT-SIZE="10" COLOR="{theme.edge}" '
