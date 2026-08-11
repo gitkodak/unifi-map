@@ -114,12 +114,28 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
    In that order. Tagging a commit that is not yet on the remote works locally
    and confuses everything afterwards.
 
-8. **Publish the GitHub Release**, from the changelog section for this version.
+8. **`make build`.** Empties `dist/` and writes a fresh wheel and sdist for
+   *this* version. Nothing before this step needs it, but the next one
+   attaches both to the Release, and a stale `dist/` from an earlier version
+   would attach the wrong artifacts silently.
+
+   ```bash
+   make build
+   ```
+
+9. **Publish the GitHub Release**, from the changelog section for this
+   version, with the wheel, sdist and man page attached.
 
    ```bash
    # The section body, without its `## X.Y.Z - DATE` heading.
-   gh release create vX.Y.Z --title vX.Y.Z --notes-file notes.md --verify-tag --latest
+   gh release create vX.Y.Z --title vX.Y.Z --notes-file notes.md \
+     --verify-tag --latest dist/* unifi-map.1
    ```
+
+   The attachments are what let someone `pip install <url>` straight off the
+   Release page and get a working `man unifi-map`, with no PyPI account and no
+   checkout — see `docs/install-from-github.md`. Skip them and `make build`
+   above is dead weight; nothing else in this checklist reads `dist/`.
 
    **A tag is not a Release.** They are separate objects: a tag leaves the
    Releases sidebar empty, publishes no notes page, and reports nothing to
@@ -135,13 +151,13 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
    `--verify-tag` refuses to invent a tag that does not exist, which is what
    keeps this step honest about following step 7 rather than replacing it.
 
-9. **Mirror to GitLab.**
+10. **Mirror to GitLab.**
 
    ```bash
    ~/Development/admin-scripts/scripts/mirror-github-to-gitlab.sh -q unifi-map
    ```
 
-10. **Verify, rather than assume.** All four refs at the same commit, the tag on
+11. **Verify, rather than assume.** All four refs at the same commit, the tag on
    both remotes, the tag pointing at the version you think it does, and the
    Release present and marked latest.
 

@@ -214,9 +214,14 @@ help and what not to send.
   attestations, PyPI-shaped packaging metadata — as out of scope until that
   changes, and do not add any of them speculatively.
 
-  Also still open, and cheap either way: whether a release should *attach* the
-  built artifacts to its GitHub Release. That gets `pip install <url>` without
-  owning anything.
+  **Attaching the built artifacts to the GitHub Release, the other half of
+  this that was "still open", shipped in 0.10.0.** `RELEASING.md` now runs
+  `make build` and attaches `dist/*` and `unifi-map.1` to the Release, so
+  `pip install <url>` works two ways without owning a PyPI name: a
+  `git+https://` install against a tag, or a release wheel by URL. See
+  `docs/install-from-github.md`. This is still not a PyPI decision — nothing
+  here needs an account, a name, or a promise not to break a published
+  version — which is exactly why it stayed separable from the question above.
 
 ## Considered and not planned
 

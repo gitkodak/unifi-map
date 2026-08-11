@@ -216,6 +216,13 @@ man ./unifi-map.1
 It is generated from the argument parser by `make docs`, and `make check` fails
 if it has gone stale.
 
+### Installing from GitHub, no checkout needed
+
+`pip install git+https://...` against a tag, or a release wheel by URL, both
+work with no PyPI account involved. See
+[Installing from GitHub](docs/install-from-github.md) for both, and for how
+`man unifi-map` reaches you either way from 0.10.0 on.
+
 ## Try it without touching your network
 
 A synthetic dataset ships in `examples/demo/`, so you can see the output before
@@ -275,6 +282,7 @@ getting a first map out of it. Everything else is a page of its own.
 | [Overrides](docs/overrides.md) | Stating what the controller cannot see: unreported links, nesting, corrections. |
 | [Artwork](docs/artwork.md) | Where the pictures come from, how they are matched, and the licensing position. |
 | [Sharing a map](docs/sharing.md) | `--obfuscate`, and the report meant for a bug report. |
+| [Installing from GitHub](docs/install-from-github.md) | `pip install` from a tag or a release wheel, no PyPI and no checkout. |
 | [What has been checked](docs/verification.md) | What was verified directly, what was not, and the caveats. |
 | [Security](SECURITY.md) | The credential model, what reaches Ubiquiti's CDN, support-file risk. |
 | [Contributing](CONTRIBUTING.md) | Including which data would genuinely help. |

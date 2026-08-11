@@ -1251,10 +1251,17 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   decline is the security-review finding `SECURITY.md` and `AI_DISCLOSURE.md`
   both point at, so it must not be flipped as a side effect of something else.
 
-  Still true, and still on the publishing side of the line if it is ever
-  crossed: the man page would need placing in `share/man/man1` for
-  `man unifi-map` to work rather than `man ./unifi-map.1`. It is not in the
-  wheel today, checked rather than assumed.
+  **The man page is in the wheel as of 0.10.0**, via
+  `[tool.setuptools.data-files]` pointing `share/man/man1` at the committed
+  `unifi-map.1`. This turned out not to be "on the publishing side of the
+  line" the way it read here before: it doesn't need PyPI, an owned name, or
+  any promise about future versions, only a wheel that exists somewhere —
+  which distributing one via a GitHub Release already gives it. Verified
+  three ways rather than assumed: `man unifi-map` resolves with no `MANPATH`
+  set immediately after activating a venv the wheel was installed into (both
+  macOS's and GNU man-db's `man` derive a search path from `$PATH`
+  automatically), the file survives into the sdist, and a wheel built *from*
+  that sdist still carries it.
 
 - **The `UDM_*` environment aliases are gone**, removed in 0.9.0 after warning
   since 0.7.0. `config.py` reads one name per setting and `_warn_deprecated` is

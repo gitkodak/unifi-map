@@ -35,6 +35,14 @@ unifi-map = "unifi_map.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# So `man unifi-map` works after a wheel install, not just from a clone. Lands
+# at $PREFIX/share/man/man1, which both macOS's and GNU man-db's `man` search
+# automatically once the venv is on PATH -- no MANPATH configuration needed.
+# Verified through a real wheel install and through a wheel built from the
+# sdist, not assumed.
+[tool.setuptools.data-files]
+"share/man/man1" = ["unifi-map.1"]
+
 # One place defines the version. Duplicating it here is how the two drift.
 [tool.setuptools.dynamic]
 version = {attr = "unifi_map.__version__"}
