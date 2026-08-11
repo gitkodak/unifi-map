@@ -78,8 +78,7 @@ told something untrue and may have acted on it.
   afterwards. The tool has always refused to guess; until now that refusal was
   invisible, because a client the controller reported directly and one recovered
   from a second endpoint were drawn identically and with equal apparent
-  authority. The diagram still draws them the same way, and this is the first
-  place the difference can be seen.
+  authority. The diagram itself gains the same distinction below.
 
   **It is not safe to share, and says so at the top.** It names your devices,
   addresses and networks by design. `unifi-map shape` remains the one built from
@@ -90,6 +89,16 @@ told something untrue and may have acted on it.
   It describes the map as drawn, running after overrides and after
   `--obfuscate`, so pairing it with `--obfuscate` gives a report carrying the
   same placeholders as the shared diagram.
+
+- **A client placed via the controller's own topology graph, rather than its
+  own reported uplink, is now marked on the diagram itself.** That link gets a
+  small hollow-circle arrowhead at the child end, in every backend that draws
+  pixels (`svg`, `pdf`, `png`, `drawio`) — the one distinction `--report`
+  surfaced in text but the map still drew like any other link. Every other
+  provenance value turned out to already have a channel: node role through
+  `Kind`, an override through the existing dotted style, offline through
+  dashed. Composes with the wireless dashed style rather than competing with
+  it, and a legend row explains the marker when the map uses one.
 
 - **An interactive HTML viewer, `-f html`.** A single self-contained file:
   scroll or drag to pan, pinch or Ctrl+scroll to zoom, search to dim
