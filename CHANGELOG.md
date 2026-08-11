@@ -56,6 +56,16 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.10.1 - 2026-08-11
+
+### Changed
+
+- **Future releases are GPL-3.0-only.** The project has moved from the MIT
+  license so that redistributed modified versions must remain open source under
+  the GPL. Earlier releases remain available under the MIT license they were
+  originally published with. The bundled Panzoom library remains MIT-licensed,
+  with its required notice preserved.
+
 ### Fixed
 
 - **`--report` explained `stat/device` and `stat/sta` to nobody.** Both are

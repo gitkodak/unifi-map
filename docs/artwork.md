@@ -229,4 +229,6 @@ If you'd rather not fetch anything, use `--icons builtin`.
 UniFi and Ubiquiti are trademarks of Ubiquiti Inc. This project is not
 affiliated with or endorsed by Ubiquiti.
 
-The code is MIT licensed; see [LICENSE](../LICENSE).
+The code is GPL-3.0-only; see [LICENSE](../LICENSE). The bundled Panzoom
+library remains under its own MIT license, whose notice is preserved in
+`src/unifi_map/vendor_panzoom.py`.

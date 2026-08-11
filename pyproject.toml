@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "unifi-map"
 dynamic = ["version"]
 description = "Export a UniFi network topology as zoomable vector diagrams and editable draw.io files"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "requests>=2.31",
