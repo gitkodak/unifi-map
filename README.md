@@ -15,6 +15,8 @@ the whole network is exactly what makes the labels unreadable.
 So this doesn't scrape pixels. The UI draws that map from JSON endpoints on the
 console; this pulls the same data and renders it properly.
 
+![A short showcase of unifi-map output: exported topology, readable tree layout, asserted overrides, and obfuscated sharing output](docs/images/unifi-map-promo.gif)
+
 **This is a UniFi Network tool.** It reads one Protect endpoint, purely to tell
 a camera from an Access reader when the hardware names collide, and touches
 nothing else in the suite. Access readers and Talk phones still appear, as
