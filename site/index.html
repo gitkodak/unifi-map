@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Export UniFi Network topology to SVG, PDF, PNG, HTML, DOT, Mermaid, JSON, and editable draw.io diagrams.">
+    <title>unifi-map — export your UniFi topology</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <nav aria-label="Primary navigation">
+        <a class="brand" href="#top">unifi-map</a>
+        <div class="nav-links">
+          <a href="#outputs">Outputs</a>
+          <a href="#start">Get started</a>
+          <a href="https://github.com/gitkodak/unifi-map">GitHub ↗</a>
+        </div>
+      </nav>
+
+      <section class="hero" id="top">
+        <div class="eyebrow">OPEN-SOURCE · READ-ONLY · LOCAL</div>
+        <h1>Export the topology UniFi already knows.</h1>
+        <p class="lede">
+          Turn UniFi Network's clipped, view-only topology into a diagram you can
+          zoom, print, edit, explore, or safely share.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="#start">Get started</a>
+          <a class="button secondary" href="https://github.com/gitkodak/unifi-map/releases">Download a release ↗</a>
+        </div>
+        <p class="trust">No controller changes. No cloud relay. <code>GET</code> is the only HTTP method in the source.</p>
+      </section>
+
+      <section class="showcase" aria-label="Examples of unifi-map output">
+        <img src="assets/unifi-map-promo.gif" alt="Animated examples of exported UniFi topology, readable tree layout, asserted overrides, and obfuscated sharing output.">
+      </section>
+
+      <section class="problem">
+        <p class="section-label">THE PROBLEM</p>
+        <h2>A screenshot is not network documentation.</h2>
+        <p>
+          UniFi's topology is a pan-and-zoom canvas inside a fixed viewport. A
+          full-page capture only gets the visible region; zooming out enough to
+          fit a real network makes its labels useless. unifi-map reads the same
+          local JSON data the console uses and renders the result properly.
+        </p>
+      </section>
+
+      <section id="outputs">
+        <p class="section-label">CHOOSE THE RIGHT OUTPUT</p>
+        <h2>One topology, useful in more than one place.</h2>
+        <div class="formats">
+          <article>
+            <h3>SVG · PDF · PNG</h3>
+            <p>Portable diagrams for zooming, printing, and the places that insist on an image.</p>
+          </article>
+          <article>
+            <h3>draw.io</h3>
+            <p>Editable shapes, already positioned, ready to rearrange and annotate.</p>
+          </article>
+          <article>
+            <h3>HTML</h3>
+            <p>A self-contained explorer for busy maps: pan, zoom, search, trace a client path, and collapse leaves.</p>
+          </article>
+          <article>
+            <h3>DOT · Mermaid · JSON</h3>
+            <p>Graphviz source, Markdown-native diagrams, and a stable normalized topology for programs.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="features">
+        <div>
+          <p class="section-label">DESIGNED FOR REAL NETWORKS</p>
+          <h2>Keep the useful details. Make uncertainty visible.</h2>
+        </div>
+        <ul>
+          <li>Uses real Ubiquiti device artwork when available, with built-in offline fallbacks.</li>
+          <li>Includes clients, not only the infrastructure skeleton.</li>
+          <li>Lets you assert links and correct controller mistakes without passing claims off as observations.</li>
+          <li><code>--obfuscate</code> replaces names, addresses, MACs, SSIDs, VLAN names, and ISP details while preserving the topology.</li>
+        </ul>
+      </section>
+
+      <section class="start" id="start">
+        <p class="section-label">START WITHOUT CREDENTIALS</p>
+        <h2>Map a support file instead of a controller.</h2>
+        <p>
+          Generate a UniFi support file, then render it locally. No API key is
+          needed, and the command below makes no network request.
+        </p>
+        <pre><code>unifi-map all --support-file support-XXXX.tgz --offline --icons builtin</code></pre>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/gitkodak/unifi-map#install">Install unifi-map ↗</a>
+          <a class="button secondary" href="https://github.com/gitkodak/unifi-map/blob/main/docs/support-files.md">Read the support-file guide ↗</a>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p><strong>unifi-map</strong> is MIT-licensed and not affiliated with Ubiquiti.</p>
+      <a href="https://github.com/gitkodak/unifi-map">Source, releases, and full documentation on GitHub ↗</a>
+    </footer>
+  </body>
+</html>
