@@ -1639,6 +1639,52 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   `==`-anchored pattern misses it. The first attempt at the fix failed exactly
   there, and was caught only by running it.
 
+## License and project values
+
+Three releases in one day, 2026-08-11, changed what redistributing this
+project requires: MIT (through 0.9.x) → **GPL-3.0-only** (0.10.1) →
+**AGPL-3.0-only** (0.11.0). `CHANGELOG.md` carries the reasoning behind the
+second step and it is worth keeping here rather than only there: GPLv3 stops a
+closed distributed fork, but not a modified version that is only ever run as a
+network service and never distributed as software at all — nothing in GPLv3
+reaches that case. AGPLv3 adds the piece GPLv3 lacks: an operator of a modified
+version must offer corresponding source to the people who interact with it over
+a network, distributed or not.
+
+**Each release stays under the license it shipped with; this is not
+retroactive.** Versions published as MIT are still MIT. 0.10.1 and 0.10.2 are
+still GPL-3.0-only. Only 0.11.0 and later are AGPL-3.0-only. Don't describe an
+earlier tag as AGPL, and don't relicense an old tag after the fact — that is
+not how any of these licenses work and would misrepresent what someone who
+already took a copy actually received. The bundled `vendor_panzoom.py` is
+third-party and stays MIT regardless, with its own notice preserved; the
+project's relicensing does not touch it.
+
+The same day, `VALUES.md` (commit 72fa64e) states that unifi-map is a
+socialist free-software project: technical means placed in the hands of the
+people who use them rather than turned into private leverage over them. Its
+commitments are concrete and each is checkable against the repository, not
+just aspirational: AGPL-3.0-only reciprocity, no proprietary edition or
+feature-gated "open core", no mandatory account or telemetry business model,
+no private sponsor channel controlling the roadmap, local-first with no cloud
+relay operated by this project, open participation regardless of political
+identity or affiliation, and an intention toward collective governance once a
+sustained contributor collective exists — not a governance structure invented
+in advance of having anyone to govern with.
+
+**Read `VALUES.md` before proposing anything that touches licensing, hosting,
+or a business model**, and weigh it the way every other standing decision in
+this file is weighed: as something to work within, not to relitigate from
+general open-source or startup defaults. A hosted/SaaS variant, telemetry,
+a paid tier, a CLA that assigns contributor IP, or a relicense to something
+permissive would each need to be argued against this document specifically,
+by Jason, the same way the declined items under "Open work" were — not
+proposed as though the project were starting from a blank slate. This
+constrains licensing and business-model suggestions specifically; it is not a
+license to second-guess unrelated, already-settled engineering calls elsewhere
+in this file (static typing, coverage gating, the lock-file decision, and so
+on all stand on their own reasoning).
+
 ## Tone is tiered, deliberately
 
 An external review flagged the register as inconsistent, alternating between
@@ -1649,7 +1695,7 @@ inconsistency is intended, but it is not uniform, and it has a shape:
 | --- | --- |
 | Loosest, personal, first person | `AI_DISCLOSURE.md`, `HUMAN_INPUT.md` |
 | Relaxed but restrained | `README.md` |
-| Plain and formal | `SECURITY.md`, and everything else: `CONTRIBUTING.md`, `CHANGELOG.md`, `RELEASING.md`, `docs/`, `examples/`, issue templates, code comments |
+| Plain and formal | `SECURITY.md`, and everything else: `CONTRIBUTING.md`, `CHANGELOG.md`, `RELEASING.md`, `VALUES.md`, `docs/`, `examples/`, issue templates, code comments |
 
 `SECURITY.md` in particular takes none of it. Someone reading it is deciding
 whether to point this at their network, and a joke in the middle of a threat
