@@ -56,6 +56,8 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.10.0 - 2026-08-10
+
 ### Added
 
 - **`--report`, saying how much of the map to trust.** A map drawn from a
