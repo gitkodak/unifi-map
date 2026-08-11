@@ -55,6 +55,14 @@ h2 { font-size: clamp(2rem, 4vw, 3.25rem); letter-spacing: -0.045em; line-height
 h3 { font-size: 1.08rem; letter-spacing: -0.02em; margin-bottom: 0.55rem; }
 
 .lede { color: var(--muted); font-size: 1.25rem; max-width: 650px; }
+.freedom {
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+  margin: 1.8rem 0;
+  max-width: 690px;
+  padding: 0.2rem 0 0.2rem 1rem;
+}
+.freedom strong { color: var(--ink); }
 .trust { color: var(--muted); font-size: 0.92rem; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin: 1.8rem 0; }
