@@ -56,6 +56,15 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+### Changed
+
+- **The project now states its socialist free-software values.** `VALUES.md`,
+  the README, and the project site explain the commitment to public ownership,
+  AGPL reciprocity, a welcoming contributor community, and collective governance
+  when a sustained contributor collective exists. A hammer-and-sickle mark
+  identifies that statement without making political identity a condition of
+  use or contribution.
+
 ## 0.11.0 - 2026-08-11
 
 ### Changed

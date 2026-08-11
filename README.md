@@ -288,6 +288,7 @@ getting a first map out of it. Everything else is a page of its own.
 | [What has been checked](docs/verification.md) | What was verified directly, what was not, and the caveats. |
 | [Security](SECURITY.md) | The credential model, what reaches Ubiquiti's CDN, support-file risk. |
 | [Contributing](CONTRIBUTING.md) | Including which data would genuinely help. |
+| [☭ Values](VALUES.md) | The project's socialist free-software commitments and path to collective governance. |
 | [Planned work](TODO.md) | What is coming, what is blocked and on what. |
 
 ## License

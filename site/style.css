@@ -86,6 +86,10 @@ section:not(.hero):not(.showcase) { padding: 7rem 0; }
 .features ul { margin: 0; padding-left: 1.2rem; }
 .features li { color: var(--muted); margin-bottom: 1rem; }
 
+.values { border-top: 1px solid var(--line); max-width: 770px; }
+.values > p:not(.section-label) { color: var(--muted); font-size: 1.08rem; }
+.values-mark { color: var(--accent); font-size: 1.35em; vertical-align: -0.08em; }
+
 .start { background: linear-gradient(125deg, #122d42, #101b27); border: 1px solid var(--line); margin: 1.5rem 0 5rem; padding: 3.25rem !important; }
 pre { background: #071017; border: 1px solid #294055; overflow-x: auto; padding: 1rem; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
