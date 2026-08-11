@@ -56,6 +56,14 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+### Fixed
+
+- **`--report` explained `stat/device` and `stat/sta` to nobody.** Both are
+  UniFi's own internal endpoint names, printed bare with no gloss, on the
+  assumption a reader already knew the controller's REST API. Now explained
+  inline in the report itself and at length in `docs/usage.md`, including
+  what "sta" (short for "station") actually means.
+
 ## 0.10.0 - 2026-08-10
 
 ### Added
