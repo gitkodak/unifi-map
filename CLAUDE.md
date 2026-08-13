@@ -1628,16 +1628,69 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   comment. A tag is mutable, so whoever controls the action decides what runs.
   Dependabot advances the pins and preserves the SHA form; it does not revert
   them to tags.
-- **Four workflows, and they answer different questions.** `ci.yml` is
+- **Five workflows, and they answer different questions.** `ci.yml` is
   correctness and quality, `codeql.yml` is security data flow,
   `scorecard.yml` is supply-chain hygiene of the repository itself (branch
-  protection, pinned dependencies, whether a security policy exists), and
-  `dependabot-auto-merge.yml` is bookkeeping. Do not consolidate them:
-  `codeql.yml` and `scorecard.yml` are the only two granted
-  `security-events: write`, each to upload its own SARIF to code scanning,
-  and that scoping is the point. (`pages.yml` also exists, for the project
-  site; it isn't part of this group because it answers neither a quality nor
-  a security question.)
+  protection, pinned dependencies, whether a security policy exists),
+  `cifuzz.yml` is fuzzing (KAN-194, see below), and `dependabot-auto-merge.yml`
+  is bookkeeping. Do not consolidate them: `codeql.yml` and `scorecard.yml`
+  are the only two granted `security-events: write`, each to upload its own
+  SARIF to code scanning, and that scoping is the point. (`pages.yml` also
+  exists, for the project site; it isn't part of this group because it
+  answers neither a quality nor a security question.)
+
+- **Fuzzing: `cifuzz.yml`, ClusterFuzzLite, self-hosted rather than an OSS-Fuzz
+  application.** Prompted by OSSF Scorecard scoring Fuzzing at 0. OSS-Fuzz
+  proper means a second repository (`google/oss-fuzz`) to keep in sync and an
+  application/review step; ClusterFuzzLite runs the same fuzzing engine
+  (libFuzzer via Atheris) inside this repo's own GitHub Actions and satisfies
+  the same Scorecard check.
+
+  **Target: `support.py`'s archive parser, and nothing else yet.** It is the
+  one piece of code this project already treats as hostile input by its own
+  threat model -- "Support files are attacker-supplied, and the parsing
+  assumes it" is a whole section above -- and fuzzing it exercises both layers
+  in one harness: the tar/gzip-format layer (`_read_members`'s entry, size and
+  total caps) and the JSON/data-shape layer underneath (`_load_json` and
+  everything that trusts the parsed shape: `_device_sites`, `_pick_site`,
+  `_networkconf`, `_parse_leases`, `_parse_neighbours`, `_dpi_hosts`,
+  `_client_active`). `client.py` and `model.py` are in the trigger's path
+  filter because `Snapshot`'s shape is the one thing `support.py` imports, but
+  nothing there is fuzzed directly.
+
+  **The harness writes each candidate to a temp file rather than fuzzing in
+  memory.** `load_support_file(path: Path, ...)` opens the archive itself via
+  `tarfile.open(path, "r|gz")`; there is no file-object entry point to call
+  instead. `SupportFileError` is swallowed as the library's own "not a valid
+  archive" signal; anything else escaping is a real finding, not something to
+  catch and hide.
+
+  **The seed corpus is generated at build time (`make_seed_corpus.py`), not
+  committed.** A blind mutation engine starting from nothing spends nearly all
+  its budget failing the gzip magic-byte check and never reaches the
+  interesting logic underneath; one small valid archive gets it past that gate
+  for free. Generating it at build time rather than committing a binary `.tgz`
+  keeps `Binary-Artifacts` at 10 and matches this project's standing rule
+  against committing generated/fetched binaries -- the same reasoning that
+  keeps Ubiquiti's artwork out of the repo applies here even though this
+  binary is entirely ours. The seed is deliberately smaller and less realistic
+  than `tests/test_support.py`'s `support_archive` fixture: it only needs to
+  be valid enough to reach the code worth fuzzing, and a smaller seed mutates
+  and executes faster. Standalone rather than importing the test fixture,
+  since `tests/` is not part of the installed package and is a fragile thing
+  for build-time infrastructure to depend on.
+
+  **PR-triggered only, `code-change` mode, for now.** A scheduled/batch job
+  would fuzz for longer and catch a regression even without a triggering PR,
+  but needs cross-run corpus persistence in cloud storage -- a GCP project, a
+  service account, a bucket -- which is real infrastructure this project does
+  not otherwise depend on. Deliberately not added yet; revisit if the PR-mode
+  run ever finds something a batch run would have caught sooner.
+
+  `.clusterfuzzlite/*.py` is in `sonar.sources` alongside `scripts/**` for the
+  same reason as the coverage exclusion below it: real maintained Python worth
+  analyzing, but not reachable from pytest, so counting it toward coverage
+  would only measure the gap rather than anything meaningful.
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was
