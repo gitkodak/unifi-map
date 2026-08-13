@@ -50,8 +50,14 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq graphviz
 
       - name: Install
-        # Do not execute package build code from dependency source distributions.
-        run: 'pip install --only-binary=:all: -e ".[dev]"'
+        # Third-party dependencies come from a hashed lock (KAN-191); the local
+        # package cannot be, since --require-hashes rejects editable/local
+        # installs outright, so it is a second, unhashed --no-deps install of
+        # code this repository already owns. Do not execute package build code
+        # from dependency source distributions.
+        run: |
+          pip install --require-hashes -r requirements/ci.txt
+          pip install --no-deps --only-binary=:all: -e .
 
       - name: Format
         run: python -m ruff format --check .
@@ -122,34 +128,30 @@ jobs:
         # start a conversation, not block an unrelated pull request from
         # somebody who cannot fix it.
         #
-        # This audits the dependency closure, from a requirements file, rather
-        # than whatever happens to be installed. The previous version installed
-        # the project into the runner's own environment and audited that, which
-        # never worked: `unifi-map` is not on PyPI, so pip-audit reported that
-        # it could not be audited, `--strict` made that a failure, and
+        # This audits requirements/ci.txt (KAN-191), the hashed lock covering
+        # the dev and svg extras plus pip-audit itself, rather than whatever
+        # happens to be installed. The previous version installed the project
+        # into the runner's own environment and audited that, which never
+        # worked: `unifi-map` is not on PyPI, so pip-audit reported that it
+        # could not be audited, `--strict` made that a failure, and
         # `continue-on-error` swallowed it. A real advisory and a clean tree
         # produced the same ignored red for as long as the job existed.
         #
-        # pip, setuptools and wheel are excluded as well: they are the venv's
-        # own tooling rather than anything this project depends on, and an
-        # advisory against the runner's bundled pip is not actionable here.
+        # The lock covers dev tooling (pytest, ruff) as well as the svg extra
+        # now, a wider net than the `.[svg]`-only closure this job used to
+        # build by hand; that is a deliberate side effect of sharing one lock
+        # with the check job rather than maintaining two nearly-identical ones.
         #
-        # The exclusion matches the name followed by any separator, not just
-        # `==`. A locally installed project freezes as `unifi-map @ file://...`
-        # and an `==`-anchored pattern misses it, which is how the first attempt
-        # at this fix still failed.
+        # pip is excluded: it is the venv's own tooling rather than anything
+        # this project depends on, and an advisory against the runner's
+        # bundled pip is not actionable here. setuptools and wheel no longer
+        # need excluding -- neither is a transitive dependency of anything in
+        # the lock, so they never appear in the freeze in the first place.
         continue-on-error: true
         run: |
-          python -m pip install --quiet pip-audit
           python -m venv /tmp/depsenv
-          # `.[svg]` rather than `.`: the svg extra is a user-facing feature, so
-          # CairoSVG and its transitive packages need auditing too, and the
-          # extra's closure is a superset of the base one. Installing only `.`
-          # audited requests and Pillow while leaving seven packages unchecked.
-          /tmp/depsenv/bin/pip install --quiet '.[svg]'
-          /tmp/depsenv/bin/pip freeze \
-            | grep -viE '^(unifi[-_]map|pip|setuptools|wheel)([=@ ]|$)' \
-            > /tmp/requirements.txt
+          /tmp/depsenv/bin/pip install --quiet --require-hashes -r requirements/ci.txt
+          /tmp/depsenv/bin/pip freeze | grep -viE '^pip([=@ ]|$)' > /tmp/requirements.txt
           echo "Auditing:"
           sed 's/^/  /' /tmp/requirements.txt
-          pip-audit --strict --progress-spinner off -r /tmp/requirements.txt
+          /tmp/depsenv/bin/pip-audit --strict --progress-spinner off -r /tmp/requirements.txt

@@ -1,0 +1,5 @@
+# Extra CI tooling that pip-compile's --extra flags on pyproject.toml cannot
+# express, because it is not a dependency of the package itself. Merged into
+# the same lock as the dev/svg extras (see `make lock`) so the whole CI
+# toolchain is one hashed file for Dependabot to track.
+pip-audit

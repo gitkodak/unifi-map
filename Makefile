@@ -1,5 +1,5 @@
 .PHONY: help check format lint test map fetch render tree offline dark demo \
-        demo-dark demo-overrides demo-images demo-snapshot docs build clean
+        demo-dark demo-overrides demo-images demo-snapshot docs build lock clean
 
 VENV  := .venv
 PY    := $(VENV)/bin/python
@@ -27,6 +27,7 @@ help:
 	@echo "make docs           regenerate the flag reference and man page from the parser"
 	@echo "make dark     render from cache in the dark theme"
 	@echo "make build    build a wheel and sdist into dist/"
+	@echo "make lock     regenerate requirements/ci.txt, CI's hashed dependency lock"
 	@echo "make clean    remove out/, dist/ and caches"
 
 $(STAMP): pyproject.toml
@@ -109,6 +110,20 @@ build: $(STAMP)
 	$(PY) -m build
 	@echo
 	@echo "Install it with:  pip install dist/*.whl"
+
+# Hashed lock for everything CI installs: the dev and svg extras plus
+# pip-audit, which pip-compile's --extra flags cannot reach since it is not a
+# dependency of this package. KAN-191. Not the local package itself -- `pip
+# install --require-hashes` rejects editable/local installs outright, so ci.yml
+# installs unifi-map separately with --no-deps once this lock is in place.
+#
+# Compiled with whichever interpreter is on PATH as python3, which may be
+# newer than the 3.11 floor this project claims; the CI matrix (3.11-3.13) is
+# the real check that a version this picked is not too new for the floor.
+lock: $(STAMP)
+	$(VENV)/bin/pip install -q pip-tools
+	$(VENV)/bin/pip-compile --extra dev --extra svg --generate-hashes --allow-unsafe \
+		--strip-extras --output-file=requirements/ci.txt pyproject.toml requirements/ci.in
 
 clean:
 	rm -rf out dist build .pytest_cache .ruff_cache

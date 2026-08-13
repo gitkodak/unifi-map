@@ -16,3 +16,15 @@ updates:
       interval: monthly
     commit-message:
       prefix: "deps"
+
+  # requirements/ci.txt (KAN-191), the hashed lock CI installs from. Tracked
+  # as a second entry rather than relying on the "/" entry above to discover a
+  # requirements/ subdirectory on its own: pip-compile's header comment in the
+  # file is what lets Dependabot re-run compilation on a bump rather than just
+  # rewriting the pin, so this only works because `make lock` leaves it there.
+  - package-ecosystem: pip
+    directory: "/requirements"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps"
