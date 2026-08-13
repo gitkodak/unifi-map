@@ -9,6 +9,18 @@ updates:
       interval: monthly
     commit-message:
       prefix: "ci"
+    groups:
+      # init and analyze in codeql.yml must run the same CodeQL Action
+      # version -- a mismatch fails the job outright ("Loaded a configuration
+      # file for version X, but running version Y"). Dependabot otherwise
+      # treats each `uses:` subpath as an independent dependency and opens a
+      # separate PR per one, which is exactly how that mismatch happened the
+      # first time (PRs bumping init and analyze arrived separately).
+      # upload-sarif is unaffected by the pairing but shares the same repo
+      # and version stream, so it rides along rather than drifting.
+      codeql-action:
+        patterns:
+          - "github/codeql-action/*"
 
   - package-ecosystem: pip
     directory: "/"

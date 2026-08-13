@@ -74,7 +74,15 @@ jobs:
           fi
 
       - name: Analyze with SonarQube Cloud
-        if: matrix.python-version == '3.12'
+        # Skipped for Dependabot: GitHub keeps Dependabot-triggered runs on a
+        # separate secret store from ordinary Actions secrets (same reasoning
+        # as the read-only GITHUB_TOKEN noted in dependabot-auto-merge.yml),
+        # so SONAR_TOKEN is empty here regardless of what's configured in repo
+        # settings. Sonar analyses this project's own source, not a
+        # dependency's, so a version-bump PR has nothing for it to find
+        # anyway -- unlike the read-only token, this isn't worth granting
+        # Dependabot secret access to route around.
+        if: matrix.python-version == '3.12' && github.actor != 'dependabot[bot]'
         uses: SonarSource/sonarqube-scan-action@c7ee0f9df90b7aa20e8dcf9695dcfe2e7da5b4f2  # v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

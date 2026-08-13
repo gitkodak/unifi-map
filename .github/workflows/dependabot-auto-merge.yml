@@ -14,12 +14,8 @@ name: Dependabot auto-merge
 
 on: pull_request
 
-# Least privilege: enough to approve and queue a merge, nothing else. Note that
-# workflows triggered by Dependabot get a read-only token unless the permissions
-# are granted explicitly here.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   auto-merge:
@@ -27,6 +23,14 @@ jobs:
     runs-on: ubuntu-latest
     # Anyone can open a pull request. Only Dependabot's get this treatment.
     if: github.actor == 'dependabot[bot]'
+    # Least privilege: enough to approve and queue a merge, nothing else. Note
+    # that workflows triggered by Dependabot get a read-only token unless the
+    # permissions are granted explicitly here. Job-scoped rather than
+    # workflow-scoped, even though there is only one job: OSSF Scorecard's
+    # Token-Permissions check specifically rewards the narrower form.
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       # This action is the guard's own dependency, which makes it the one bump
       # in this repository worth reading rather than waving through: a change to

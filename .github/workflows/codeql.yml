@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: codeql-${{ github.ref }}
@@ -29,14 +28,23 @@ jobs:
   analyze:
     name: CodeQL
     runs-on: ubuntu-latest
+    # Job-scoped rather than workflow-scoped, even though there is only one
+    # job: OSSF Scorecard's Token-Permissions check specifically rewards the
+    # narrower form.
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - uses: github/codeql-action/init@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3.37.6
+      # init and analyze must stay on the same CodeQL Action version, or the
+      # job fails outright with a config/runtime version mismatch. Grouped in
+      # dependabot.yml so a bump always lands both together.
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3  # v4.37.6
         with:
           languages: python
           build-mode: none
 
-      - uses: github/codeql-action/analyze@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3.37.6
+      - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3  # v4.37.6
         with:
           category: "/language:python"
