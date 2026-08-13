@@ -43,6 +43,13 @@ If you are checking it in a script, check the exit code rather than eyeballing
 the output. Piping `pytest` into something that discards its status will hide a
 failure, which has happened here before.
 
+**New functionality needs tests in the same pull request that adds it**,
+covering the behavior described in the changelog entry, not just the code
+path. A passing suite that never exercised the new behavior is worse than an
+obviously-missing test, because it looks like coverage. `CLAUDE.md` has a
+section on mutation-testing a guard before trusting it, worth reading before
+writing one.
+
 ## Rules that are not obvious
 
 These exist for reasons, and `CLAUDE.md` has the longer version.
