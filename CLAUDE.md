@@ -1060,9 +1060,25 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   and probably fine, but `sysid_for_name()` scans the catalogue per candidate.
   Check before claiming it scales.
 
-- **No dependency lock file.** Deliberate for now: hashed constraints are real
-  ongoing maintenance for a dev-only benefit, and Dependabot covers staying
-  current. Revisit if this ever ships releases people install.
+- **Dependency lock file: reversed 2026-08-13, by Jason directly, not a
+  reviewer.** `requirements/ci.txt` is a hashed lock (`pip-compile
+  --generate-hashes`, KAN-191), covering everything CI installs: the `dev` and
+  `svg` extras plus `pip-audit`, which pip-compile's `--extra` flags can't
+  reach on their own since it isn't a dependency of this package (folded in
+  via `requirements/ci.in`). `make lock` regenerates it. `ci.yml`'s three
+  `pip install` call sites now read `--require-hashes -r requirements/ci.txt`;
+  the local package itself is a second, unhashed `--no-deps` install, since
+  `--require-hashes` rejects editable/local installs outright regardless of
+  what else is on the command line.
+
+  Below is the original decline and every attempt to revisit it, kept because
+  the reasoning that finally moved it is worth knowing: none of the earlier
+  attempts held up either, and this one didn't reverse the decision so much as
+  answer the actual objection.
+
+  **Original, deliberate for now:** hashed constraints are real ongoing
+  maintenance for a dev-only benefit, and Dependabot covers staying current.
+  Revisit if this ever ships releases people install.
 
   This used to say "Dependabot **and the advisory job** cover staying current".
   Half of that was untrue at the time: the advisory job had never reported
@@ -1082,11 +1098,24 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   wheel does not change the exposure at all. Do not reopen it as a side effect
   of a packaging change.
 
-  **This is the declined security-review finding** that `SECURITY.md` and
-  `AI_DISCLOSURE.md` both point here for, so keep the reasoning legible if it
-  moves. It is the only one left: the other decline, against tightening the
-  support-file size caps without data from a large site, stopped being a
-  decline when the caps became adjustable and the defaults dropped to 64M/128M.
+  **This was the declined security-review finding** that `SECURITY.md` and
+  `AI_DISCLOSURE.md` both pointed here for; both now say it was reversed
+  rather than pointing at a still-current decline, which is why the finding is
+  worth reading in the past tense from here on.
+
+  **What actually moved it, 2026-08-13: an OSSF Scorecard run (KAN-136's
+  successor question, not a fresh AI review) scored Pinned-Dependencies at
+  5/10 over these exact `pip install` calls.** Jason's question in response
+  was not "should we accept the maintenance cost" but "can the maintenance be
+  automated the same way `dependabot-auto-merge.yml` already automates version
+  bumps" — and it can, because Dependabot's `pip` ecosystem doesn't just bump
+  the pin on a hash-locked requirements file, it recognises pip-compile's own
+  header comment and re-runs compilation, the same tool the original decline
+  already leaned on for "staying current". The dev-only-benefit half of the
+  original objection never got weaker; the ongoing-maintenance half turned out
+  to already be solved by infrastructure this repository had for another
+  reason. That is a narrower claim than "the decline was wrong" — restate it
+  that way if this gets revisited again.
 
 - **No coverage threshold. Declined 2026-08-03**, suggested by external review.
 
@@ -1541,9 +1570,26 @@ of it is public. Nothing goes to `origin` until that review happens and is
 asked for; see the standing instruction about pushing only when asked, which
 this makes easier to honour rather than replacing.
 
-Then, on request: `git push origin main`, then run the mirror script. The
-mirror force-pushes GitHub onto `bhomelan/unifi-map` and does not touch
-`unifi-map-validate`, so staging can sit ahead of GitHub safely.
+Then, on request: open a PR against `origin`, not a direct push. **`main` on
+GitHub requires a pull request as of 2026-08-13 (KAN-192)** — branch
+protection now sets `required_pull_request_reviews` with
+`enforce_admins: true`, so `git push origin main` fails outright, including
+for the repo owner; there is no bypass short of changing the protection rule
+itself. Push a branch, `gh pr create`, wait for the required status checks
+(`Python 3.11`, `Python 3.12`, `Python 3.13`, `Repository hygiene`) to pass,
+then `gh pr merge --squash`. **Zero approvals are required, on purpose**: this
+is a solo-maintained repository and GitHub does not let a PR author approve
+their own PR, so a required-approval count could only be satisfied by a second
+identity that does not exist yet (KAN-193). The PR requirement alone is what
+the OSSF Scorecard CI-Tests check wanted — it looks for pull requests with CI
+runs attached, not for approvals — while Code-Review (which does want
+approvals) stays unresolved until KAN-193 lands. Do not add a required
+approval count as a way to "finish" this without that second identity; it
+would just lock the repo out from itself.
+
+Once merged, run the mirror script. It force-pushes GitHub onto
+`bhomelan/unifi-map` and does not touch `unifi-map-validate`, so staging can
+sit ahead of GitHub safely.
 
 Do not use `git push -u` on `validate`. It repoints the branch's upstream, and a
 later bare `git push` then sends work meant for review straight past it. Name

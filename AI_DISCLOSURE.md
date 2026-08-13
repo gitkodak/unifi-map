@@ -45,17 +45,19 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
   rather than once at some milestone, so a count here would be out of date by
   the time you read it, and keeping one accurate was its own small chore.
 
-  Everything raised is fixed except three items declined with their reasons
-  recorded in `CLAUDE.md`: no hashed dependency lock file, no coverage
-  threshold, and no static type checker. The last two were declined by the human
-  rather than by the assistant, and the type checker had been raised by three
-  separate reviews, which is worth knowing about the value of repetition: a
-  suggestion arriving three times is evidence that something is common practice,
-  not that it fits this project.
+  Everything raised is fixed except two items declined with their reasons
+  recorded in `CLAUDE.md`: no coverage threshold, and no static type checker.
+  Both were declined by the human rather than by the assistant, and the type
+  checker had been raised by three separate reviews, which is worth knowing
+  about the value of repetition: a suggestion arriving three times is evidence
+  that something is common practice, not that it fits this project.
 
-  One other was declined at the time and then done anyway, once the reasoning
-  behind the refusal turned out to be weaker than it sounded: the support-file
-  size caps, which became adjustable instead.
+  Two others were declined at the time and later reversed, once the reasoning
+  behind the refusal turned out not to hold up. The support-file size caps
+  became adjustable instead of staying fixed. The hashed dependency lock file
+  was reversed by the human directly, 2026-08-13, prompted by an OSSF
+  Scorecard finding rather than by another AI review: `requirements/ci.txt` is
+  now a pip-compile-generated lock that Dependabot keeps current.
 
   **The pattern across them is the useful result, not any single review.** Each
   one found something every previous reviewer had missed, and they were not

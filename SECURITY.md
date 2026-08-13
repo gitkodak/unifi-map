@@ -308,11 +308,14 @@ systems working from the source, none of them the assistant that wrote the code:
 security audits, documentation reviews, code reviews and architectural reviews,
 more than one of each. They overlap heavily. Reviews run when a substantial
 change lands, so treat this as a practice rather than as a total.
-Everything raised is fixed except one item declined with its reason recorded
-in `CLAUDE.md`: no hashed dependency lock file, on the grounds that it is real
-ongoing maintenance for a dev-only benefit while Dependabot and the advisory
-job cover staying current. A second item was declined at the time (tightening
-the support-file size caps without data from a large site) and was then done
+Everything raised has been fixed or acted on. The one item declined at the
+time, a hashed dependency lock file for CI's own installs (real ongoing
+maintenance for a dev-only benefit was the reasoning), was reversed by the
+maintainer directly on 2026-08-13: `requirements/ci.txt` is now a
+pip-compile-generated, hash-pinned lock that Dependabot keeps current, the
+same tool already relied on for staying current before. See `CLAUDE.md` for
+the full reasoning. A second item was declined at the time (tightening the
+support-file size caps without data from a large site) and was then done
 anyway, by making the caps adjustable and lowering the defaults.
 
 The serious findings were reproduced before being fixed and re-tested
