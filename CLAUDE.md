@@ -1582,10 +1582,16 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   comment. A tag is mutable, so whoever controls the action decides what runs.
   Dependabot advances the pins and preserves the SHA form; it does not revert
   them to tags.
-- **Three workflows, and they answer different questions.** `ci.yml` is
-  correctness and quality, `codeql.yml` is security data flow, and
-  `dependabot-auto-merge.yml` is bookkeeping. Do not consolidate them: only the
-  CodeQL one is granted `security-events: write`, and that scoping is the point.
+- **Four workflows, and they answer different questions.** `ci.yml` is
+  correctness and quality, `codeql.yml` is security data flow,
+  `scorecard.yml` is supply-chain hygiene of the repository itself (branch
+  protection, pinned dependencies, whether a security policy exists), and
+  `dependabot-auto-merge.yml` is bookkeeping. Do not consolidate them:
+  `codeql.yml` and `scorecard.yml` are the only two granted
+  `security-events: write`, each to upload its own SARIF to code scanning,
+  and that scoping is the point. (`pages.yml` also exists, for the project
+  site; it isn't part of this group because it answers neither a quality nor
+  a security question.)
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was

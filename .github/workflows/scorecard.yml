@@ -1,0 +1,58 @@
+name: Scorecard analysis
+
+# OSSF Scorecard (KAN-136 / TODO.md SAST question territory, but a different
+# axis from CodeQL and SonarQube Cloud): it doesn't look for bugs in this
+# code, it checks supply-chain hygiene of the repository itself — branch
+# protection, pinned CI dependencies, whether Dependabot and a security
+# policy exist, and so on. The public repo runs on the default GITHUB_TOKEN;
+# no PAT is needed here (that's only required for classic Branch Protection
+# or private repos, per the action's own authentication docs).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, so a score regresses when e.g. a check that used to pass starts
+    # failing, not only when this file's own contents change. Wednesday
+    # 09:00 UTC: offset from codeql.yml's Sunday slot so the two don't land
+    # together.
+    - cron: "0 9 * * 3"
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # security-events:write and id-token:write only, matching codeql.yml's
+      # scoping principle: grant what this job needs, not what the repo has.
+      security-events: write
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc  # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@c4dd10e44af883a891fe31ced449bcb4a6728b9b  # v3.37.6
+        with:
+          sarif_file: results.sarif

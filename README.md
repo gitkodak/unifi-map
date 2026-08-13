@@ -3,6 +3,7 @@
 [![CI](https://github.com/gitkodak/unifi-map/actions/workflows/ci.yml/badge.svg)](https://github.com/gitkodak/unifi-map/actions/workflows/ci.yml)
 [![SonarQube Cloud Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=gitkodak_unifi-map&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=gitkodak_unifi-map)
 [![SonarQube Cloud Coverage](https://sonarcloud.io/api/project_badges/measure?project=gitkodak_unifi-map&metric=coverage)](https://sonarcloud.io/summary/new_code?id=gitkodak_unifi-map)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/gitkodak/unifi-map/badge)](https://securityscorecards.dev/viewer/?uri=github.com/gitkodak/unifi-map)
 
 Export a UniFi network topology as **zoomable vector diagrams** and **editable
 draw.io files**, using real Ubiquiti product artwork.
