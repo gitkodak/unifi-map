@@ -1,0 +1,34 @@
+name: Release provenance
+
+# Attests artifacts already uploaded to a GitHub Release with Sigstore build
+# provenance, keyless: GitHub's own OIDC token, no key to generate, store or
+# rotate. Runs after the fact rather than folding the build into CI, because
+# RELEASING.md's build stays local and manual on purpose; this only attests
+# what `make build` + `gh release create` already published. KAN-190.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    name: Attest release artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.event.release.tag_name }}" \
+            --repo "${{ github.repository }}" --dir artifacts --skip-existing
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: "artifacts/*"
