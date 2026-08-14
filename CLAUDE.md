@@ -1639,6 +1639,15 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   exists, for the project site; it isn't part of this group because it
   answers neither a quality nor a security question.)
 
+- **`scorecard.yml` reads `secrets.SCORECARD_TOKEN`, a fine-grained PAT scoped
+  to this one repo with `Administration: Read-only` only.** Added 2026-08-14
+  so Scorecard's Branch-Protection check can read this repo's classic branch
+  protection rules at all, which the default `GITHUB_TOKEN` cannot do
+  regardless of what `permissions:` grants it -- a GitHub-side restriction on
+  that specific API, not a scoping choice of ours. Every other check in the
+  workflow runs on `GITHUB_TOKEN` as before; this is additive, not a
+  replacement.
+
 - **Fuzzing: `cifuzz.yml`, ClusterFuzzLite, self-hosted rather than an OSS-Fuzz
   application.** Prompted by OSSF Scorecard scoring Fuzzing at 0. OSS-Fuzz
   proper means a second repository (`google/oss-fuzz`) to keep in sync and an
