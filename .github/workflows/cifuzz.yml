@@ -1,0 +1,59 @@
+name: ClusterFuzzLite
+
+# Fuzzes support.py's archive parser, the one piece of code that already
+# treats its input as hostile by this project's own threat model (support
+# files are attacker-supplied; see CLAUDE.md). Self-hosted in this repo's own
+# CI rather than an OSS-Fuzz application: no external repo to keep in sync, no
+# review/acceptance process, and it still satisfies OSSF Scorecard's Fuzzing
+# check the same way OSS-Fuzz integration would. KAN-194.
+#
+# PR-triggered only, "code-change" mode, for now. A scheduled/batch job would
+# fuzz for longer and catch a regression even without a triggering PR, but
+# needs cross-run corpus persistence in cloud storage, which is real
+# additional infrastructure (a GCP project, a service account, a bucket) this
+# project does not otherwise depend on. Deliberately not added yet.
+
+on:
+  pull_request:
+    paths:
+      - "src/unifi_map/support.py"
+      - "src/unifi_map/client.py"
+      - ".clusterfuzzlite/**"
+      - ".github/workflows/cifuzz.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cifuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: PR fuzzing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Build fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1  # v1
+        with:
+          language: python
+
+      - name: Run fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1  # v1
+        with:
+          fuzz-seconds: 300
+          mode: "code-change"
+          sanitizer: address
+          output-sarif: true
+
+      - name: Upload crash artifacts
+        if: failure() && steps.build.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: cifuzz-crash-artifacts
+          path: ./out/artifacts
+          retention-days: 5

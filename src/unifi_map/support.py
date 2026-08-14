@@ -278,10 +278,26 @@ def _read_members(
                             f"Support file members exceed {max_total} bytes in total. "
                             "Raise it with --support-max-total if that is legitimate."
                         )
+    except SupportFileError:
+        raise
     except tarfile.TarError as exc:
         raise SupportFileError(f"{path} is not a readable gzipped tar archive: {exc}") from exc
     except OSError as exc:
         raise SupportFileError(f"Could not read {path}: {exc}") from exc
+    except Exception as exc:
+        # tarfile's streaming ("r|gz") mode hand-rolls its own gzip-header
+        # reader rather than delegating to the gzip module, and does not wrap
+        # every way that can fail in TarError: a stream that ends mid-header
+        # raises a bare TypeError from deep inside tarfile.py
+        # (`ord(self.__read(1))` against an empty read), which nothing above
+        # catches. Found by fuzzing (KAN-194) within seconds of the harness's
+        # first real run, not reasoned out in advance -- see
+        # tests/test_support.py's regression test for the exact bytes.
+        # Everything in the block above is either this function's own
+        # SupportFileError (already re-raised, above) or tarfile/gzip
+        # decoding attacker-controlled bytes, so the same "not a readable
+        # archive" framing applies regardless of the exception's exact type.
+        raise SupportFileError(f"{path} is not a readable gzipped tar archive: {exc}") from exc
     _finish_archive_stats(stats, walked=walked, entries=entries, found=found)
     return found
 

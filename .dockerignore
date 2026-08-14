@@ -1,0 +1,22 @@
+# Second layer, not the primary guard: .clusterfuzzlite/Dockerfile names
+# exactly what it copies rather than copying `.` recursively, so none of this
+# should ever reach the build context in the first place. Kept anyway. Mirrors
+# .gitignore's reasoning: cache*/ can hold a real network's MAC, hostname and
+# IP inventory (see CLAUDE.md's data-hygiene section).
+.git/
+.env
+*.env
+
+cache*/
+out*/
+
+dist/
+build/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml

@@ -1628,16 +1628,123 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   comment. A tag is mutable, so whoever controls the action decides what runs.
   Dependabot advances the pins and preserves the SHA form; it does not revert
   them to tags.
-- **Four workflows, and they answer different questions.** `ci.yml` is
+- **Five workflows, and they answer different questions.** `ci.yml` is
   correctness and quality, `codeql.yml` is security data flow,
   `scorecard.yml` is supply-chain hygiene of the repository itself (branch
-  protection, pinned dependencies, whether a security policy exists), and
-  `dependabot-auto-merge.yml` is bookkeeping. Do not consolidate them:
-  `codeql.yml` and `scorecard.yml` are the only two granted
-  `security-events: write`, each to upload its own SARIF to code scanning,
-  and that scoping is the point. (`pages.yml` also exists, for the project
-  site; it isn't part of this group because it answers neither a quality nor
-  a security question.)
+  protection, pinned dependencies, whether a security policy exists),
+  `cifuzz.yml` is fuzzing (KAN-194, see below), and `dependabot-auto-merge.yml`
+  is bookkeeping. Do not consolidate them: `codeql.yml` and `scorecard.yml`
+  are the only two granted `security-events: write`, each to upload its own
+  SARIF to code scanning, and that scoping is the point. (`pages.yml` also
+  exists, for the project site; it isn't part of this group because it
+  answers neither a quality nor a security question.)
+
+- **Fuzzing: `cifuzz.yml`, ClusterFuzzLite, self-hosted rather than an OSS-Fuzz
+  application.** Prompted by OSSF Scorecard scoring Fuzzing at 0. OSS-Fuzz
+  proper means a second repository (`google/oss-fuzz`) to keep in sync and an
+  application/review step; ClusterFuzzLite runs the same fuzzing engine
+  (libFuzzer via Atheris) inside this repo's own GitHub Actions and satisfies
+  the same Scorecard check.
+
+  **It found a real crash within seconds of its first real run**, on the PR
+  that added it, which is the argument for building this in the first place
+  rather than a hypothetical. `_read_members` caught `tarfile.TarError` and
+  `OSError` around the archive-reading block, but tarfile's streaming
+  (`"r|gz"`) mode hand-rolls its own gzip-header reader rather than delegating
+  to the `gzip` module, and a stream that ends mid-header raises a bare
+  `TypeError` from deep inside `tarfile.py` (`ord(self.__read(1))` against an
+  empty read) that neither except clause caught. A support file is
+  attacker-supplied by this project's own threat model, so a truncated or
+  corrupted archive used to crash the whole `--support-file` run with an
+  unhandled `TypeError` instead of a clean `SupportFileError`. Fixed with a
+  final `except Exception` around the same block, re-raising
+  `SupportFileError` first so it passes through unchanged rather than getting
+  double-wrapped: everything else reaching that point is tarfile or gzip
+  decoding attacker-controlled bytes, not this function's own logic, so the
+  same "not a readable archive" framing applies regardless of the exception's
+  exact type. `tests/test_support.py` pins it with a hand-constructed 8-byte
+  truncated header rather than the fuzzer's own opaque bytes, mutation-tested
+  by confirming it fails red against the code before this fix.
+
+  **Target: `support.py`'s archive parser, and nothing else yet.** It is the
+  one piece of code this project already treats as hostile input by its own
+  threat model -- "Support files are attacker-supplied, and the parsing
+  assumes it" is a whole section above -- and fuzzing it exercises both layers
+  in one harness: the tar/gzip-format layer (`_read_members`'s entry, size and
+  total caps) and the JSON/data-shape layer underneath (`_load_json` and
+  everything that trusts the parsed shape: `_device_sites`, `_pick_site`,
+  `_networkconf`, `_parse_leases`, `_parse_neighbours`, `_dpi_hosts`,
+  `_client_active`). `client.py` and `model.py` are in the trigger's path
+  filter because `Snapshot`'s shape is the one thing `support.py` imports, but
+  nothing there is fuzzed directly.
+
+  **The harness writes each candidate to a temp file rather than fuzzing in
+  memory.** `load_support_file(path: Path, ...)` opens the archive itself via
+  `tarfile.open(path, "r|gz")`; there is no file-object entry point to call
+  instead. `SupportFileError` is swallowed as the library's own "not a valid
+  archive" signal; anything else escaping is a real finding, not something to
+  catch and hide.
+
+  **The seed corpus is generated at build time (`make_seed_corpus.py`), not
+  committed.** A blind mutation engine starting from nothing spends nearly all
+  its budget failing the gzip magic-byte check and never reaches the
+  interesting logic underneath; one small valid archive gets it past that gate
+  for free. Generating it at build time rather than committing a binary `.tgz`
+  keeps `Binary-Artifacts` at 10 and matches this project's standing rule
+  against committing generated/fetched binaries -- the same reasoning that
+  keeps Ubiquiti's artwork out of the repo applies here even though this
+  binary is entirely ours. The seed is deliberately smaller and less realistic
+  than `tests/test_support.py`'s `support_archive` fixture: it only needs to
+  be valid enough to reach the code worth fuzzing, and a smaller seed mutates
+  and executes faster. Standalone rather than importing the test fixture,
+  since `tests/` is not part of the installed package and is a fragile thing
+  for build-time infrastructure to depend on.
+
+  **PR-triggered only, `code-change` mode, for now.** A scheduled/batch job
+  would fuzz for longer and catch a regression even without a triggering PR,
+  but needs cross-run corpus persistence in cloud storage -- a GCP project, a
+  service account, a bucket -- which is real infrastructure this project does
+  not otherwise depend on. Deliberately not added yet; revisit if the PR-mode
+  run ever finds something a batch run would have caught sooner.
+
+  `.clusterfuzzlite/*.py` is in `sonar.sources` alongside `scripts/**` for the
+  same reason as the coverage exclusion below it: real maintained Python worth
+  analyzing, but not reachable from pytest, so counting it toward coverage
+  would only measure the gap rather than anything meaningful.
+
+  **SonarQube's own quality gate caught four real issues in this
+  infrastructure on the same PR**, worth listing because none were
+  hypothetical: the Dockerfile's `COPY . $SRC/unifi-map` copied the whole
+  repo, so a contributor's local `cache/` (a real network's MAC/hostname/IP
+  inventory, see the data-hygiene section) would have been copied into the
+  build context on a local build; both `pip3 install` calls (the Dockerfile's
+  `atheris` and `build.sh`'s installing this project) had neither a pinned
+  version nor `--only-binary=:all:`; and `cifuzz.yml`'s top-level
+  `permissions: read-all` should have been the explicit `contents: read`
+  form, same as everywhere else in this repo's workflows.
+
+  Fixed: the Dockerfile now names exactly what it copies
+  (`pyproject.toml LICENSE unifi-map.1`, `src`, `requirements`,
+  `.clusterfuzzlite`) instead of copying `.` recursively -- an allowlist can
+  only ever copy what it names, which is a stronger fix than a
+  `.dockerignore` blocklist that has to be remembered every time something
+  new needs excluding, and was tried first: the rule flags any recursive
+  `COPY .` syntactically and does not check whether a `.dockerignore` scopes
+  it, so it stayed open even after one was added. The root `.dockerignore`
+  is kept anyway as a second layer, in case a future edit reintroduces a
+  broad `COPY`. Also fixed: `build.sh` installing from `requirements/ci.txt`
+  with `--require-hashes` (the same lock `ci.yml` uses, reused rather than
+  duplicated) and the local package `--no-deps`, and the explicit
+  permissions form. `atheris` is pinned to `3.0.0` rather than the newest
+  release (`3.1.0`) for an unrelated reason found while fixing this:
+  `oss-fuzz-base`'s Python/platform combination has no prebuilt wheel for
+  `3.1.0`, and `--only-binary=:all:` refuses to fall back to a source build.
+
+  One finding was left open on purpose: the base image runs as root, flagged
+  as a MINOR finding and left with a comment explaining why, since
+  `oss-fuzz-base`'s own build tooling assumes it and the image is never
+  published anywhere -- it exists for the minutes this job runs and is
+  discarded after.
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was
