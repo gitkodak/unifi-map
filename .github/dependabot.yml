@@ -40,3 +40,22 @@ updates:
       interval: monthly
     commit-message:
       prefix: "deps"
+
+  # .clusterfuzzlite/requirements.txt (KAN-194), the hashed lock for atheris.
+  # Separate directory entry for the same reason as the one above.
+  - package-ecosystem: pip
+    directory: "/.clusterfuzzlite"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "deps"
+
+  # The fuzzing build's base image (KAN-194), pinned to a digest for the same
+  # reason every GitHub Action here is pinned to a SHA. Not grouped with
+  # anything: nothing else in this repo uses the docker ecosystem.
+  - package-ecosystem: docker
+    directory: "/.clusterfuzzlite"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"

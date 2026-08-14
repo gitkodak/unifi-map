@@ -1745,6 +1745,30 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   `oss-fuzz-base`'s own build tooling assumes it and the image is never
   published anywhere -- it exists for the minutes this job runs and is
   discarded after.
+
+  **A second pass, prompted by filling out the OSSF Best Practices badge
+  form: `scorecard.yml` uploads its SARIF to GitHub's code-scanning alerts
+  too, and three showed up there that the PR's own checks never surfaced**
+  (Scorecard runs on `push`, not on every PR check, so its findings lag by a
+  run). All Pinned-Dependencies, all real except one:
+
+  - The Dockerfile's `FROM gcr.io/oss-fuzz-base/base-builder-python` used the
+    mutable tag rather than a digest. Pinned, same reasoning as every GitHub
+    Action pin in this repo, and given a `docker` ecosystem entry in
+    `dependabot.yml` so it still advances.
+  - `atheris` was version-pinned but not hash-pinned. Given its own small
+    hashed lock, `.clusterfuzzlite/requirements.txt`, rather than folded into
+    `requirements/ci.txt`: `ci.yml` never runs the fuzzer, and atheris has no
+    reason to be installed into every CI job's environment just because this
+    one build needs it. Regenerate the same way as the main lock, documented
+    in `.clusterfuzzlite/requirements.in` itself. Tracked by its own
+    Dependabot entry too.
+  - `build.sh`'s local `pip3 install --no-deps .` was flagged the same way,
+    which is the one that is not real: there is nothing to hash, since the
+    source is this repo's own working tree rather than something fetched from
+    an index. Dismissed on GitHub as a false positive with that reasoning
+    recorded, rather than left open or "fixed" by contorting an install that
+    was already correct.
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was
