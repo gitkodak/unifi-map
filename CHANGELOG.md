@@ -56,6 +56,8 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.11.1 - 2026-08-14
+
 ### Changed
 
 - **The project now states its socialist free-software values.** `VALUES.md`,
@@ -64,6 +66,14 @@ told something untrue and may have acted on it.
   when a sustained contributor collective exists. A hammer-and-sickle mark
   identifies that statement without making political identity a condition of
   use or contribution.
+
+### Fixed
+
+- **A corrupted or truncated `--support-file` archive no longer crashes the
+  run.** A gzip stream that ends partway through its header raised an
+  unhandled `TypeError` from deep inside Python's own `tarfile` module, which
+  nothing caught. It now fails the same clean way any other unreadable
+  archive does, naming the file rather than printing a traceback.
 
 ## 0.11.0 - 2026-08-11
 

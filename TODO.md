@@ -264,9 +264,6 @@ Recorded so they are not re-proposed as oversights.
   to make it do so is a proposal to reverse this decision rather than to finish
   it.
 
-- **A dependency lock file.** Hashed constraints are ongoing maintenance for a
-  dev-only benefit, and Dependabot plus the advisory job cover staying current.
-  Revisit if this ever ships an artifact people install.
 - **NetBox / IPAM export.** Subsumed by `-f json`, which ships, rather than
   refused: the ask was structured JSON *for importing into* NetBox, and once
   that export exists, a transform against our stable schema beats us tracking
