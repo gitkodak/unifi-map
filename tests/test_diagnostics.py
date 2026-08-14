@@ -9,7 +9,7 @@ direction.
 from __future__ import annotations
 
 from unifi_map.client import Snapshot
-from unifi_map.diagnostics import Sources, build_diagnostics
+from unifi_map.diagnostics import Sources, _is_locally_administered, build_diagnostics
 from unifi_map.model import Edge, Kind, Node, Provenance, Topology, build_topology
 
 from .conftest import AP_MAC, SWITCH_MAC
@@ -423,3 +423,44 @@ class TestRandomisedMacAddresses:
 
     def test_malformed_mac_does_not_raise(self):
         build_diagnostics(self._topo_with("not-a-mac"))
+
+
+class TestIsLocallyAdministered:
+    """Direct tests of the bit check, not just the report it feeds.
+
+    `Node.id` is not trusted input: `_norm_mac()` lowercases a client's `mac`
+    field but never validates its shape, and a support file's fields are
+    attacker-controlled by this project's own threat model. A short or
+    malformed value must not be parsed as if it were a real MAC's leading
+    octet.
+    """
+
+    def test_a_real_locally_administered_mac(self):
+        assert _is_locally_administered("aa:bb:cc:dd:ee:ff") is True
+
+    def test_a_real_vendor_assigned_mac(self):
+        assert _is_locally_administered("00:11:22:33:44:55") is False
+
+    def test_case_insensitive(self):
+        assert _is_locally_administered("AA:BB:CC:DD:EE:FF") is True
+
+    def test_truncated_short_string_is_not_read_as_a_leading_octet(self):
+        """The regression this guards: `"2"` alone used to parse as hex `0x02`
+        and come back True, even though it is nowhere near a MAC."""
+        assert _is_locally_administered("2") is False
+        assert _is_locally_administered("02") is False
+        assert _is_locally_administered("aa:bb") is False
+
+    def test_overlong_string(self):
+        assert _is_locally_administered("aa:bb:cc:dd:ee:ff:00") is False
+
+    def test_non_hex_garbage(self):
+        assert _is_locally_administered("not-a-mac") is False
+        assert _is_locally_administered("") is False
+
+    def test_multicast_bit_is_not_confused_with_locally_administered(self):
+        """Bit 0 (multicast/unicast) and bit 1 (locally-administered) are
+        different bits of the same octet; only the second should matter here."""
+        assert _is_locally_administered("01:00:5e:00:00:01") is False
+        # Both bits set: multicast *and* locally-administered.
+        assert _is_locally_administered("03:00:00:00:00:00") is True

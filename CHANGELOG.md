@@ -66,6 +66,16 @@ told something untrue and may have acted on it.
   Counted only, not named: there is nothing wrong with any specific device
   and no overrides entry that would fix it.
 
+### Fixed
+
+- **`unifi-map shape` no longer hands an exported `UNIFI_API_KEY` to the
+  `dot -V` child process it runs to report your Graphviz version.** The two
+  Graphviz child processes used to actually render a map have stripped an
+  exported key from their environment since early on; this third one, added
+  later purely to report a version number, was missed. `shape` is
+  specifically the command meant to be safe to paste into a bug report.
+  Found by external review.
+
 ## 0.11.1 - 2026-08-13
 
 ### Changed

@@ -236,8 +236,13 @@ valid certificate, or at a CA bundle path, is better where possible.
   for `Authorization` and nothing else, and ours is a custom `X-API-KEY` header.
   A redirect that changes host, port or scheme drops it and says so. Redirects
   themselves still work, so a reverse proxy in front of your console is fine.
-- **Graphviz is executed by resolved absolute path**, not by name, so a binary
-  earlier on `PATH` cannot stand in for it.
+- **Graphviz is resolved once to an absolute path and that exact path is what
+  gets executed**, not the bare name `dot` re-resolved at call time. This
+  guards against a substitution *after* resolution — `PATH` changing, or the
+  file at that path being swapped — not against `PATH` itself: whatever is
+  first on `PATH` when this tool starts is what gets found, same as any other
+  program that shells out by name. Put a directory you do not control ahead of
+  a trusted Graphviz install on `PATH` and this offers no protection.
 - **A credential file that other local accounts can read produces a warning**,
   and the file that was loaded is named, since `./.env` is searched before the
   home config.

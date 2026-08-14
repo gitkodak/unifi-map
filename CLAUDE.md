@@ -157,15 +157,30 @@ controller JSON.
    snapshot cache so `--cache-dir examples/demo` doesn't get downloads written
    into it.
 5. **`layout.py`** is the only module that shells out to Graphviz (`dot`,
-   `unflatten`). Both are executed by the absolute path `shutil.which` resolved,
-   not by bare name, so what runs is what was found rather than whatever `PATH`
-   resolves to at exec time. Both get `_child_env()`, the parent environment
-   with any API key removed.
+   `unflatten`) to render. Both are executed by the absolute path `shutil.which`
+   resolved, not by bare name, so what runs is what was found rather than
+   whatever `PATH` resolves to at exec time. Both get `child_env()`, the parent
+   environment with any API key removed.
 
    That pairs with `config.py` never writing a credential into `os.environ`:
    `read_dotenv()` returns a mapping and `load_config()` merges it under the
    real environment. Keep it that way. An API key in the process environment is
    inherited by every child, and Graphviz comes off `PATH`.
+
+   **A third Graphviz child process was missed when this scrubbing was added,
+   found by external review of 2db752d and fixed the same day.**
+   `cli._graphviz_version()` — what `unifi-map shape` reports, specifically the
+   command meant to be safe to paste into a bug report — ran `dot -V` with the
+   plain inherited environment, not `child_env()`. This is exactly the "fix the
+   class, not the instance" failure named elsewhere in this file: the scrubbing
+   was added to the two render call sites and the third, added separately for
+   version reporting, was never revisited. `child_env()` was promoted out of
+   `layout.py`'s privacy (it was `_child_env`) rather than reimplemented in
+   `cli.py`, since a helper with two production callers across two modules is a
+   shared primitive, not one module's internal detail — the same reasoning that
+   moved the capped-read primitive into `httpio.py`. A regression test runs a
+   stand-in `dot` and asserts the exported key never reaches it, mutation-tested
+   by confirming it failed red against the pre-fix code.
 6. **`render_dot.py` / `render_drawio.py` / `svg_post.py`** are pure functions
    from `Topology` to text. `theme.py` holds every colour, shape and label.
 
