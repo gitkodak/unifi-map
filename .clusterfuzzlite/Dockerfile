@@ -19,7 +19,7 @@ FROM gcr.io/oss-fuzz-base/base-builder-python@sha256:6b2b3a7e4a2da50de47f94925cf
 # prebuilt wheel for 3.1.0, confirmed by actually running this build, not by
 # reasoning about it in advance.
 COPY .clusterfuzzlite/requirements.txt /tmp/atheris-requirements.txt
-RUN pip3 install --require-hashes -r /tmp/atheris-requirements.txt
+RUN pip3 install --only-binary=:all: --require-hashes -r /tmp/atheris-requirements.txt
 
 # Named explicitly rather than `COPY . $SRC/unifi-map`: an allowlist can only
 # ever copy what it names, where a blocklist (the repo root .dockerignore,
