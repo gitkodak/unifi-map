@@ -1628,16 +1628,49 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   comment. A tag is mutable, so whoever controls the action decides what runs.
   Dependabot advances the pins and preserves the SHA form; it does not revert
   them to tags.
-- **Five workflows, and they answer different questions.** `ci.yml` is
+- **Six workflows, and they answer different questions.** `ci.yml` is
   correctness and quality, `codeql.yml` is security data flow,
   `scorecard.yml` is supply-chain hygiene of the repository itself (branch
   protection, pinned dependencies, whether a security policy exists),
-  `cifuzz.yml` is fuzzing (KAN-194, see below), and `dependabot-auto-merge.yml`
-  is bookkeeping. Do not consolidate them: `codeql.yml` and `scorecard.yml`
-  are the only two granted `security-events: write`, each to upload its own
-  SARIF to code scanning, and that scoping is the point. (`pages.yml` also
-  exists, for the project site; it isn't part of this group because it
-  answers neither a quality nor a security question.)
+  `cifuzz.yml` is fuzzing (KAN-194, see below), `release-provenance.yml` is
+  release signing (KAN-190, see below), and `dependabot-auto-merge.yml` is
+  bookkeeping. Do not consolidate them: `codeql.yml` and `scorecard.yml` are
+  the only two granted `security-events: write`, each to upload its own SARIF
+  to code scanning, and that scoping is the point. (`pages.yml` also exists,
+  for the project site; it isn't part of this group because it answers
+  neither a quality nor a security question.)
+
+- **`release-provenance.yml` (KAN-190): keyless Sigstore build provenance on
+  every GitHub Release, triggered by `release: published`.** No key to
+  generate, store or rotate -- GitHub's own OIDC token signs it. Runs after
+  the fact rather than folding the build into CI, because `RELEASING.md`'s
+  build stays local and manual on purpose; this only attests what `make
+  build` + `gh release create` already published.
+
+  **The attestation alone is real but was undiscoverable, found by actually
+  publishing a release and checking rather than by reasoning about it in
+  advance.** v0.11.1 shipped with only `actions/attest-build-provenance`,
+  verified genuine with `gh attestation verify` against the downloaded wheel
+  (a real Sigstore/Fulcio certificate, a real Rekor transparency log entry,
+  correctly bound to the tag and commit) -- and OSSF Scorecard's
+  Signed-Releases check still scored it 0 and reported the artifact
+  unsigned. Cause: that check never queries GitHub's Attestations API at
+  all. It only pattern-matches release asset filenames against `*.minisig`,
+  `*.asc`, `*.sig`, `*.sign`, `*.sigstore`, `*.sigstore.json` and
+  `*.intoto.jsonl`, and does not verify whatever it finds either way --
+  presence by filename is the entire check.
+
+  Fixed by adding a second step that downloads the same real attestation
+  bundle `gh attestation verify` already trusts (`gh attestation download`)
+  and re-uploads it as a `<artifact>.intoto.jsonl` release asset. Not a
+  second, weaker signature invented to satisfy a linter: it is the identical
+  bundle, just placed somewhere a filename-matching scanner (and a human
+  using ordinary `cosign`/sigstore tooling instead of `gh`) can find it
+  without already knowing to ask GitHub's attestation API. The workflow also
+  gained a `workflow_dispatch` input (a tag to re-attest) so this could be
+  verified against the already-published v0.11.1 without needing to cut a
+  second release just to test it, and so a future partial failure has a
+  retry path that does not require one either.
 
 - **`scorecard.yml` reads `secrets.SCORECARD_TOKEN`, a fine-grained PAT scoped
   to this one repo with `Administration: Read-only` only.** Added 2026-08-14

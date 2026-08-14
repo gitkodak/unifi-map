@@ -5,10 +5,27 @@ name: Release provenance
 # rotate. Runs after the fact rather than folding the build into CI, because
 # RELEASING.md's build stays local and manual on purpose; this only attests
 # what `make build` + `gh release create` already published. KAN-190.
+#
+# Also uploads the same attestation as a downloadable .intoto.jsonl release
+# asset. Not redundant: OSSF Scorecard's Signed-Releases check never queries
+# GitHub's Attestations API at all, only pattern-matches release asset
+# filenames (*.sigstore, *.intoto.jsonl, etc, see CLAUDE.md) -- verified by
+# publishing v0.11.1 with only the attestation above and watching Scorecard
+# still report it unsigned. The bundle is the same real one `gh attestation
+# verify` already checks; this just makes it independently checkable with
+# standard cosign/sigstore tooling too, not only `gh`.
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: >-
+          Release tag to (re-)attest. Only needed to retry a release this
+          workflow already ran against and left incomplete; a normal release
+          needs no input at all.
+        required: true
 
 permissions:
   contents: read
@@ -20,15 +37,30 @@ jobs:
     permissions:
       id-token: write
       attestations: write
-      contents: read
+      contents: write
     steps:
       - name: Download release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: |
-          gh release download "${{ github.event.release.tag_name }}" \
+          gh release download "$TAG" \
             --repo "${{ github.repository }}" --dir artifacts --skip-existing
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: "artifacts/*"
+
+      - name: Upload attestation bundles as release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          mkdir -p bundles
+          for f in artifacts/*; do
+            name="$(basename "$f")"
+            gh attestation download "$f" --repo "${{ github.repository }}"
+            mv sha256:*.jsonl "bundles/$name.intoto.jsonl"
+          done
+          gh release upload "$TAG" \
+            --repo "${{ github.repository }}" --clobber bundles/*.intoto.jsonl
