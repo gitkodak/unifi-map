@@ -1,5 +1,9 @@
-# Pinned to 3.0.0, not the newest release: see Dockerfile for why.
+# Pinned to 3.0.0, not the newest release: see Dockerfile for why. Dependabot
+# will offer 3.1.0 again (it did once already, see dependabot-auto-merge.yml
+# and CLAUDE.md's Fuzzing section for what happened) -- check that a cp311
+# wheel exists before accepting a bump, not just that pip-compile can
+# generate hashes for whatever PyPI happens to publish.
 # Regenerate requirements.txt with:
 #   pip-compile --generate-hashes --allow-unsafe \
 #     --output-file=.clusterfuzzlite/requirements.txt .clusterfuzzlite/requirements.in
-atheris==3.1.0
+atheris==3.0.0

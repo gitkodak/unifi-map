@@ -58,9 +58,20 @@ jobs:
         # Stated positively, an unknown value merges nothing. The failure is
         # then a bump sitting unmerged, which somebody notices, rather than one
         # merging itself, which nobody does.
+        # /.clusterfuzzlite is excluded regardless of update-type. Found the
+        # hard way: atheris 3.0.0 -> 3.1.0 is a minor bump and auto-merged
+        # despite the fuzzing build itself failing, because `PR fuzzing`
+        # (cifuzz.yml) is deliberately not a required status check -- it's
+        # path-filtered, so making it required would block every other PR
+        # forever waiting on a check that never runs for them. That leaves
+        # required-checks-only auto-merge blind to exactly the failure that
+        # matters most for this one directory. See CLAUDE.md's Fuzzing
+        # section for the full incident.
         if: >-
-          steps.meta.outputs.update-type == 'version-update:semver-minor' ||
-          steps.meta.outputs.update-type == 'version-update:semver-patch'
+          steps.meta.outputs.directory != '/.clusterfuzzlite' && (
+            steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+            steps.meta.outputs.update-type == 'version-update:semver-patch'
+          )
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
