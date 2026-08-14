@@ -1769,6 +1769,26 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
     an index. Dismissed on GitHub as a false positive with that reasoning
     recorded, rather than left open or "fixed" by contorting an install that
     was already correct.
+
+  **A third pass, hours later: Dependabot bumped atheris 3.0.0 -> 3.1.0 and
+  `dependabot-auto-merge.yml` merged it, and it broke the fuzzing build.**
+  3.1.0 ships wheels for cp312/cp313/cp314 but not cp311, and
+  `oss-fuzz-base`'s Python is 3.11 -- the exact same wheel-availability gap
+  that picked 3.0.0 over 3.1.0 in the first place, just discovered a second
+  time instead of remembered. `PR fuzzing` (`cifuzz.yml`) failed on that PR
+  and was ignored, because it is deliberately not a required status check:
+  it is path-filtered to files that touch fuzzing, so making it required
+  would leave every other PR blocked forever on a check that never runs for
+  them. `dependabot-auto-merge.yml`'s policy only looks at required checks
+  passing, which made it blind to the one check that mattered here.
+
+  Fixed two ways, not one: the pin was reverted (3.0.0, same hashes as
+  before), and `dependabot-auto-merge.yml`'s condition now excludes
+  `/.clusterfuzzlite` from auto-merge entirely, regardless of update-type,
+  using `fetch-metadata`'s `directory` output. Reverting the pin fixes this
+  one bump; excluding the directory is what stops the next one from merging
+  itself the same way, since Dependabot will offer 3.1.0 again and nothing
+  about *that* PR will look different from any other minor bump.
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was
