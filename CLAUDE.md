@@ -1714,23 +1714,37 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
 
   **SonarQube's own quality gate caught four real issues in this
   infrastructure on the same PR**, worth listing because none were
-  hypothetical: the Dockerfile's `COPY . $SRC/unifi-map` had no
-  `.dockerignore` scoping it, so a contributor's local `cache/` (a real
-  network's MAC/hostname/IP inventory, see the data-hygiene section) would
-  have been copied into the build context on a local build; both `pip3
-  install` calls (the Dockerfile's `atheris` and `build.sh`'s installing this
-  project) had neither a pinned version nor `--only-binary=:all:`; and
-  `cifuzz.yml`'s top-level `permissions: read-all` should have been the
-  explicit `contents: read` form, same as everywhere else in this repo's
-  workflows. Fixed: a root `.dockerignore` mirroring `.gitignore`'s
-  exclusions, `atheris==3.1.0` pinned with `--only-binary=:all:`, `build.sh`
-  installing from `requirements/ci.txt` with `--require-hashes` (the same
-  lock `ci.yml` uses, reused rather than duplicated) and the local package
-  `--no-deps`, and the explicit permissions form. One finding was left open
-  on purpose: the base image runs as root, flagged as a MINOR finding and
-  left with a comment explaining why, since `oss-fuzz-base`'s own build
-  tooling assumes it and the image is never published anywhere -- it exists
-  for the minutes this job runs and is discarded after.
+  hypothetical: the Dockerfile's `COPY . $SRC/unifi-map` copied the whole
+  repo, so a contributor's local `cache/` (a real network's MAC/hostname/IP
+  inventory, see the data-hygiene section) would have been copied into the
+  build context on a local build; both `pip3 install` calls (the Dockerfile's
+  `atheris` and `build.sh`'s installing this project) had neither a pinned
+  version nor `--only-binary=:all:`; and `cifuzz.yml`'s top-level
+  `permissions: read-all` should have been the explicit `contents: read`
+  form, same as everywhere else in this repo's workflows.
+
+  Fixed: the Dockerfile now names exactly what it copies
+  (`pyproject.toml LICENSE unifi-map.1`, `src`, `requirements`,
+  `.clusterfuzzlite`) instead of copying `.` recursively -- an allowlist can
+  only ever copy what it names, which is a stronger fix than a
+  `.dockerignore` blocklist that has to be remembered every time something
+  new needs excluding, and was tried first: the rule flags any recursive
+  `COPY .` syntactically and does not check whether a `.dockerignore` scopes
+  it, so it stayed open even after one was added. The root `.dockerignore`
+  is kept anyway as a second layer, in case a future edit reintroduces a
+  broad `COPY`. Also fixed: `build.sh` installing from `requirements/ci.txt`
+  with `--require-hashes` (the same lock `ci.yml` uses, reused rather than
+  duplicated) and the local package `--no-deps`, and the explicit
+  permissions form. `atheris` is pinned to `3.0.0` rather than the newest
+  release (`3.1.0`) for an unrelated reason found while fixing this:
+  `oss-fuzz-base`'s Python/platform combination has no prebuilt wheel for
+  `3.1.0`, and `--only-binary=:all:` refuses to fall back to a source build.
+
+  One finding was left open on purpose: the base image runs as root, flagged
+  as a MINOR finding and left with a comment explaining why, since
+  `oss-fuzz-base`'s own build tooling assumes it and the image is never
+  published anywhere -- it exists for the minutes this job runs and is
+  discarded after.
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was
