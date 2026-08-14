@@ -1740,11 +1740,19 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   `oss-fuzz-base`'s Python/platform combination has no prebuilt wheel for
   `3.1.0`, and `--only-binary=:all:` refuses to fall back to a source build.
 
-  One finding was left open on purpose: the base image runs as root, flagged
-  as a MINOR finding and left with a comment explaining why, since
-  `oss-fuzz-base`'s own build tooling assumes it and the image is never
-  published anywhere -- it exists for the minutes this job runs and is
-  discarded after.
+  One finding was accepted rather than fixed: the base image runs as root,
+  flagged as a MINOR finding, since `oss-fuzz-base`'s own build tooling
+  assumes it and the image is never published anywhere -- it exists for the
+  minutes this job runs and is discarded after. **A Dockerfile comment
+  explaining that is not the same as resolving the issue.** The comment
+  landed first and the Sonar issue stayed open regardless, quietly capping
+  the security rating at B, which read as settled until it was pointed out
+  that the gate was still failing. Suppressed for real via
+  `sonar.issue.ignore` in `sonar-project.properties`, the same mechanism
+  used for the `ci.yml` false positives above -- worth remembering as its
+  own lesson: an explanatory comment in the flagged file and an actual
+  resolution in the tool that raised the finding are two different things,
+  and only one of them stops the tool from complaining.
 
   **A second pass, prompted by filling out the OSSF Best Practices badge
   form: `scorecard.yml` uploads its SARIF to GitHub's code-scanning alerts
