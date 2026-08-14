@@ -43,9 +43,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        # -p selects only the three build artifacts, never *.intoto.jsonl. A
+        # workflow_dispatch retry runs against a release that may already
+        # carry attestation bundles from an earlier pass; downloading those
+        # too would attest and re-upload them as
+        # wheel.intoto.jsonl.intoto.jsonl, growing the release assets on
+        # every retry instead of cleanly re-attesting the same three files.
         run: |
           gh release download "$TAG" \
-            --repo "${{ github.repository }}" --dir artifacts --skip-existing
+            --repo "${{ github.repository }}" --dir artifacts --skip-existing \
+            -p '*.whl' -p '*.tar.gz' -p 'unifi-map.1'
 
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
