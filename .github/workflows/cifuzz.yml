@@ -22,7 +22,8 @@ on:
       - ".github/workflows/cifuzz.yml"
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: read
 
 concurrency:
   group: cifuzz-${{ github.ref }}

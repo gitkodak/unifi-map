@@ -1646,6 +1646,26 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   (libFuzzer via Atheris) inside this repo's own GitHub Actions and satisfies
   the same Scorecard check.
 
+  **It found a real crash within seconds of its first real run**, on the PR
+  that added it, which is the argument for building this in the first place
+  rather than a hypothetical. `_read_members` caught `tarfile.TarError` and
+  `OSError` around the archive-reading block, but tarfile's streaming
+  (`"r|gz"`) mode hand-rolls its own gzip-header reader rather than delegating
+  to the `gzip` module, and a stream that ends mid-header raises a bare
+  `TypeError` from deep inside `tarfile.py` (`ord(self.__read(1))` against an
+  empty read) that neither except clause caught. A support file is
+  attacker-supplied by this project's own threat model, so a truncated or
+  corrupted archive used to crash the whole `--support-file` run with an
+  unhandled `TypeError` instead of a clean `SupportFileError`. Fixed with a
+  final `except Exception` around the same block, re-raising
+  `SupportFileError` first so it passes through unchanged rather than getting
+  double-wrapped: everything else reaching that point is tarfile or gzip
+  decoding attacker-controlled bytes, not this function's own logic, so the
+  same "not a readable archive" framing applies regardless of the exception's
+  exact type. `tests/test_support.py` pins it with a hand-constructed 8-byte
+  truncated header rather than the fuzzer's own opaque bytes, mutation-tested
+  by confirming it fails red against the code before this fix.
+
   **Target: `support.py`'s archive parser, and nothing else yet.** It is the
   one piece of code this project already treats as hostile input by its own
   threat model -- "Support files are attacker-supplied, and the parsing
@@ -1691,6 +1711,26 @@ Live fetches are unaffected either way: `stat/sta` reports addresses directly.
   same reason as the coverage exclusion below it: real maintained Python worth
   analyzing, but not reachable from pytest, so counting it toward coverage
   would only measure the gap rather than anything meaningful.
+
+  **SonarQube's own quality gate caught four real issues in this
+  infrastructure on the same PR**, worth listing because none were
+  hypothetical: the Dockerfile's `COPY . $SRC/unifi-map` had no
+  `.dockerignore` scoping it, so a contributor's local `cache/` (a real
+  network's MAC/hostname/IP inventory, see the data-hygiene section) would
+  have been copied into the build context on a local build; both `pip3
+  install` calls (the Dockerfile's `atheris` and `build.sh`'s installing this
+  project) had neither a pinned version nor `--only-binary=:all:`; and
+  `cifuzz.yml`'s top-level `permissions: read-all` should have been the
+  explicit `contents: read` form, same as everywhere else in this repo's
+  workflows. Fixed: a root `.dockerignore` mirroring `.gitignore`'s
+  exclusions, `atheris==3.1.0` pinned with `--only-binary=:all:`, `build.sh`
+  installing from `requirements/ci.txt` with `--require-hashes` (the same
+  lock `ci.yml` uses, reused rather than duplicated) and the local package
+  `--no-deps`, and the explicit permissions form. One finding was left open
+  on purpose: the base image runs as root, flagged as a MINOR finding and
+  left with a comment explaining why, since `oss-fuzz-base`'s own build
+  tooling assumes it and the image is never published anywhere -- it exists
+  for the minutes this job runs and is discarded after.
 - **SonarQube Cloud runs inside `ci.yml`'s test job, not as Automatic
   Analysis.** `sonar-project.properties` says why in its first line: only an
   explicit analysis can import Python coverage, and Automatic Analysis was

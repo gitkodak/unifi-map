@@ -650,6 +650,21 @@ class TestRefusals:
         with pytest.raises(SupportFileError, match="not a readable gzipped tar"):
             load_support_file(path)
 
+    def test_a_truncated_gzip_header_is_reported_clearly(self, tmp_path):
+        # Found by fuzzing (KAN-194), not written in advance: tarfile's
+        # streaming ("r|gz") mode hand-rolls its own gzip-header reader, and a
+        # stream that ends mid-header raises a bare TypeError from deep
+        # inside tarfile.py rather than tarfile.TarError, which nothing
+        # upstream of this project's own except clauses used to catch.
+        #
+        # gzip magic + deflate method + the FEXTRA flag bit set + a 4-byte
+        # mtime, then nothing: FEXTRA promises a 2-byte length field next,
+        # which the stream does not have.
+        path = tmp_path / "truncated.tgz"
+        path.write_bytes(b"\x1f\x8b\x08\x04\x00\x00\x00\x00")
+        with pytest.raises(SupportFileError, match="not a readable gzipped tar"):
+            load_support_file(path)
+
     def test_a_missing_file_is_reported_clearly(self, tmp_path):
         with pytest.raises(SupportFileError, match="Could not read"):
             load_support_file(tmp_path / "absent.tgz")

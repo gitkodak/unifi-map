@@ -1,0 +1,22 @@
+# Scopes what .clusterfuzzlite/Dockerfile's `COPY . $SRC/unifi-map` actually
+# ships into the fuzzing build image. Mirrors .gitignore's reasoning: cache*/
+# can hold a real network's MAC, hostname and IP inventory (see CLAUDE.md's
+# data-hygiene section), and none of this is needed to build or run a fuzzer
+# anyway.
+.git/
+.env
+*.env
+
+cache*/
+out*/
+
+dist/
+build/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
