@@ -197,6 +197,40 @@ Path to a credential file, tried before the default locations.
 The \fBUDM_\fR\fI*\fR spellings of these were removed in 0.9.0. A key is
 never written into the environment, and is removed from the environment
 Graphviz is run with.
+.PP
+The following are preferences rather than credentials, and each has a
+matching key in the config file described under FILES. \fBUNIFI_\fR\fI*\fR
+is the console's namespace, so anything belonging to \fBunifi\-map\fR
+itself is spelled \fBUNIFI_MAP_\fR\fI*\fR.
+.TP
+\fBUNIFI_MAP_CONFIG\fR
+Path to the config file, used instead of the default location.
+.TP
+\fBUNIFI_MAP_CACHE_DIR\fR, \fBUNIFI_MAP_ASSET_CACHE\fR, \fBUNIFI_MAP_OUT_DIR\fR
+Set \fB\-\-cache\-dir\fR, \fB\-\-asset\-cache\fR and
+\fB\-\-out\-dir\fR. Independent of each other: setting only the
+snapshot cache leaves artwork where it was.
+.TP
+\fBUNIFI_MAP_THEME\fR, \fBUNIFI_MAP_LAYOUT\fR, \fBUNIFI_MAP_ICONS\fR, \fBUNIFI_MAP_FORMATS\fR
+Set \fB\-\-theme\fR, \fB\-\-layout\fR, \fB\-\-icons\fR and
+\fB\-\-formats\fR. Several formats are written space\-separated, as
+they are typed.
+.TP
+\fBUNIFI_MAP_OVERRIDES\fR
+Sets \fB\-\-overrides\fR.
+.PP
+Precedence is flag, then environment, then config file, then the built\-in
+default. Environment above file so a config file baked into a container
+image can be overridden per deployment. Every render reports which
+settings it did not get from the command line, and where each came from.
+.PP
+\fB\-\-obfuscate\fR and \fB\-\-force\fR are deliberately absent: one
+asserts that the output is safe to share and the other overwrites files,
+and neither should be answerable by ambient state.
+.PP
+\fBUNIFI_CACHE_DIR\fR, \fBUNIFI_ASSET_CACHE\fR and \fBUNIFI_OUT_DIR\fR
+are the former spellings of three of these. They still work, warn, and
+will be removed.
 .SH FILES
 .TP
 \fB.env\fR, \fB~/.config/unifi\-map/env\fR
@@ -204,6 +238,14 @@ Credential files, searched in that order after \fB\-\-env\-file\fR and
 \fBUNIFI_MAP_ENV\fR. Create with \fBinstall \-m 600\fR: a plain copy
 inherits the umask and usually leaves an API key world\-readable.
 \fBunifi\-map\fR warns when it reads one others can see.
+.TP
+\fB~/.config/unifi\-map/config.toml\fR
+Preferences, as opposed to credentials: \fBtheme\fR, \fBlayout\fR,
+\fBicons\fR, \fBformats\fR, \fBoverrides\fR, \fBcache_dir\fR,
+\fBasset_cache\fR and \fBout_dir\fR, as flat TOML keys named after the
+flags. Honours \fBXDG_CONFIG_HOME\fR, or use \fBUNIFI_MAP_CONFIG\fR. An
+unrecognised key is an error naming the ones that are accepted. Optional;
+the tool runs with no config file at all.
 .TP
 \fBcache/\fR
 Cached snapshots. A full inventory of MACs, hostnames and addresses.

@@ -280,7 +280,7 @@ getting a first map out of it. Everything else is a page of its own.
 | | |
 | --- | --- |
 | [Usage](docs/usage.md) | Every command and flag, and how to read the diagram. The flag reference is generated from the parser. |
-| [Credentials](docs/credentials.md) | Connecting to a controller, and what an API key can actually do. |
+| [Credentials](docs/credentials.md) | Connecting to a controller, what an API key can actually do, and the config file and `UNIFI_MAP_*` variables for settings you would rather not retype. |
 | [Support files](docs/support-files.md) | Mapping without credentials, and why the file is a secret. |
 | [Output formats](docs/output.md) | What each format is for, plus `--transparent` and turning the spinner off. |
 | [Overrides](docs/overrides.md) | Stating what the controller cannot see: unreported links, nesting, corrections. |
