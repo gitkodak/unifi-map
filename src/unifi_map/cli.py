@@ -597,28 +597,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     )
 
     if args.per_network:
-        names = client_networks(topo)
-        if not names:
-            log.warning("No client networks found; skipping per-network views.")
-        # Resolved across the whole set, since a collision is a property of the
-        # set rather than of any one name.
-        stems = unique_names(names)
-        for name in names:
-            view = filter_by_network(topo, name)
-            log.info("Network view %r:", name)
-            write_outputs(
-                render_dot(view, f"{title}: {name}", style, icons, _subtitle(view.counts())),
-                view,
-                args.out_dir,
-                f"{stem}-{stems[name]}",
-                formats,
-                style,
-                icons,
-                _stagger_for(view, args.stagger, style),
-                force=args.force,
-                progress=args.progress,
-                title=f"{title}: {name}",
-            )
+        _write_per_network_views(topo, title, style, icons, formats, stem, args)
 
     if args.report:
         # Last, and built from `topo` as it now stands rather than as it was
@@ -644,6 +623,40 @@ def cmd_render(args: argparse.Namespace) -> int:
         )
 
     return 0
+
+
+def _write_per_network_views(
+    topo: Topology,
+    title: str,
+    style: Style,
+    icons: dict[str, IconAsset],
+    formats: list[str],
+    stem: str,
+    args: argparse.Namespace,
+) -> None:
+    """Write one rendering per client network, sharing the already-resolved icons."""
+    names = client_networks(topo)
+    if not names:
+        log.warning("No client networks found; skipping per-network views.")
+    # Resolved across the whole set, since a collision is a property of the
+    # set rather than of any one name.
+    stems = unique_names(names)
+    for name in names:
+        view = filter_by_network(topo, name)
+        log.info("Network view %r:", name)
+        write_outputs(
+            render_dot(view, f"{title}: {name}", style, icons, _subtitle(view.counts())),
+            view,
+            args.out_dir,
+            f"{stem}-{stems[name]}",
+            formats,
+            style,
+            icons,
+            _stagger_for(view, args.stagger, style),
+            force=args.force,
+            progress=args.progress,
+            title=f"{title}: {name}",
+        )
 
 
 def _subtitle(tally: dict[str, int]) -> str:

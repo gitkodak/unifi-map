@@ -84,8 +84,10 @@ def test_topology_graph_edges_get_a_hollow_circle_arrowhead():
     # n_c1 -> n_c2.
     inferred = [line for line in lines if '"n_c1" -> "n_c2"' in line]
     direct = [line for line in lines if '"n_gw" -> "n_c1"' in line]
-    assert inferred and "arrowhead=odot" in inferred[0]
-    assert direct and "arrowhead=odot" not in direct[0]
+    assert inferred
+    assert "arrowhead=odot" in inferred[0]
+    assert direct
+    assert "arrowhead=odot" not in direct[0]
 
 
 def test_topology_graph_marker_composes_with_wireless_dashing():
