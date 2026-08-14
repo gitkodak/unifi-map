@@ -311,50 +311,57 @@ def _endpoints_section(payloads: dict[str, object] | None) -> list[str]:
     return out
 
 
+def _artwork_summary(art: dict[str, int]) -> list[str]:
+    """The ARTWORK section: counts by source, keyed on lookups that ran."""
+    if not art:
+        return []
+    out = ["", "ARTWORK"]
+    # Keyed on the presence of the totals, not on their value. Under
+    # `--icons builtin` no catalogue lookup is attempted at all, so these
+    # keys are absent and printing "0 of 0" would report a failure that
+    # never happened: nothing was looked up, rather than looked up and not
+    # found. Only `resolve_icons` sets them.
+    looked_up = "device_total" in art or "client_total" in art
+    if "device_total" in art:
+        out.append(f"  devices by sysid    {art.get('device_found', 0)} of {art['device_total']}")
+    if "client_total" in art:
+        out.append(
+            f"  clients             {art.get('client_found', 0)} of {art['client_total']}"
+            f"   ({art.get('from_fingerprint', 0)} product,"
+            f" {art.get('from_hardware', 0)} UniFi hardware,"
+            f" {art.get('from_glyph', 0)} console glyph)"
+        )
+    if art.get("from_drawn"):
+        # The reason differs by mode and the parenthetical has to follow it.
+        # In `builtin` these were drawn because that is what was asked for;
+        # saying "no catalogue match" there would invent a lookup failure.
+        why = "no catalogue match" if looked_up else "--icons builtin, nothing was looked up"
+        out.append(f"  drawn by us         {art['from_drawn']}   ({why})")
+    return out
+
+
+def _artwork_refused(ambiguous_artwork: list[tuple[str, int]]) -> list[str]:
+    """The ARTWORK REFUSED AS AMBIGUOUS section."""
+    if not ambiguous_artwork:
+        return []
+    counted = Counter(ambiguous_artwork)
+    out = [
+        "",
+        "ARTWORK REFUSED AS AMBIGUOUS",
+        "  These names matched more than one product, so no artwork was used.",
+        "  Refusing is deliberate: picking one would be inventing data. Rename",
+        "  the device in the console, or set an icon in an overrides file.",
+        "",
+    ]
+    for (name, matches), times in sorted(counted.items()):
+        seen = f" x{times}" if times > 1 else ""
+        out.append(f"  {name!r}   matched {matches} catalogue entries{seen}")
+    return out
+
+
 def _artwork_section(sources: Sources) -> list[str]:
     """Artwork resolution, including the matches that were deliberately refused."""
-    art = sources.artwork
-    out: list[str] = []
-    if art:
-        out += ["", "ARTWORK"]
-        # Keyed on the presence of the totals, not on their value. Under
-        # `--icons builtin` no catalogue lookup is attempted at all, so these
-        # keys are absent and printing "0 of 0" would report a failure that
-        # never happened: nothing was looked up, rather than looked up and not
-        # found. Only `resolve_icons` sets them.
-        looked_up = "device_total" in art or "client_total" in art
-        if "device_total" in art:
-            out.append(
-                f"  devices by sysid    {art.get('device_found', 0)} of {art['device_total']}"
-            )
-        if "client_total" in art:
-            out.append(
-                f"  clients             {art.get('client_found', 0)} of {art['client_total']}"
-                f"   ({art.get('from_fingerprint', 0)} product,"
-                f" {art.get('from_hardware', 0)} UniFi hardware,"
-                f" {art.get('from_glyph', 0)} console glyph)"
-            )
-        if art.get("from_drawn"):
-            # The reason differs by mode and the parenthetical has to follow it.
-            # In `builtin` these were drawn because that is what was asked for;
-            # saying "no catalogue match" there would invent a lookup failure.
-            why = "no catalogue match" if looked_up else "--icons builtin, nothing was looked up"
-            out.append(f"  drawn by us         {art['from_drawn']}   ({why})")
-
-    if sources.ambiguous_artwork:
-        counted = Counter(sources.ambiguous_artwork)
-        out += [
-            "",
-            "ARTWORK REFUSED AS AMBIGUOUS",
-            "  These names matched more than one product, so no artwork was used.",
-            "  Refusing is deliberate: picking one would be inventing data. Rename",
-            "  the device in the console, or set an icon in an overrides file.",
-            "",
-        ]
-        for (name, matches), times in sorted(counted.items()):
-            seen = f" x{times}" if times > 1 else ""
-            out.append(f"  {name!r}   matched {matches} catalogue entries{seen}")
-    return out
+    return _artwork_summary(sources.artwork) + _artwork_refused(sources.ambiguous_artwork)
 
 
 def build_diagnostics(
