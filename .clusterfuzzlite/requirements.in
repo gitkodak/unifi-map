@@ -2,4 +2,4 @@
 # Regenerate requirements.txt with:
 #   pip-compile --generate-hashes --allow-unsafe \
 #     --output-file=.clusterfuzzlite/requirements.txt .clusterfuzzlite/requirements.in
-atheris==3.0.0
+atheris==3.1.0
