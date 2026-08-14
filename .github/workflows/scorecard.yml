@@ -4,10 +4,12 @@ name: Scorecard analysis
 # list -- but a different axis from CodeQL and SonarQube Cloud): it doesn't
 # look for bugs in this code, it checks supply-chain hygiene of the
 # repository itself — branch protection, pinned CI dependencies, whether
-# Dependabot and a security policy exist, and so on. The public repo runs on
-# the default GITHUB_TOKEN; no PAT is needed here (that's only required for
-# classic Branch Protection or private repos, per the action's own
-# authentication docs).
+# Dependabot and a security policy exist, and so on. The default GITHUB_TOKEN
+# covers every check but one: Branch-Protection needs to read this repo's
+# classic branch protection rules, which GITHUB_TOKEN cannot do (a
+# GitHub-side restriction, not something scoped by permissions: below), so
+# SCORECARD_TOKEN is a fine-grained PAT with just "Administration: Read-only"
+# on this one repo, per the action's own authentication docs.
 
 on:
   push:
@@ -48,6 +50,7 @@ jobs:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
+          repo_token: ${{ secrets.SCORECARD_TOKEN }}
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
