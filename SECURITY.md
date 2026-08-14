@@ -237,12 +237,18 @@ valid certificate, or at a CA bundle path, is better where possible.
   A redirect that changes host, port or scheme drops it and says so. Redirects
   themselves still work, so a reverse proxy in front of your console is fine.
 - **Graphviz is resolved once to an absolute path and that exact path is what
-  gets executed**, not the bare name `dot` re-resolved at call time. This
-  guards against a substitution *after* resolution — `PATH` changing, or the
-  file at that path being swapped — not against `PATH` itself: whatever is
-  first on `PATH` when this tool starts is what gets found, same as any other
-  program that shells out by name. Put a directory you do not control ahead of
-  a trusted Graphviz install on `PATH` and this offers no protection.
+  gets executed**, not the bare name `dot` re-resolved at call time. What that
+  buys is narrow and worth stating exactly: there is no second `PATH` lookup,
+  so a `PATH` change after startup cannot redirect the call to a different
+  file.
+
+  It does **not** protect the resolved file itself. Anyone who can write to
+  that path can replace the binary between resolution and execution, and the
+  absolute path will run the replacement. Nor does it protect against `PATH`
+  at startup: whatever is first on `PATH` when this tool starts is what gets
+  found, same as any other program that shells out by name. Put a directory
+  you do not control ahead of a trusted Graphviz install and this offers no
+  protection at all.
 - **A credential file that other local accounts can read produces a warning**,
   and the file that was loaded is named, since `./.env` is searched before the
   home config.

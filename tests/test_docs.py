@@ -984,3 +984,69 @@ class TestTheDocumentedConfigExamples:
         missing = [var for var in _SETTING_VARS.values() if var not in page]
         assert not missing, f"settings absent from unifi-map.1: {missing}"
         assert "config.toml" in page
+
+
+class TestBadConfigurationFailsCleanly:
+    """A broken config file must not produce a traceback.
+
+    Found by external review of 83f6ab6. Parsing reads the config file, so a
+    `ConfigError` escapes from inside `parse_args`, which ran before `main`'s
+    try block. These go through `main()` rather than the loader, because the
+    loader was already tested and was never where the bug was.
+
+    The friendly message goes through `log.error`, so it is asserted on caplog;
+    `parser.error` writes to stderr directly, so that one is asserted on
+    capsys. Asserting only "no traceback" would pass whether or not anything
+    useful was printed.
+    """
+
+    def _run_main(self, argv, toml, monkeypatch, tmp_path):
+        from unifi_map.cli import main
+
+        path = tmp_path / "config.toml"
+        path.write_text(toml, encoding="utf-8")
+        monkeypatch.setenv("UNIFI_MAP_CONFIG", str(path))
+        try:
+            return main(argv)
+        except SystemExit as exc:  # parser.error
+            return exc.code
+
+    def test_malformed_toml_is_reported_not_raised(self, monkeypatch, tmp_path, caplog):
+        with caplog.at_level("ERROR"):
+            code = self._run_main(["shape"], 'theme = "dark\n', monkeypatch, tmp_path)
+        assert code == 2
+        assert any("Configuration error" in r.getMessage() for r in caplog.records)
+        assert any("not valid TOML" in r.getMessage() for r in caplog.records)
+
+    def test_an_unknown_key_is_reported_not_raised(self, monkeypatch, tmp_path, caplog):
+        with caplog.at_level("ERROR"):
+            code = self._run_main(["shape"], 'them = "dark"\n', monkeypatch, tmp_path)
+        assert code == 2
+        assert any("unknown key(s) 'them'" in r.getMessage() for r in caplog.records)
+
+    def test_it_raises_nothing_out_of_main(self, monkeypatch, tmp_path, caplog):
+        """The defect was an uncaught exception, so the return is the assertion:
+        reaching this line at all means nothing propagated."""
+        with caplog.at_level("ERROR"):
+            code = self._run_main(["shape"], "= broken\n", monkeypatch, tmp_path)
+        assert code == 2
+        assert caplog.records, "failed silently, which is worse than a traceback"
+
+    def test_an_empty_format_list_is_refused(self, monkeypatch, tmp_path, capsys):
+        """`-f` is nargs="+" so argparse refuses an empty list on the command
+        line. Via a config file it used to pass validation, do all the work,
+        print "Full map:" with nothing under it, write nothing and exit 0."""
+        code = self._run_main(["render"], "formats = []\n", monkeypatch, tmp_path)
+        assert code == 2
+        err = capsys.readouterr().err
+        assert "is empty" in err
+        assert "config file" in err
+
+    def test_a_populated_format_list_still_works(self, monkeypatch, tmp_path):
+        """The guard must not reject the ordinary case."""
+        from unifi_map.cli import build_parser
+
+        path = tmp_path / "config.toml"
+        path.write_text('formats = ["svg"]\n', encoding="utf-8")
+        monkeypatch.setenv("UNIFI_MAP_CONFIG", str(path))
+        assert build_parser().parse_args(["render"]).formats == ["svg"]

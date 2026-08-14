@@ -112,6 +112,22 @@ told something untrue and may have acted on it.
   specifically the command meant to be safe to paste into a bug report.
   Found by external review.
 
+- **A malformed config file produced a traceback instead of an error
+  message.** Parsing reads the config file, so invalid TOML, an unreadable
+  file or an unknown key raised from inside `parse_args`, which ran before
+  the handler that turns those into `Configuration error: ...` and exit 2.
+  It affected every command, including `shape`, which exists to be safe to
+  paste into a bug report.
+
+- **`formats = []` in a config file silently produced no output.** `-f` is
+  `nargs="+"` so the command line refuses an empty list, but validation of a
+  config-supplied value iterated the list and so checked nothing. The run did
+  the full topology, override and artwork work, printed `Full map:` with
+  nothing under it, wrote no files and exited 0. It is now refused, naming the
+  source.
+
+  Both of these were found by external review of 83f6ab6.
+
 ## 0.11.1 - 2026-08-13
 
 ### Changed

@@ -212,6 +212,16 @@ def _validate_injected(parser: argparse.ArgumentParser, key: str, resolved: Reso
     if not allowed:
         return
     values = resolved.value if isinstance(resolved.value, list) else [resolved.value]
+    # An empty list passed every check below, because iterating nothing rejects
+    # nothing. `-f` is `nargs="+"` and argparse refuses it on the command line,
+    # so `formats = []` in a config file was a way to reach a state the CLI
+    # forbids: the run did the full topology, override and artwork work, printed
+    # "Full map:" with nothing under it, wrote no files and exited 0. Found by
+    # external review of 83f6ab6.
+    if isinstance(resolved.value, list) and not values:
+        parser.error(
+            f"{key} from {resolved.source} is empty. Give at least one of: {', '.join(allowed)}"
+        )
     for value in values:
         if value not in allowed:
             parser.error(
@@ -1252,13 +1262,28 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    # Logging first, because parsing can now fail in a way worth reporting
+    # nicely. `-v` is read straight from argv rather than from the parsed
+    # namespace, which does not exist yet.
+    verbose = any(a in ("-v", "--verbose") for a in (argv if argv is not None else sys.argv[1:]))
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if verbose else logging.INFO,
         format="%(message)s",
         # Erases the spinner before each record, so the two never share a line.
         handlers=[SpinnerAwareHandler(sys.stderr)],
     )
+
+    # Parsing reads the config file, so a malformed one, an unreadable one or
+    # an unknown key raises `ConfigError` from inside `parse_args`. Outside the
+    # try below that surfaced as a traceback rather than the ordinary message,
+    # for every command including `shape`, which exists to be safe to paste
+    # into a bug report. Found by external review of 83f6ab6.
+    try:
+        args = build_parser().parse_args(argv)
+    except ConfigError as exc:
+        log.error("Configuration error: %s", exc, exc_info=verbose)
+        return 2
+
     try:
         return int(args.func(args))
     except ConfigError as exc:
