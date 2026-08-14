@@ -41,6 +41,7 @@ every clean run into a network inventory printed to stdout. A test pins it.
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -192,21 +193,28 @@ def _addressless_section(topo: Topology) -> list[str]:
     ] + [f"  {_describe(node)}" for node in nameless]
 
 
+_MAC_SHAPE = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
+
+
 def _is_locally_administered(mac: str) -> bool:
     """True if bit 1 of the first octet is set (IEEE 802's locally-administered bit).
 
     Set on an address that was generated rather than burned into hardware by a
-    vendor, which is what a MAC-randomisation feature produces. Malformed input
-    (a synthetic id like `"internet"` or `UNKNOWN_UPLINK_ID`) reads as False
-    rather than raising; callers only feed this client node ids, but the check
-    should not depend on that staying true.
+    vendor, which is what a MAC-randomisation feature produces.
+
+    Requires the full six-octet colon-separated shape before parsing anything.
+    An earlier version parsed only the substring before the first colon, so a
+    truncated or malformed id -- `"2"`, say -- read as hex `0x02` and came back
+    locally-administered by accident, even though it is not a MAC at all. That
+    matters because `Node.id` is not trusted input here: `_norm_mac()` lowercases
+    a client's `mac` field but never validates its shape, and a support file's
+    fields are attacker-controlled by this project's own threat model. A
+    malformed id now reads as False rather than as a coin flip on its digits.
     """
-    first = mac.split(":", 1)[0]
-    try:
-        octet = int(first, 16)
-    except ValueError:
+    lowered = mac.lower()
+    if not _MAC_SHAPE.match(lowered):
         return False
-    return bool(octet & 0x02)
+    return bool(int(lowered[:2], 16) & 0x02)
 
 
 def _mac_randomisation_section(topo: Topology) -> list[str]:

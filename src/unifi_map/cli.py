@@ -714,14 +714,29 @@ def _graphviz_version() -> str | None:
 
     Every rendering claim here is verified against one version, so knowing
     somebody else's is worth a line.
+
+    Runs `dot` with `layout.child_env()`, same as `run_dot()`/`unflatten()`.
+    This is a second, separate Graphviz child process from those two, and was
+    missed when the scrubbed environment was introduced for them -- it
+    inherited an exported `UNIFI_API_KEY` in full until fixed. Worth getting
+    right here specifically: this is what `unifi-map shape` reports, and
+    `shape` is the command meant to be safe to paste into a bug report.
     """
     import subprocess
+
+    from .layout import child_env
 
     executable = shutil.which("dot")
     if executable is None:
         return None
     try:
-        result = subprocess.run([executable, "-V"], capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            [executable, "-V"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=child_env(),
+        )
     except (OSError, subprocess.SubprocessError):
         return None
     output = (result.stderr or result.stdout or "").strip()

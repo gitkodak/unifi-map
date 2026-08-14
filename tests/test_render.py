@@ -987,13 +987,13 @@ class TestCredentialsDoNotReachChildProcesses:
         assert "UNIFI_API_KEY" not in os.environ
 
     def test_an_exported_key_is_stripped_from_child_environments(self, monkeypatch):
-        from unifi_map.layout import _child_env
+        from unifi_map.layout import child_env
 
         monkeypatch.setenv("UNIFI_API_KEY", "super-secret")
         monkeypatch.setenv("UDM_API_KEY", "also-secret")
         monkeypatch.setenv("PATH", os.environ.get("PATH", ""))
 
-        env = _child_env()
+        env = child_env()
         assert "UNIFI_API_KEY" not in env
         assert "UDM_API_KEY" not in env
         # Still a usable environment, not an empty one.
@@ -1003,15 +1003,42 @@ class TestCredentialsDoNotReachChildProcesses:
         """End to end: run a stand-in for `dot` that reports its environment."""
         import subprocess
 
-        from unifi_map.layout import _child_env
+        from unifi_map.layout import child_env
 
         monkeypatch.setenv("UNIFI_API_KEY", "super-secret")
         probe = tmp_path / "probe.py"
         probe.write_text("import os,sys; sys.stdout.write(os.environ.get('UNIFI_API_KEY',''))")
         result = subprocess.run(
-            [sys.executable, str(probe)], capture_output=True, env=_child_env(), check=False
+            [sys.executable, str(probe)], capture_output=True, env=child_env(), check=False
         )
         assert result.stdout == b""
+
+    def test_the_graphviz_version_probe_also_does_not_see_the_key(self, monkeypatch, tmp_path):
+        """`cmd_shape` calls `_graphviz_version()` to run `dot -V`, a second
+        Graphviz child process separate from `run_dot`/`unflatten` above. It was
+        missed when `child_env()` scrubbing was added to those, and inherited
+        the full environment -- including an exported key -- until fixed.
+        `unifi-map shape` is specifically the command meant to be safe to paste
+        into a bug report, which is what makes this one worth its own test
+        rather than trusting that "it's the same kind of subprocess" generalises.
+        """
+        from unifi_map.cli import _graphviz_version
+
+        marker = tmp_path / "seen.txt"
+        fake_dot = tmp_path / "dot"
+        fake_dot.write_text(
+            f"#!{sys.executable}\n"
+            "import os\n"
+            f"open({str(marker)!r}, 'w').write(os.environ.get('UNIFI_API_KEY', ''))\n"
+            "import sys; sys.stderr.write('dot - graphviz version 9.9.9 (test)\\n')\n"
+        )
+        fake_dot.chmod(0o755)
+        monkeypatch.setenv("UNIFI_API_KEY", "super-secret")
+        monkeypatch.setenv("PATH", str(tmp_path))
+
+        _graphviz_version()
+
+        assert marker.read_text() == "", "UNIFI_API_KEY leaked into the `dot -V` child process"
 
 
 class TestTheUdmNamesAreGone:

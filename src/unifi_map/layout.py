@@ -63,7 +63,7 @@ class Layout:
 _CREDENTIAL_VARS = ("UNIFI_API_KEY", "UDM_API_KEY")
 
 
-def _child_env() -> dict[str, str]:
+def child_env() -> dict[str, str]:
     """The parent environment with any API key removed."""
     return {k: v for k, v in os.environ.items() if k not in _CREDENTIAL_VARS}
 
@@ -88,7 +88,7 @@ def run_dot(dot_source: str, output_format: str, engine: str = "dot") -> bytes:
     try:
         result = subprocess.run(
             [executable, f"-T{output_format}"],
-            env=_child_env(),
+            env=child_env(),
             input=dot_source.encode("utf-8"),
             capture_output=True,
             timeout=300,
@@ -136,7 +136,7 @@ def stagger(dot_source: str, depth: int) -> str:
     try:
         result = subprocess.run(
             [executable, "-f", "-l", str(depth)],
-            env=_child_env(),
+            env=child_env(),
             input=dot_source.encode("utf-8"),
             capture_output=True,
             timeout=120,
