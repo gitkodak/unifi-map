@@ -56,6 +56,8 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.12.0 - 2026-08-14
+
 ### Added
 
 - **A config file, and environment variables for rendering preferences.**
