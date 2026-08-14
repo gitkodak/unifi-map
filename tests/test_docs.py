@@ -1050,3 +1050,31 @@ class TestBadConfigurationFailsCleanly:
         path.write_text('formats = ["svg"]\n', encoding="utf-8")
         monkeypatch.setenv("UNIFI_MAP_CONFIG", str(path))
         assert build_parser().parse_args(["render"]).formats == ["svg"]
+
+
+class TestTheApiKeyStaysOutOfTheRepr:
+    """KAN-198. Defensive: no path prints the config today, and the point is
+    that none can start to without this test failing."""
+
+    def _config(self):
+        from unifi_map.config import ExporterConfig
+
+        return ExporterConfig(host="console.example", api_key="SECRET-KEY-VALUE")
+
+    def test_repr_omits_the_key(self):
+        assert "SECRET-KEY-VALUE" not in repr(self._config())
+
+    def test_the_useful_fields_are_still_shown(self):
+        """A redacted repr that shows nothing is no good for debugging either."""
+        text = repr(self._config())
+        assert "console.example" in text
+        assert "site=" in text
+
+    def test_the_key_is_still_readable_on_the_object(self):
+        """repr=False hides it from the repr, not from the code that needs it."""
+        assert self._config().api_key == "SECRET-KEY-VALUE"
+
+    def test_an_f_string_of_the_config_is_also_safe(self):
+        """`f"{config}"` uses __str__, which a dataclass aliases to __repr__.
+        Worth pinning separately: it is the likelier accident of the two."""
+        assert "SECRET-KEY-VALUE" not in f"{self._config()}"

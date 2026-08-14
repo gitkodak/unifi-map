@@ -128,6 +128,14 @@ told something untrue and may have acted on it.
 
   Both of these were found by external review of 83f6ab6.
 
+- **The API key no longer appears in `ExporterConfig`'s repr.** A frozen
+  dataclass reprs every field, so `repr(CONFIG)` rendered the live key.
+  Nothing in the tool logs or formats the config, so this is defensive rather
+  than a fix for a known leak: it closes the ordinary ways a repr escapes, such
+  as a pytest assertion diff, a `--showlocals` traceback pasted into an issue,
+  or a well-meant debug log. The host, site and TLS setting are still shown,
+  since a redacted repr nobody can debug with would be its own problem.
+
 ## 0.11.1 - 2026-08-13
 
 ### Changed

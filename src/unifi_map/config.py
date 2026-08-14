@@ -10,7 +10,7 @@ import datetime
 import logging
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -117,7 +117,13 @@ def _value(key: str, values: dict[str, str]) -> str | None:
 @dataclass(frozen=True)
 class ExporterConfig:
     host: str
-    api_key: str
+    # Kept out of the generated repr. Nothing here logs or formats the config
+    # today, so this is defensive rather than a fix for a known leak: what it
+    # buys is that a pytest assertion diff, a --showlocals traceback pasted
+    # into an issue, or a well-meant log.debug("config: %r") cannot print the
+    # key tomorrow. Same family as never writing it into os.environ, and as
+    # layout.py stripping it from every Graphviz child's environment.
+    api_key: str = field(repr=False)
     site: str = "default"
     verify_tls: bool | str = True
 

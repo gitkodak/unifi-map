@@ -1120,17 +1120,26 @@ stub generator to act on (KAN-120).
   Count only `Kind.WIRED_CLIENT`. Wireless clients share an AP by definition,
   the same reasoning that scoped KAN-129's count to clients.
 
-- **The API key is in `ExporterConfig`'s generated repr** (KAN-198). Spotted
-  2026-08-14 in `merlijntishauser/unifi-topology`, which declares its
-  credentials `field(repr=False)`. A frozen dataclass reprs every field, so
-  `repr(CONFIG)` renders the live key.
+- **The API key was in `ExporterConfig`'s generated repr. Fixed in 0.12.0**
+  (KAN-198). Spotted 2026-08-14 in `merlijntishauser/unifi-topology`, which
+  declares its credentials `field(repr=False)`. A frozen dataclass reprs every
+  field, so `repr(CONFIG)` rendered the live key.
 
-  **Defensive, and say so rather than dressing it up.** Nothing in `src/`
-  reprs, formats or logs the config; `-v` does not enable `http.client` debug
-  and urllib3 at DEBUG logs the request line rather than headers; an ordinary
-  traceback does not print frame locals. There is no path today. The change
-  buys that there is none tomorrow either, from a pytest assertion diff, a
-  `--showlocals` traceback, or a well-meant `log.debug("config: %r", config)`.
+  **Defensive, and it was described that way rather than dressed up.** Nothing
+  in `src/` reprs, formats or logs the config; `-v` does not enable
+  `http.client` debug and urllib3 at DEBUG logs the request line rather than
+  headers; an ordinary traceback does not print frame locals. There was no path
+  then and the fix does not close one. What it buys is that none can open
+  later, from a pytest assertion diff, a `--showlocals` traceback, or a
+  well-meant `log.debug("config: %r", config)`.
+
+  **Worth noting why it shipped in 0.12.0 rather than waiting.** It was first
+  deferred on the grounds that the release had already grown, which Jason
+  questioned and which does not survive: the change is two lines, it was fully
+  specified, and `RELEASING.md` says outright that security fixes should not
+  sit unreleased because anyone tracking tags is running the last one. Deferring
+  a nearly free hardening for tidiness is a bad trade; the reflex to protect a
+  release's scope is worth checking against the size of the actual diff.
 
   Same family as `config.py` never writing the key into `os.environ` and
   `layout.py` stripping it from Graphviz's environment. The session's
