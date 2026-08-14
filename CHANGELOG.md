@@ -56,7 +56,7 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
-## 0.11.1 - 2026-08-14
+## 0.11.1 - 2026-08-13
 
 ### Changed
 

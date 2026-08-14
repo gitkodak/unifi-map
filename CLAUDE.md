@@ -1351,10 +1351,19 @@ grep -m2 "^## " CHANGELOG.md
 python -c "from unifi_map import __version__; print(__version__)"
 ```
 
-**The GitHub repository description is set**, and matches `pyproject.toml`.
-Verified against the API rather than assumed, because it is a setting rather
-than a file and so cannot be seen from a checkout. Check it the same way before
-listing it as outstanding again:
+**The GitHub repository description is set, and deliberately does not match
+`pyproject.toml`.** Both used the same "Export a UniFi network topology as
+zoomable vector diagrams and editable draw.io files" phrase (which still lives
+in `pyproject.toml`, `README.md`'s opening line, `__init__.py`'s docstring and
+`cli.py`'s argparse description) until the GitHub setting was edited on its own
+to spell out the format list instead: "Export UniFi Network topology to SVG,
+PDF, PNG, HTML, DOT, Mermaid, JSON, and editable draw.io diagrams." Found
+during a 2026-08-13 reconciliation, where this paragraph's own claim that the
+two matched turned out to be false. Decided to keep the divergence rather than
+force them back in sync: the repo description is what shows up in search and
+the repo list, where naming every output format is worth more than reusing the
+in-tool phrase verbatim. Check the setting itself before claiming anything
+about it, since it is invisible from a checkout:
 
 ```bash
 curl -s https://api.github.com/repos/gitkodak/unifi-map | jq -r .description

@@ -103,16 +103,26 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
    parts of a release most likely to be wrong, and they are the parts a diff
    shows worst. See the publishing order in `CLAUDE.md`.
 
-7. **Push to `origin`, then tag, then push the tag.**
+7. **Push a branch, open a PR against `origin`, merge, then tag.** `main`
+   requires a pull request as of 2026-08-13 (KAN-192) — branch protection sets
+   `enforce_admins: true`, so a direct `git push origin main` fails outright,
+   including for the repo owner. Zero approvals are required (see `CLAUDE.md`'s
+   publishing section for why); the required status checks passing is what
+   actually gates the merge.
 
    ```bash
-   git push origin main
+   git push origin HEAD:release/vX.Y.Z
+   gh pr create --title "Release vX.Y.Z" --body "…"
+   # wait for Python 3.11 / 3.12 / 3.13 and Repository hygiene to pass
+   gh pr merge --squash
+   git checkout main && git pull origin main
    git tag -a vX.Y.Z -m "…"      # annotated, summarising the headline changes
    git push origin vX.Y.Z
    ```
 
-   In that order. Tagging a commit that is not yet on the remote works locally
-   and confuses everything afterwards.
+   `git pull` before tagging matters: a squash merge gives the commit on `main`
+   a different SHA than the one just pushed, and tagging a commit that is not
+   yet on the remote works locally and confuses everything afterwards.
 
 8. **`make build`.** Empties `dist/` and writes a fresh wheel and sdist for
    *this* version. Nothing before this step needs it, but the next one
@@ -216,32 +226,27 @@ Read `## Unreleased` in `CHANGELOG.md` end to end. Specifically confirm:
 
 ## The undecided part
 
-**There is no published artifact.** A release here is a tag, a changelog entry
-and a GitHub Release carrying that entry.
+**There is no published artifact on PyPI.** A release here is a tag, a
+changelog entry, and a GitHub Release with the wheel, sdist and man page
+attached (step 9).
 
-Building one locally is not the undecided part and is documented: `make build`
-produces a wheel and an sdist in `dist/`, and `pip install dist/*.whl` works
-anywhere. Nothing about that is a promise to anyone, which is exactly why it
-sits outside this section.
-
-Note that the Release itself is not the undecided part, and stopped being
-optional at 0.8.0: it costs nothing, breaks no promises, and is what makes the
-version history visible from outside a checkout. What is still undecided is
-whether anything should be *attached* to one.
-
-Whether that should change is a real decision, not an oversight:
+That attachment is not the undecided part, and stopped being open at 0.10.0:
+`make build` produces a wheel and an sdist in `dist/`, the man page ships in
+the wheel via `[tool.setuptools.data-files]`, and `docs/install-from-github.md`
+documents `pip install <url>` straight off the Release page. What is still
+undecided is *PyPI* specifically:
 
 * Publishing to PyPI means owning the name, keeping metadata honest, and never
-  breaking a published artifact. It also makes `pip install unifi-map` work,
-  which is what people expect of a Python tool.
+  breaking a published artifact. It also makes `pip install unifi-map` work
+  with no URL to find first, which is what people expect of a Python tool.
 * The entry point and build backend already exist, and `make build` drives
   them, so there is no build work left in either direction. CI would need a
-  `tags:` trigger to build and attach or upload them.
+  `tags:` trigger to build and upload on release.
 * Graphviz is a system dependency, so a wheel is not self-contained either way.
-* Since 0.5.0 there is a man page, which packaging would have to place in
-  `share/man/man1` for `man unifi-map` to work rather than `man ./unifi-map.1`.
-  That is a small amount of work and one more thing to keep correct, so it
-  belongs on this side of the decision rather than being discovered after it.
 
-Until that is decided, this file describes a tag-and-changelog release, and says
-so rather than implying more.
+Stated 2026-08-03: not happening any time soon. It is a timing position, not a
+decline, and could change — but treat publishing workflows, trusted publishing,
+and PyPI-shaped packaging metadata as out of scope until it does.
+
+Until that changes, this file describes a tag-plus-Release release, and says so
+rather than implying more.
