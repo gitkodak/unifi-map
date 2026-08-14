@@ -163,7 +163,7 @@ complete:
 ```json
 {
   "schema": 1,
-  "generator": "unifi-map 0.11.0",
+  "generator": "unifi-map 0.11.1",
   "title": "Network map",
   "counts": {
     "gateway": 1, "switch": 4, "ap": 3, "internet": 1,
@@ -175,7 +175,7 @@ complete:
       "ip": "10.0.0.1", "model": "UDMPROMAX", "detail": "UDMPROMAX",
       "sysid": 59954 }
   ],
-  "edges": [ { "child": "02:00:00:00:01:01", "parent": "internet", "label": "WAN", "provenance": "wan" } ]
+  "edges": [ { "child": "02:00:00:00:01:01", "parent": "internet", "provenance": "wan", "label": "WAN" } ]
 }
 ```
 
