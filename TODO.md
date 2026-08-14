@@ -42,9 +42,12 @@ drawn from a thin one look equally authoritative.
   and draw.io outputs. Everything else `Provenance` distinguishes turned out to
   already have a channel: node role via `Kind`, asserted via dotted, offline
   via dashed.
-- **Randomised client MACs** (KAN-129). Every join here is on MAC, so a phone
-  rotating its address appears as a new client unrelated to the old one. Explains
-  apparent duplicates. Detectable from the locally-administered bit.
+- **Randomised client MACs. Shipped**, as a `--report` section (KAN-129).
+  Every join here is on MAC, so a phone rotating its address appears as a new
+  client unrelated to the old one. `--report` now counts how many currently
+  show a locally-administered MAC and says why, without naming any of them:
+  there is nothing wrong with a specific device and no overrides entry that
+  would fix it.
 
 ## More ways to look at the network
 

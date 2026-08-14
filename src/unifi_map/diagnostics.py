@@ -192,6 +192,51 @@ def _addressless_section(topo: Topology) -> list[str]:
     ] + [f"  {_describe(node)}" for node in nameless]
 
 
+def _is_locally_administered(mac: str) -> bool:
+    """True if bit 1 of the first octet is set (IEEE 802's locally-administered bit).
+
+    Set on an address that was generated rather than burned into hardware by a
+    vendor, which is what a MAC-randomisation feature produces. Malformed input
+    (a synthetic id like `"internet"` or `UNKNOWN_UPLINK_ID`) reads as False
+    rather than raising; callers only feed this client node ids, but the check
+    should not depend on that staying true.
+    """
+    first = mac.split(":", 1)[0]
+    try:
+        octet = int(first, 16)
+    except ValueError:
+        return False
+    return bool(octet & 0x02)
+
+
+def _mac_randomisation_section(topo: Topology) -> list[str]:
+    """How many clients advertise a locally-administered (rotating) MAC.
+
+    Every join in this tool is on MAC address, so a client that rotates its own
+    -- most phones and laptops do, periodically -- reappears here as a new,
+    unrelated client rather than as an update to the one already on the map.
+    KAN-129.
+
+    **Counted only, not named**, unlike the sections above. An unplaced client
+    or one with no address is a specific, fixable problem and an overrides file
+    is the fix. A rotated MAC is neither: there is nothing wrong with any one
+    device, and nothing to point an overrides file at. Naming devices here would
+    imply an action the reader cannot take.
+    """
+    clients = [n for n in topo.nodes.values() if n.kind in _CLIENT_KINDS]
+    randomised = sum(1 for n in clients if _is_locally_administered(n.id))
+    if not randomised:
+        return []
+    return [
+        "",
+        "RANDOMISED MAC ADDRESSES",
+        f"  {randomised} of {len(clients)} client(s) advertise a locally-administered",
+        "  MAC, which most phones and laptops rotate periodically. The same physical",
+        "  device can reappear here as a new client rather than as the one already on",
+        "  the map; this is expected, and not something an overrides file can fix.",
+    ]
+
+
 def _dangling_networks(topo: Topology) -> list[str]:
     """Networks a client claims to be on that the controller does not list.
 
@@ -416,6 +461,7 @@ def build_diagnostics(
     out += _unplaced_section(topo)
     out += _addressless_section(topo)
     out += _dangling_networks(topo)
+    out += _mac_randomisation_section(topo)
     out += _artwork_section(sources)
 
     if sources.notes:

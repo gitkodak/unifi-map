@@ -162,6 +162,25 @@ diagram](#reading-the-diagram) — and an asserted one is drawn dotted, so this
 report and the picture agree rather than the report being the only place the
 distinction shows.
 
+**Every join here is on MAC address**, and most phones and laptops rotate
+theirs periodically. When that happens the same physical device reappears as
+an unrelated new client rather than as an update to the one already on the
+map — nothing is wrong, and there is no overrides entry that fixes it. A
+rotated MAC is detectable without any cooperation from the controller (it sets
+IEEE 802's locally-administered bit), so `--report` counts how many clients
+currently show one:
+
+```
+RANDOMISED MAC ADDRESSES
+  3 of 19 client(s) advertise a locally-administered
+  MAC, which most phones and laptops rotate periodically. The same physical
+  device can reappear here as a new client rather than as the one already on
+  the map; this is expected, and not something an overrides file can fix.
+```
+
+Counted rather than named, unlike the sections above: there is nothing wrong
+with any specific device here.
+
 **This report is not safe to share.** It names your devices, addresses and
 networks by design, and it says so at the top. For something you can paste into
 a bug report, use [`unifi-map shape`](sharing.md), which is built from an

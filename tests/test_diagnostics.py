@@ -368,3 +368,58 @@ class TestObfuscation:
         text = build_diagnostics(obfuscate(topo))
         for label in real_labels:
             assert label not in text, f"{label!r} survived obfuscation into the report"
+
+
+class TestRandomisedMacAddresses:
+    """KAN-129: every join here is on MAC, so a rotated MAC looks like a new,
+    unrelated client rather than an update to the one already on the map."""
+
+    def _topo_with(self, *macs: str) -> Topology:
+        topo = Topology()
+        for i, mac in enumerate(macs):
+            topo.add(
+                Node(
+                    id=mac,
+                    label=f"client{i}",
+                    kind=Kind.WIRELESS_CLIENT,
+                    provenance=Provenance.CLIENT,
+                )
+            )
+        return topo
+
+    def test_absent_when_no_client_mac_is_locally_administered(self):
+        text = build_diagnostics(self._topo_with("00:11:22:33:44:55", "b8:27:eb:aa:bb:cc"))
+        assert "RANDOMISED MAC ADDRESSES" not in text
+
+    def test_counts_only_the_locally_administered_ones(self):
+        text = build_diagnostics(
+            self._topo_with("00:11:22:33:44:55", "aa:bb:cc:dd:ee:ff", "02:00:00:00:01:04")
+        )
+        assert "RANDOMISED MAC ADDRESSES" in text
+        assert "2 of 3 client(s)" in text
+
+    def test_infrastructure_macs_are_not_counted_as_clients(self):
+        """A switch or gateway can be locally administered too (this project's
+        own demo fixtures are); only clients are what MAC randomisation is
+        actually about, and infrastructure MACs don't rotate."""
+        topo = self._topo_with("aa:bb:cc:dd:ee:ff")
+        topo.add(Node(id="gw", label="gateway", kind=Kind.GATEWAY, provenance=Provenance.DEVICE))
+        text = build_diagnostics(topo)
+        assert "1 of 1 client(s)" in text
+
+    def test_names_no_device(self):
+        """Counted, not named: there is nothing wrong with any one device here,
+        and no overrides file entry that would fix it, so naming one would
+        imply an action the reader cannot actually take.
+
+        Gives the client an address so `_addressless_section` -- a different
+        section, with a different and legitimate reason to print a name --
+        does not fire and confound the assertion.
+        """
+        topo = self._topo_with("aa:bb:cc:dd:ee:ff")
+        topo.nodes["aa:bb:cc:dd:ee:ff"].ip = "10.0.0.5"
+        text = build_diagnostics(topo)
+        assert "client0" not in text
+
+    def test_malformed_mac_does_not_raise(self):
+        build_diagnostics(self._topo_with("not-a-mac"))
