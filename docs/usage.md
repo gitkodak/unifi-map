@@ -229,6 +229,27 @@ title block and a legend, built to actually be readable on a busy network. Try
 both; on a network with many clients `tree` is usually the one you want to hand
 to someone else.
 
+### Not retyping them: `~/.config/unifi-map/config.toml`
+
+If your taste differs from the defaults, put it in a config file instead of on
+every command line:
+
+```toml
+theme   = "dark"
+layout  = "tree"
+formats = ["svg", "png"]
+```
+
+The same settings are readable from `UNIFI_MAP_*` environment variables, which
+is what makes the tool configurable in a container without mounting a file.
+Precedence is flag, then environment, then config file, then the default, and
+every render prints which settings it did not get from the command line and
+where each came from.
+
+`--obfuscate` and `--force` are not settable this way, on purpose. See
+[credentials and configuration](credentials.md#preferences-the-config-file-and-unifi_map_)
+for the full list of keys.
+
 ### How close is `--layout unifi`?
 
 Close, not exact. It won't look *exactly* like the controller UI, and it can't:
@@ -320,6 +341,29 @@ once nothing is left under it.
 
 `--report` lists exactly which clients ended up there, with their addresses and
 networks, which is usually enough to recognise them without opening the diagram.
+
+### One machine, several nodes
+
+A server with an interface on three VLANs is drawn as **three clients**, each
+with its own name and address, sitting side by side. A hypervisor's bridge
+interfaces do the same. Nothing is wrong; the map is showing you what the
+network sees.
+
+**The controller reports network interfaces, not machines.** Three MAC
+addresses on three VLANs are three clients as far as any of its endpoints are
+concerned, and no field anywhere says they share a chassis. So what is drawn is
+a logical map, of what is reachable and how, rather than a physical one of what
+is in the building.
+
+**`--per-network` is the view where this stops being a problem.** Each VLAN
+gets its own diagram, and in it that machine appears exactly once, as the
+interface belonging to that network, with the address it has there. The
+duplication only exists in the combined map, which is showing every network at
+once.
+
+In the combined view, a `[[node]]` rename in an [overrides file](overrides.md)
+gives the interfaces distinguishable names, which turns a confusing repeat into
+an obvious one: `nas (storage)` beside `nas (management)`.
 
 <!-- BEGIN GENERATED FLAGS -->
 

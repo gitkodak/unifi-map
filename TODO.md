@@ -48,6 +48,17 @@ drawn from a thin one look equally authoritative.
   show a locally-administered MAC and says why, without naming any of them:
   there is nothing wrong with a specific device and no overrides entry that
   would fix it.
+- **Say when something is hiding on a switch port** (KAN-199). Two signals, and
+  they are complementary. The controller's own v2 topology payload carries a
+  `has_unknown_switch` boolean that we do not read, which says one exists
+  somewhere but not where. Several wired clients reporting the same switch and
+  port says where, and needs no cooperation from the hidden device, which is
+  what makes it work where LLDP cannot.
+
+  Reported rather than drawn: the signal is unambiguous and its cause is not,
+  since several MACs on a port means an unmanaged switch or a virtualisation
+  host bridging its guests. The report names the port and leaves the answer to
+  a `[[device]]` or `[[hosted]]` entry.
 
 ## More ways to look at the network
 
@@ -70,6 +81,18 @@ drawn from a thin one look equally authoritative.
 - **Historical clients** (KAN-127). Opt-in, and visibly dated. An old association
   is not evidence of where something is now, so it must never be drawn as a
   current link.
+- **User-written port names** (KAN-197). The controller already holds them, in
+  `port_overrides[].name` rather than the `port_table[].name` you would reach
+  for first, and we read neither. On the reference network that is 26 human
+  labels sitting unused in every snapshot we write. Blocked on an obfuscation
+  guard landing in the same change, since a port named after a person or a room
+  is identifying in a way "port 12" never was.
+- **A `serve` subcommand** (KAN-196), re-polling on a timer so a browser gets a
+  live view rather than a file that was true when it was written. Marked
+  *consider*: the objection to answer first is that live polling needs
+  controller credentials, and anyone holding those can open the console, which
+  already has a live topology view. What the console cannot show is a map
+  carrying your overrides, which is the case for building it anyway.
 
 ## Cache housekeeping
 
@@ -103,17 +126,27 @@ drawn from a thin one look equally authoritative.
 
 - **An OpenBao/Vault backend** (KAN-128). `config.py` is the only module that
   reads the environment specifically so this stays a single-file change.
-- **Preferences in the environment** (KAN-130), so somebody whose taste differs
-  from the defaults need not retype them. Weighed against reproducibility
-  between machines; a config file is the alternative and shipping both would be
-  worse than either.
+- **A config file, and environment variables. Shipped** (KAN-130).
+  `~/.config/unifi-map/config.toml` beside the credential file, plus
+  `UNIFI_MAP_*` variables, precedence flag > environment > config file >
+  default. Both rather than one, because they answer different needs: a file
+  for somebody whose taste differs from the defaults, variables for anybody
+  running this in a container, where mounting a file to set four preferences is
+  friction a `-e` flag does not have.
+
+  `--obfuscate` and `--force` are excluded on purpose. One is a claim that the
+  output is safe to share and the other overwrites files, and neither should
+  come from ambient state invisible at the call site. Every render now says
+  where a setting it did not get from the command line came from.
 
 ## Overrides
 
 - **A candidates generator** (KAN-120). Emit a skeleton overrides file seeded
-  with what could not be placed. Commented boilerplate that still requires a
-  human to state the relationship; never a guessed parent. The other half of
-  that ticket, `overrides check`, ships already.
+  from what `--report` found: what could not be placed, artwork refused as
+  ambiguous, ports that look like they have a hidden switch behind them.
+  Commented boilerplate that still requires a human to state the relationship;
+  never a guessed parent. The other half of that ticket, `overrides check`,
+  ships already.
 
 ## Multi-site
 
@@ -229,6 +262,26 @@ help and what not to send.
 ## Considered and not planned
 
 Recorded so they are not re-proposed as oversights.
+
+- **A `[[merge]]` override, declaring that several MACs are one machine.** A
+  server with interfaces on three VLANs is drawn as three clients, because the
+  controller reports interfaces and no field anywhere says they share a
+  chassis.
+
+  It founders on the model rather than the syntax. A merged node belongs to
+  every network its interfaces are on, `Node.network` holds one value, and
+  `--per-network` filters on it. Making that plural to serve the combined view
+  would complicate the view that already handles this correctly: in a
+  per-network diagram the machine appears exactly once, as the interface
+  belonging to that network, with the address it has there. Merging would also
+  have to refuse a node whose interfaces sit on different uplinks, and refuse
+  merging anything with its own ancestor, which is the physically correct case
+  for a NAS behind its own host's NIC.
+
+  What exists instead: `--per-network` as the clean view, `[[node]]` renames to
+  tell interfaces apart in the combined one, and a note in `docs/usage.md`
+  explaining that this is a logical map rather than a rack diagram. If a rack
+  diagram is the goal, it should be drawn somewhere that knows about racks.
 
 - **A static type checker.** Raised by three external reviews across two
   rounds; **declined 2026-08-03**, and the repetition is why it is written down

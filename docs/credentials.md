@@ -122,21 +122,91 @@ since password authentication was removed.
 `UNIFI_MAP_ENV` is not read from the credential file itself; it is the
 environment variable that says *where* the credential file is.
 
-## Where things are written
+## Preferences: the config file and `UNIFI_MAP_*`
 
-Three more variables, which are not credentials but are set the same way, in
-the environment or in the credential file:
+Everything in this section is a preference rather than a credential. None of it
+is required, and none of it needs the credential file.
 
-| Variable | Sets | Default |
-| --- | --- | --- |
-| `UNIFI_CACHE_DIR` | `--cache-dir`, where snapshots go | `cache/` |
-| `UNIFI_ASSET_CACHE` | `--asset-cache`, where artwork is cached | `cache/assets/` |
-| `UNIFI_OUT_DIR` | `--out-dir`, where diagrams are written | `out/` |
+`UNIFI_*` is the controller's namespace, so anything belonging to this tool
+rather than to your console is spelled `UNIFI_MAP_*`.
 
-A flag always beats the variable, and the variable beats the default, so a
-one-off run can still point somewhere else without editing anything.
+| Variable | Config key | Sets | Default |
+| --- | --- | --- | --- |
+| `UNIFI_MAP_CACHE_DIR` | `cache_dir` | `--cache-dir`, where snapshots go | `cache/` |
+| `UNIFI_MAP_ASSET_CACHE` | `asset_cache` | `--asset-cache`, where artwork is cached | `cache/assets/` |
+| `UNIFI_MAP_OUT_DIR` | `out_dir` | `--out-dir`, where diagrams are written | `out/` |
+| `UNIFI_MAP_OVERRIDES` | `overrides` | `--overrides`, your corrections file | `./overrides.toml` if present |
+| `UNIFI_MAP_THEME` | `theme` | `--theme` | `light` |
+| `UNIFI_MAP_LAYOUT` | `layout` | `--layout` | `unifi` |
+| `UNIFI_MAP_ICONS` | `icons` | `--icons` | `unifi` |
+| `UNIFI_MAP_FORMATS` | `formats` | `--formats` | `svg drawio` |
 
-**`UNIFI_CACHE_DIR` is the one worth setting.** A snapshot is a complete
+The config file lives at `~/.config/unifi-map/config.toml`, beside the
+credential file, or wherever `UNIFI_MAP_CONFIG` points. It honours
+`XDG_CONFIG_HOME`. Keys are flat and named after the flags:
+
+```toml
+theme   = "dark"
+layout  = "tree"
+formats = ["svg", "png"]
+
+cache_dir = "~/.local/share/unifi-map/cache"
+overrides = "~/.config/unifi-map/overrides.toml"
+```
+
+An unrecognised key is an error rather than a shrug, so a mistyped `them` says
+so instead of quietly doing nothing.
+
+### Which one wins
+
+**Flag, then environment, then config file, then the built-in default.**
+
+Environment above config file is deliberate, and it is the container case: an
+image can carry a `config.toml` that a deployment overrides with `-e` without
+rebuilding. That does not work the other way round.
+
+Every run says where a value it did not get from the command line came from:
+
+```
+Style: icons=unifi layout=tree theme=dark
+Settings not from the command line: layout from config file /home/you/.config/unifi-map/config.toml, theme from environment (UNIFI_MAP_THEME)
+```
+
+That line exists because a preference arriving from a file you have forgotten
+about is exactly what makes the same command produce different pictures on two
+machines.
+
+### What is deliberately not configurable
+
+**`--obfuscate` and `--force` are flags only.** There is no variable and no
+config key, and this is not an oversight.
+
+`--obfuscate` is a claim that the output is safe to hand to somebody else.
+Sourcing that from ambient state means a map can be published in the belief it
+was scrubbed, because a variable was set in one shell and not another.
+`--force` overwrites files. Both should be visible in the command that caused
+them.
+
+**In a container this means passing the flag, not setting a variable.** If your
+image has an entrypoint of `unifi-map`, append the flag as you would any
+argument:
+
+```bash
+docker run --rm -v "$PWD/out:/out" your-image render --obfuscate
+```
+
+If the entrypoint is a wrapper script that does not forward arguments, override
+it for the one run:
+
+```bash
+docker run --rm --entrypoint unifi-map -v "$PWD/out:/out" your-image render --obfuscate
+```
+
+`--entrypoint` replaces the program while keeping the image, so everything after
+the image name becomes that program's arguments. There is no container image
+published for this project today; both examples assume one you have built.
+
+**`UNIFI_MAP_CACHE_DIR` is the one worth setting.** A snapshot is a complete
 inventory of your network: every MAC, hostname, address and lease, your SSIDs
 and subnets. The default puts it in the working directory, which for anyone
 working on this tool is a git checkout, and a directory named `cache.bak` made
@@ -144,11 +214,17 @@ before a risky fetch is not covered by a `.gitignore` entry for `cache/`.
 Pointing it somewhere outside any repository removes the question:
 
 ```bash
-UNIFI_CACHE_DIR=~/.local/share/unifi-map/cache
+UNIFI_MAP_CACHE_DIR=~/.local/share/unifi-map/cache
 ```
 
-The three are independent on purpose. Setting only `UNIFI_CACHE_DIR` leaves
+The settings are independent on purpose. Setting only the snapshot cache leaves
 artwork in `cache/assets`, because `--cache-dir examples/demo` must not cause
 downloads to be written into the shipped demo dataset.
+
+### Renamed in this release
+
+`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR` are the old spellings
+of the first three. They still work and warn, and they will be removed. Rename
+them in your credential file to the `UNIFI_MAP_*` forms above.
 
 Tested against UniFi Network 10.5.67 on a UDM Pro Max, with a single site.

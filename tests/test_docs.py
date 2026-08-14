@@ -766,3 +766,315 @@ class TestDirectoriesFromTheEnvironment:
 
         args = build_parser().parse_args(["render"])
         assert args.cache_dir == Path("/tmp/from-file")
+
+
+class TestConfigFileAndEnvironment:
+    """`config.toml`, `UNIFI_MAP_*`, and the order they lose in.
+
+    Precedence is flag > environment > config file > default. Environment above
+    file is the container case: a config file baked into an image has to be
+    overridable with `-e` at deploy time, which does not work the other way
+    round.
+    """
+
+    def _parsed(self, argv, env=None, config_toml=None, *, monkeypatch, tmp_path):
+        from unifi_map.cli import build_parser
+
+        if config_toml is not None:
+            path = tmp_path / "config.toml"
+            path.write_text(config_toml, encoding="utf-8")
+            monkeypatch.setenv("UNIFI_MAP_CONFIG", str(path))
+        for name, value in (env or {}).items():
+            monkeypatch.setenv(name, value)
+        return build_parser().parse_args(argv)
+
+    def test_the_config_file_sets_a_render_preference(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render"], config_toml='theme = "dark"\n', monkeypatch=monkeypatch, tmp_path=tmp_path
+        )
+        assert args.theme == "dark"
+
+    def test_a_flag_beats_the_config_file(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render", "--theme", "light"],
+            config_toml='theme = "dark"\n',
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert args.theme == "light"
+
+    def test_the_environment_beats_the_config_file(self, monkeypatch, tmp_path):
+        """The container case: a baked-in file, overridden per deployment."""
+        args = self._parsed(
+            ["render"],
+            env={"UNIFI_MAP_THEME": "light"},
+            config_toml='theme = "dark"\n',
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert args.theme == "light"
+
+    def test_a_flag_beats_the_environment(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render", "--theme", "dark"],
+            env={"UNIFI_MAP_THEME": "light"},
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert args.theme == "dark"
+
+    def test_the_default_still_applies_with_none_of_them(self, monkeypatch, tmp_path):
+        args = self._parsed(["render"], monkeypatch=monkeypatch, tmp_path=tmp_path)
+        assert args.theme == "light"
+        assert args.layout == "unifi"
+        assert args.icons == "unifi"
+        assert args.formats == ["svg", "drawio"]
+
+    def test_formats_is_a_list_from_either_source(self, monkeypatch, tmp_path):
+        """Space-separated in the environment, matching `-f svg pdf png`; a real
+        array in TOML, because TOML has arrays and pretending otherwise would be
+        perverse."""
+        from_env = self._parsed(
+            ["render"],
+            env={"UNIFI_MAP_FORMATS": "svg png"},
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert from_env.formats == ["svg", "png"]
+
+    def test_formats_from_a_toml_array(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render"],
+            config_toml='formats = ["mermaid", "json"]\n',
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert args.formats == ["mermaid", "json"]
+
+    def test_a_bad_value_is_refused_and_names_its_source(self, monkeypatch, tmp_path, capsys):
+        """A value from a file never passes argparse's own `choices` check, so
+        without an explicit one a typo would sail through to the renderer."""
+        with pytest.raises(SystemExit):
+            self._parsed(
+                ["render"],
+                env={"UNIFI_MAP_THEME": "chartreuse"},
+                monkeypatch=monkeypatch,
+                tmp_path=tmp_path,
+            )
+        message = capsys.readouterr().err
+        assert "chartreuse" in message
+        assert "UNIFI_MAP_THEME" in message
+
+    def test_an_unknown_config_key_is_refused(self, monkeypatch, tmp_path):
+        """Loud, like the overrides loader. A silently ignored `them = "dark"`
+        is indistinguishable from the setting having no effect."""
+        from unifi_map.config import ConfigError, read_config_file
+
+        path = tmp_path / "config.toml"
+        path.write_text('them = "dark"\n', encoding="utf-8")
+        with pytest.raises(ConfigError) as excinfo:
+            read_config_file(path)
+        assert "them" in str(excinfo.value)
+        assert "theme" in str(excinfo.value)
+
+    def test_the_legacy_directory_names_still_work_and_warn(self, monkeypatch, tmp_path, caplog):
+        """Documented in docs/credentials.md and present in real credential
+        files, so dropping them outright would break a working setup."""
+        with caplog.at_level("WARNING"):
+            args = self._parsed(
+                ["render"],
+                env={"UNIFI_CACHE_DIR": "/tmp/legacy"},
+                monkeypatch=monkeypatch,
+                tmp_path=tmp_path,
+            )
+        assert args.cache_dir == Path("/tmp/legacy")
+        assert any("UNIFI_MAP_CACHE_DIR" in r.getMessage() for r in caplog.records)
+
+    def test_the_new_name_wins_over_the_legacy_one(self, monkeypatch, tmp_path):
+        args = self._parsed(
+            ["render"],
+            env={"UNIFI_CACHE_DIR": "/tmp/old", "UNIFI_MAP_CACHE_DIR": "/tmp/new"},
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert args.cache_dir == Path("/tmp/new")
+
+    def test_obfuscate_and_force_are_not_configurable(self):
+        """Deliberate. One is a claim that the output is safe to share and the
+        other overwrites files; neither should be answerable by ambient state
+        that is invisible at the call site."""
+        from unifi_map.config import _SETTING_VARS
+
+        assert "obfuscate" not in _SETTING_VARS
+        assert "force" not in _SETTING_VARS
+
+    def test_the_source_of_every_injected_setting_is_recorded(self, monkeypatch, tmp_path):
+        """What `cmd_render` prints, and the whole answer to "why does it look
+        different on your machine"."""
+        args = self._parsed(
+            ["render", "--layout", "tree"],
+            env={"UNIFI_MAP_THEME": "dark"},
+            config_toml='icons = "builtin"\n',
+            monkeypatch=monkeypatch,
+            tmp_path=tmp_path,
+        )
+        assert "UNIFI_MAP_THEME" in args.setting_sources["theme"]
+        assert "config file" in args.setting_sources["icons"]
+        # A flag is already visible in the command that was typed.
+        assert "layout" not in args.setting_sources
+
+
+class TestTheDocumentedConfigExamples:
+    """Every TOML config block in the docs must be real.
+
+    A config file is the kind of thing people copy verbatim out of a page, so an
+    example naming a key that does not exist is worse than no example: the
+    loader refuses unknown keys, so a stale one fails the reader's whole run.
+    """
+
+    def _config_blocks(self, page: str) -> list[str]:
+        text = (ROOT / page).read_text(encoding="utf-8")
+        blocks = re.findall(r"```toml\n(.*?)```", text, re.DOTALL)
+        # Only the ones that look like a config file, not an overrides file,
+        # which shares the language and has entirely different keys.
+        return [b for b in blocks if "[[" not in b]
+
+    @pytest.mark.parametrize("page", ["docs/credentials.md", "docs/usage.md"])
+    def test_they_parse_and_use_only_real_keys(self, page):
+        import tomllib
+
+        from unifi_map.config import _SETTING_VARS
+
+        blocks = self._config_blocks(page)
+        assert blocks, f"{page} has no config example; this test is guarding nothing"
+        for block in blocks:
+            payload = tomllib.loads(block)
+            unknown = sorted(set(payload) - set(_SETTING_VARS))
+            assert not unknown, f"{page} documents unknown config key(s): {unknown}"
+
+    def test_the_loader_accepts_the_documented_example(self, tmp_path):
+        """Parsing is not enough: run it through the real loader, which is what
+        rejects an unknown key."""
+        from unifi_map.config import read_config_file
+
+        blocks = self._config_blocks("docs/credentials.md")
+        path = tmp_path / "config.toml"
+        path.write_text("\n".join(blocks), encoding="utf-8")
+        assert read_config_file(path)
+
+    def test_every_setting_is_documented(self):
+        """A new setting that nobody can discover is not a feature."""
+        from unifi_map.config import _SETTING_VARS
+
+        text = (ROOT / "docs/credentials.md").read_text(encoding="utf-8")
+        missing = [
+            f"{key}/{var}"
+            for key, var in _SETTING_VARS.items()
+            if var not in text or f"`{key}`" not in text
+        ]
+        assert not missing, f"settings absent from docs/credentials.md: {missing}"
+
+    def test_the_man_page_lists_them_too(self):
+        """`man` is where someone looks when they are offline or in a terminal,
+        and its ENVIRONMENT and FILES sections are hand-written, so nothing
+        regenerates them when a setting is added."""
+        from unifi_map.config import _SETTING_VARS
+
+        page = (ROOT / "unifi-map.1").read_text(encoding="utf-8")
+        missing = [var for var in _SETTING_VARS.values() if var not in page]
+        assert not missing, f"settings absent from unifi-map.1: {missing}"
+        assert "config.toml" in page
+
+
+class TestBadConfigurationFailsCleanly:
+    """A broken config file must not produce a traceback.
+
+    Found by external review of 83f6ab6. Parsing reads the config file, so a
+    `ConfigError` escapes from inside `parse_args`, which ran before `main`'s
+    try block. These go through `main()` rather than the loader, because the
+    loader was already tested and was never where the bug was.
+
+    The friendly message goes through `log.error`, so it is asserted on caplog;
+    `parser.error` writes to stderr directly, so that one is asserted on
+    capsys. Asserting only "no traceback" would pass whether or not anything
+    useful was printed.
+    """
+
+    def _run_main(self, argv, toml, monkeypatch, tmp_path):
+        from unifi_map.cli import main
+
+        path = tmp_path / "config.toml"
+        path.write_text(toml, encoding="utf-8")
+        monkeypatch.setenv("UNIFI_MAP_CONFIG", str(path))
+        try:
+            return main(argv)
+        except SystemExit as exc:  # parser.error
+            return exc.code
+
+    def test_malformed_toml_is_reported_not_raised(self, monkeypatch, tmp_path, caplog):
+        with caplog.at_level("ERROR"):
+            code = self._run_main(["shape"], 'theme = "dark\n', monkeypatch, tmp_path)
+        assert code == 2
+        assert any("Configuration error" in r.getMessage() for r in caplog.records)
+        assert any("not valid TOML" in r.getMessage() for r in caplog.records)
+
+    def test_an_unknown_key_is_reported_not_raised(self, monkeypatch, tmp_path, caplog):
+        with caplog.at_level("ERROR"):
+            code = self._run_main(["shape"], 'them = "dark"\n', monkeypatch, tmp_path)
+        assert code == 2
+        assert any("unknown key(s) 'them'" in r.getMessage() for r in caplog.records)
+
+    def test_it_raises_nothing_out_of_main(self, monkeypatch, tmp_path, caplog):
+        """The defect was an uncaught exception, so the return is the assertion:
+        reaching this line at all means nothing propagated."""
+        with caplog.at_level("ERROR"):
+            code = self._run_main(["shape"], "= broken\n", monkeypatch, tmp_path)
+        assert code == 2
+        assert caplog.records, "failed silently, which is worse than a traceback"
+
+    def test_an_empty_format_list_is_refused(self, monkeypatch, tmp_path, capsys):
+        """`-f` is nargs="+" so argparse refuses an empty list on the command
+        line. Via a config file it used to pass validation, do all the work,
+        print "Full map:" with nothing under it, write nothing and exit 0."""
+        code = self._run_main(["render"], "formats = []\n", monkeypatch, tmp_path)
+        assert code == 2
+        err = capsys.readouterr().err
+        assert "is empty" in err
+        assert "config file" in err
+
+    def test_a_populated_format_list_still_works(self, monkeypatch, tmp_path):
+        """The guard must not reject the ordinary case."""
+        from unifi_map.cli import build_parser
+
+        path = tmp_path / "config.toml"
+        path.write_text('formats = ["svg"]\n', encoding="utf-8")
+        monkeypatch.setenv("UNIFI_MAP_CONFIG", str(path))
+        assert build_parser().parse_args(["render"]).formats == ["svg"]
+
+
+class TestTheApiKeyStaysOutOfTheRepr:
+    """KAN-198. Defensive: no path prints the config today, and the point is
+    that none can start to without this test failing."""
+
+    def _config(self):
+        from unifi_map.config import ExporterConfig
+
+        return ExporterConfig(host="console.example", api_key="SECRET-KEY-VALUE")
+
+    def test_repr_omits_the_key(self):
+        assert "SECRET-KEY-VALUE" not in repr(self._config())
+
+    def test_the_useful_fields_are_still_shown(self):
+        """A redacted repr that shows nothing is no good for debugging either."""
+        text = repr(self._config())
+        assert "console.example" in text
+        assert "site=" in text
+
+    def test_the_key_is_still_readable_on_the_object(self):
+        """repr=False hides it from the repr, not from the code that needs it."""
+        assert self._config().api_key == "SECRET-KEY-VALUE"
+
+    def test_an_f_string_of_the_config_is_also_safe(self):
+        """`f"{config}"` uses __str__, which a dataclass aliases to __repr__.
+        Worth pinning separately: it is the likelier accident of the two."""
+        assert "SECRET-KEY-VALUE" not in f"{self._config()}"

@@ -56,7 +56,35 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.12.0 - 2026-08-14
+
 ### Added
+
+- **A config file, and environment variables for rendering preferences.**
+  `~/.config/unifi-map/config.toml` (or `$UNIFI_MAP_CONFIG`, honouring
+  `XDG_CONFIG_HOME`) sets `theme`, `layout`, `icons`, `formats`, `overrides`
+  and the three directories, so a taste that differs from the defaults need
+  not be retyped on every run. The same settings are readable from
+  `UNIFI_MAP_*` variables, which is what makes the tool configurable in a
+  container without mounting a file.
+
+  Precedence is **flag, then environment, then config file, then default**.
+  Environment above file is deliberate: an image can carry a `config.toml`
+  that a deployment overrides with `-e` without being rebuilt.
+
+  Every render now prints where a setting it did not get from the command
+  line came from. Supporting three sources is what makes "it looks different
+  on your machine" possible, and one log line is the answer to it.
+
+  **`--obfuscate` and `--force` are deliberately excluded**, with no variable
+  and no config key. One is a claim that the output is safe to share and the
+  other overwrites files; neither should be answerable by ambient state that
+  is invisible in the command being run. `docs/credentials.md` shows how to
+  pass `--obfuscate` to a containerised run, including with `--entrypoint`.
+
+  An unknown key in the config file is an error naming the accepted keys,
+  matching the overrides loader, so a mistyped `them` says so rather than
+  doing nothing quietly.
 
 - **`--report` now says how many clients show a randomised MAC address.**
   Every join here is on MAC, so a phone or laptop rotating its address (most
@@ -65,6 +93,14 @@ told something untrue and may have acted on it.
   locally-administered bit, which needs no cooperation from the controller.
   Counted only, not named: there is nothing wrong with any specific device
   and no overrides entry that would fix it.
+
+### Deprecated
+
+- **`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR` are renamed** to
+  `UNIFI_MAP_CACHE_DIR`, `UNIFI_MAP_ASSET_CACHE` and `UNIFI_MAP_OUT_DIR`.
+  `UNIFI_*` is the controller's namespace and these were never controller
+  settings; `UNIFI_MAP_ENV` already followed the rule they broke. The old names
+  still work and warn, and will be removed in a later release.
 
 ### Fixed
 
@@ -75,6 +111,30 @@ told something untrue and may have acted on it.
   later purely to report a version number, was missed. `shape` is
   specifically the command meant to be safe to paste into a bug report.
   Found by external review.
+
+- **A malformed config file produced a traceback instead of an error
+  message.** Parsing reads the config file, so invalid TOML, an unreadable
+  file or an unknown key raised from inside `parse_args`, which ran before
+  the handler that turns those into `Configuration error: ...` and exit 2.
+  It affected every command, including `shape`, which exists to be safe to
+  paste into a bug report.
+
+- **`formats = []` in a config file silently produced no output.** `-f` is
+  `nargs="+"` so the command line refuses an empty list, but validation of a
+  config-supplied value iterated the list and so checked nothing. The run did
+  the full topology, override and artwork work, printed `Full map:` with
+  nothing under it, wrote no files and exited 0. It is now refused, naming the
+  source.
+
+  Both of these were found by external review of 83f6ab6.
+
+- **The API key no longer appears in `ExporterConfig`'s repr.** A frozen
+  dataclass reprs every field, so `repr(CONFIG)` rendered the live key.
+  Nothing in the tool logs or formats the config, so this is defensive rather
+  than a fix for a known leak: it closes the ordinary ways a repr escapes, such
+  as a pytest assertion diff, a `--showlocals` traceback pasted into an issue,
+  or a well-meant debug log. The host, site and TLS setting are still shown,
+  since a redacted repr nobody can debug with would be its own problem.
 
 ## 0.11.1 - 2026-08-13
 

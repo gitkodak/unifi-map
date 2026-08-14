@@ -7,9 +7,57 @@ credentials.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import pytest
 
+from unifi_map import config
 from unifi_map.client import Snapshot
+
+
+@pytest.fixture(autouse=True)
+def _no_ambient_configuration(monkeypatch, tmp_path):
+    """Run every test as though the machine had no unifi-map configuration.
+
+    Settings can arrive from three places the test never mentions: real
+    environment variables, a credential file found by searching, and a config
+    file in the user's home directory. Any of them can change what a parser
+    returns, so without this the suite passes or fails according to whose
+    machine it runs on.
+
+    This is not hypothetical. `TestDirectoriesFromTheEnvironment` carries its
+    own copy of the first two, added after a developer with `UNIFI_CACHE_DIR`
+    in a real credential file failed a test that had nothing to do with
+    directories. That fix was per-class; this one is the class of problem,
+    which is why the local copy can stay without conflicting: an autouse
+    fixture runs first, and a test setting a variable afterwards still wins.
+
+    Emptying the search path matters more than it looks. Pointing the env-file
+    variable at a nonexistent file is not enough, because the search continues
+    past a missing candidate to `./.env` and then the home config.
+
+    Only *implicit* discovery is removed. A test that points `UNIFI_MAP_ENV` or
+    `UNIFI_MAP_CONFIG` at a file it wrote is exercising the real feature and
+    must still work, so both stubs honour their variable and fall back to
+    nothing rather than to the user's home directory.
+    """
+
+    def env_files() -> list[Path]:
+        named = os.environ.get(config.ENV_FILE_VAR, "").strip()
+        return [Path(named).expanduser()] if named else []
+
+    def config_file() -> Path:
+        named = os.environ.get(config.CONFIG_FILE_VAR, "").strip()
+        return Path(named).expanduser() if named else tmp_path / "absent.toml"
+
+    monkeypatch.setattr(config, "default_env_files", env_files)
+    monkeypatch.setattr(config, "default_config_file", config_file)
+    for name in list(config._SETTING_VARS.values()) + list(config._LEGACY_SETTING_VARS.values()):
+        monkeypatch.delenv(name, raising=False)
+    for name in (config.ENV_FILE_VAR, config.CONFIG_FILE_VAR):
+        monkeypatch.delenv(name, raising=False)
+
 
 GATEWAY_MAC = "aa:bb:cc:00:00:01"
 SWITCH_MAC = "aa:bb:cc:00:00:02"

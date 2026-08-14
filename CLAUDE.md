@@ -464,12 +464,61 @@ now says what data would help and what to send, so somebody who has a network we
 do not can offer it without having to guess what is useful.
 
 - **Rendering preferences in the environment** (KAN-130), so somebody whose
-  taste differs from the defaults need not retype them. Deliberately marked
-  *consider*: the objection is that it makes a run non-reproducible between two
-  machines, against a project that has worked at determinism. The mitigation
-  already half exists, in that every render logs its effective `Style` before
-  drawing. A config file is the alternative and shipping both would be worse
-  than either.
+  taste differs from the defaults need not retype them. **Decided yes and
+  shipped, 2026-08-14, as both mechanisms rather than one:**
+  `~/.config/unifi-map/config.toml` beside the credential file that directory
+  already holds, plus `UNIFI_MAP_*` variables, precedence running flag >
+  environment > config file > default.
+
+  **"Shipping both would be worse than either" is withdrawn.** This file said
+  it, `TODO.md` said it, and the ticket said it, and none of the three ever
+  argued it. It was asserted once and repeated twice, which is the same shape
+  as the `pip-audit` note recorded further down: a sentence that reads as
+  reasoning and is only an assertion. Jason broke it with one case, containers,
+  where mounting a file to set four preferences is friction that `-e` does not
+  have. KAN-196's `serve` is what makes that likely, so settle it before serve
+  ships. Note also that a precedence chain is not new here: `--site` is already
+  flag > env > default, and `read_dotenv()` already merges under the real
+  environment.
+
+  **`--obfuscate` and `--force` stay flag-only.** One is a claim that the
+  output is safe to share and the other overwrites files. Ambient state that is
+  invisible at the call site is the wrong source for either, and this is more
+  true of an environment variable than of a file named on the command line.
+
+  The surviving objection is reproducibility between machines, against a
+  project that has worked at determinism. With three sources it matters more,
+  not less, so the mitigation shipped in the same change: `cmd_render` prints
+  "Settings not from the command line", naming the source of everything a flag
+  did not supply. Flags are excluded from it deliberately, since a flag is
+  already visible in the command the reader just typed.
+
+  **Two things the implementation turned up that the plan had wrong.**
+
+  First, `UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR` already
+  existed and already broke the naming rule this ticket restated. They are
+  renamed to `UNIFI_MAP_*` with the old spellings warning, the same treatment
+  `UDM_*` got. Do not add a fourth `UNIFI_*` tool setting.
+
+  Second, **the render flags had real argparse defaults rather than
+  `SUPPRESS`**, so `hasattr` could not tell a flag from a default and nothing
+  from the environment would ever have applied. `formats`, `icons`, `layout`,
+  `theme` and `overrides` moved to `SUPPRESS` with their defaults in
+  `GLOBAL_DEFAULTS`. That needed no change to the doc generator, which already
+  falls back to `GLOBAL_DEFAULTS` for a suppressed action. A value injected
+  this way never passes argparse's own `choices` check either, so
+  `_validate_injected` checks it against the same constants the arguments are
+  declared with, and names the source in the error.
+
+  **The tests were reading the developer's own environment.** Adding these
+  settings turned that from latent into a failure: a deprecation warning from
+  Jason's real `UNIFI_CACHE_DIR` broke an unrelated test about `--site`.
+  `TestDirectoriesFromTheEnvironment` had carried a per-class workaround for
+  years for exactly this. It is now an autouse fixture in `conftest.py` that
+  strips the whole search path, so the suite no longer depends on whose machine
+  it runs on. Note it removes only *implicit* discovery: a test pointing
+  `UNIFI_MAP_ENV` or `UNIFI_MAP_CONFIG` at a file it wrote is exercising the
+  real feature and still works.
 
 ### Sweep the prose when a fallback changes
 
@@ -981,7 +1030,228 @@ Still true and still worth heeding: `cli.py` is where `GLOBAL_DEFAULTS` and the
 warnings here. Leave them together and leave them where they are. Do not go on
 to the three-way `cli/` package the reviews suggested without a reason per file.
 
+### One machine, several nodes, and why `[[merge]]` is not the answer
+
+A host with interfaces on several VLANs draws as several clients. Raised
+2026-08-14 by Jason, who sketched a `[[collapse]]` override with repeated
+`duplicate =` keys. Not built, and the reasoning is worth keeping because the
+sketch is the obvious first idea.
+
+**Three corrections to the sketch, before the real objection.** Repeated keys
+are a hard TOML parse error, so it would have to be an array. `collapse`
+already means the HTML viewer's collapsible client subtrees (KAN-126), so the
+word is taken. And "duplicate" is the wrong noun: these are three real
+interfaces the controller reported correctly, not entries it got wrong, and
+this project's whole posture is that the map never implies the controller was
+mistaken.
+
+**The real objection is the model, not the syntax.** A merged node belongs to
+every network its interfaces are on. `Node.network` holds one value and
+`--per-network` filters on it, so serving the combined view means making that
+plural, which complicates the view that already gets this right. Two further
+cases would need refusing: interfaces on different uplinks (truthful as
+multi-homing, but it breaks the tree assumption in `--layout tree` and the
+draw.io coordinate pass), and merging a node with its own ancestor, which is
+the physically correct case for a NAS behind its own host's NIC and which
+would create a self-loop.
+
+**`--per-network` already solves it, verified rather than assumed.** On the
+reference network TrueNAS has three interfaces, all locally-administered, all
+on one uplink: `bhomelan` (no address), `bhome-iot` (192.168.7.27) and
+`servers` (192.168.20.27, the address the homelab notes call TrueNAS). Rendered
+with `--per-network`, each slice contains exactly one of them, correctly placed
+and addressed. The duplication exists only in the combined map.
+
+So the framing to keep is **logical versus physical**: the controller reports
+what is reachable and how, never what shares a chassis, so a physical map is
+not derivable from it at all. A "physical mode" would just be the merge feature
+under another name, which is why it is not a third option.
+
+The signature is detectable, and that is the part worth building instead: an
+interface of a multi-homed host usually has a locally-administered MAC and an
+empty OUI, while genuinely distinct devices behind an unmanaged switch have
+neither. Both groups on the reference network separate cleanly on that test,
+which is what makes it safe for `--report` to mention (KAN-199) and for the
+stub generator to act on (KAN-120).
+
 ### Gaps worth considering
+
+- **`has_unknown_switch` is in the v2 topology payload and we ignore it**
+  (KAN-199). The payload has three top-level keys, `vertices`, `edges` and
+  `has_unknown_switch`. We read two.
+
+  Observed on the reference network the same afternoon: `false` with two
+  clients on the Netgear's port, `true` after a third was plugged into the same
+  switch. **That is one before/after observation with an unknown number of
+  uncontrolled variables**, so it hints at a controller-side threshold above
+  two and does not establish one. Do not write a threshold down. What is solid
+  is that the field exists and went true on a network that provably has an
+  unmanaged switch.
+
+  **There is no matching vertex.** The flag says one exists somewhere, never
+  where, which is exactly why it pairs with the heuristic below rather than
+  replacing it. Unverified and worth checking first: whether it is per-site,
+  whether it clears, and whether an all-UniFi network ever sets it.
+
+- **Several wired clients on one switch port means something is hiding there**
+  (KAN-199). Found 2026-08-14 when Jason remembered a Netgear PoE switch the
+  map had been drawing wrong since the map existed.
+
+  **The controller cannot see that switch at all**: no device entry, no client
+  entry, no LLDP entry, no v2 topology edge. Both things behind it are reported
+  as sitting directly on port 7 of the USW Pro HD 24 PoE, so that is what we
+  drew. The signal that something is missing was in the data the whole time:
+  **two wired clients reporting the same `sw_mac` and `sw_port`**, where every
+  other occupied port on that switch has one. Two corroborating facts on the
+  same port, worth quoting in the report when present but too weak to trigger
+  on: `poe_enable = false` with `poe_power = 0.00` while a PoE camera runs
+  behind it, and 1000 Mb negotiated on `2P5GE`-capable media.
+
+  **This is the general answer that LLDP is not.** LLDP needs the foreign
+  device to advertise, and this one does not; a shared-port check needs nothing
+  from it. See the LLDP entry above for the full correction.
+
+  **Report it, never draw it.** Several MACs on one port means an unmanaged
+  switch *or* a virtualisation host with bridged guests, and
+  `topology_uplinks()`'s docstring already names both. Synthesising a switch
+  that might be a hypervisor is inventing topology. Name the port, list the
+  clients, give both causes, point at `[[device]]` and `[[hosted]]`.
+
+  Count only `Kind.WIRED_CLIENT`. Wireless clients share an AP by definition,
+  the same reasoning that scoped KAN-129's count to clients.
+
+- **The API key was in `ExporterConfig`'s generated repr. Fixed in 0.12.0**
+  (KAN-198). Spotted 2026-08-14 in `merlijntishauser/unifi-topology`, which
+  declares its credentials `field(repr=False)`. A frozen dataclass reprs every
+  field, so `repr(CONFIG)` rendered the live key.
+
+  **Defensive, and it was described that way rather than dressed up.** Nothing
+  in `src/` reprs, formats or logs the config; `-v` does not enable
+  `http.client` debug and urllib3 at DEBUG logs the request line rather than
+  headers; an ordinary traceback does not print frame locals. There was no path
+  then and the fix does not close one. What it buys is that none can open
+  later, from a pytest assertion diff, a `--showlocals` traceback, or a
+  well-meant `log.debug("config: %r", config)`.
+
+  **Worth noting why it shipped in 0.12.0 rather than waiting.** It was first
+  deferred on the grounds that the release had already grown, which Jason
+  questioned and which does not survive: the change is two lines, it was fully
+  specified, and `RELEASING.md` says outright that security fixes should not
+  sit unreleased because anyone tracking tags is running the last one. Deferring
+  a nearly free hardening for tidiness is a bad trade; the reflex to protect a
+  release's scope is worth checking against the size of the actual diff.
+
+  Same family as `config.py` never writing the key into `os.environ` and
+  `layout.py` stripping it from Graphviz's environment. The session's
+  `X-API-KEY` header is a separate surface with a different shape and is
+  deliberately not folded in.
+
+- **User-written port names, and the obfuscation trap they set** (KAN-197).
+  Found 2026-08-14 by reading two other UniFi mappers, `ScottiBYTE/unifi-topology`
+  and `merlijntishauser/unifi-topology`.
+
+  **The controller already holds port labels and we read none of them.** The
+  field to reach for first is the wrong one: `port_table[].name` is a generic
+  "Port N" on 75 of 79 ports here, while `port_overrides[].name` carries a
+  user-written label on 26. We reference `port_overrides` zero times in `src/`,
+  and `fetch` already stores it, so this is free data we throw away. The same
+  records carry `native_networkconf_id` and `excluded_networkconf_ids`, which
+  is per-port VLAN and feeds KAN-118 and KAN-123 off the same join.
+
+  **`obfuscate.py` treats nodes and edges oppositely, and only one side is
+  written down.** Edges are built field by field, so a new field is silently
+  dropped, and there is already a comment recording that this bit us with
+  `asserted`. Nodes go through `replace(node, ...)`, so **any new `Node` field
+  passes through `--obfuscate` unchanged**. `Edge.label` passes through too.
+  Nothing leaks today because every identifying node field is handled
+  explicitly and `Edge.label` is "port 12". A user-written port name is the
+  first value that breaks it: a port named after a person or a room would ride
+  into an obfuscated map by either path. The guard lands in the same change as
+  the feature, never after it.
+
+  **The LLDP half of this was measured wrong first, and the mistake is the
+  useful part.** The first pass checked `port_table[].lldp_table`, nested
+  inside each port, found it empty on all 79 ports, and wrote "no LLDP here"
+  into a ticket. The device-level `lldp_table` is a different field and is
+  present on 10 of 14 devices with 20 entries, every one carrying a
+  `local_port_name`. The conclusion was not merely premature, it was recorded
+  as settled fact in a place built to stop the question being asked again.
+  When a payload field turns up empty, check whether the same name exists at
+  another level before concluding the controller does not send it.
+
+  **Then it was got wrong a second time, in this file, and that correction is
+  the one worth keeping.** The sentence here said LLDP could not be evaluated
+  because this is an all-UniFi network. It is not: a Netgear PoE switch sits on
+  port 7 of the USW Pro HD 24 PoE with a camera and a receiver behind it. The
+  network had a counterexample all along and neither the tool nor this file
+  knew, because nobody had asked the data.
+
+  **LLDP does not see that switch either.** The USW Pro HD 24 PoE advertises
+  neighbours on eleven ports (1-6, 8, 13, 24, 25, 27) and port 7 is not among
+  them, because the Netgear does not advertise. Of the 20 entries that do
+  exist, 19 are devices already in `stat/device` and the twentieth is a Dell
+  already drawn as a client.
+
+  So LLDP is narrower than it first looks: it finds a **managed** third-party
+  switch that advertises, and nothing else. It is not the general answer to
+  "something is between the controller and this client". KAN-199 below is,
+  because a shared port needs no cooperation from the hidden device. Still
+  `needs-real-world-data`, now for a precise reason: it needs an
+  LLDP-advertising non-UniFi switch, and the one on site does not advertise.
+  Do not implement LLDP edge discovery against a guess about what it returns.
+
+- **A `serve` subcommand, a self-refreshing live view** (KAN-196). Raised by
+  Jason 2026-08-14, marked *consider* rather than *do*, in the same sense as
+  KAN-130. `-f html` already produces an interactive viewer; the question is
+  whether to hold an HTTP listener open, re-poll on a timer and re-render.
+
+  **The objection to answer first: live polling requires controller
+  credentials, and anyone holding those can open the console, which already
+  has a live topology view.** This project's value is in what the console
+  cannot do (publish, obfuscate, annotate, diff, print, commit), and a live
+  view is the one thing the console is already better at. If nothing answers
+  "why not just open the console", close it rather than build it.
+
+  What survives that: a live map carrying **overrides**, since the console
+  will never show an unmanaged switch typed into `overrides.toml`; and a
+  kiosk that is not a logged-in console session left open on a television.
+
+  **The cost is not where it looks.** Rendering is cheap: `render -f html`
+  against `examples/demo` (60 nodes, warm asset cache) measured about 0.3s
+  wall clock for an 852 KiB file on 2026-08-14. Treat that as a floor rather
+  than a figure for a real network, per the standing note that nothing here
+  has been profiled at scale. The expensive half is the controller fetch.
+
+  **The real problem is state loss on refresh.** Every piece of viewer state
+  in `render_html.py` is DOM class toggles plus Panzoom's transform, none of
+  it persisted: pan, zoom, search query, every collapsed subtree, the
+  highlighted path. A whole-page reload on a timer destroys all of it, making
+  the live view strictly worse to use than the static file it replaced. That
+  is more tractable than it first reads, which is why this stays open rather
+  than being declined: collapse state is keyed on the topology id, which is
+  stable across renders, Panzoom exposes `getPan()`/`getScale()`, and the
+  toolbar lives outside the SVG, so swapping only the `<svg>` and restoring
+  is a small amount of JavaScript plus a "has it changed" endpoint. That is
+  an estimate from reading the file, not something built and measured.
+
+  Costs being taken on: a long-lived process holding the API key, where today
+  a credential's lifetime is one command; repeated authenticated polling, in
+  an environment whose IDS already flags legitimate monitoring traffic;
+  coupling `fetch` and `render`, which are split precisely so render repeats
+  offline; and serving a full MAC/hostname/IP inventory over HTTP, which
+  makes a `127.0.0.1` default and a loud warning on any other bind mandatory
+  rather than nice. Refresh interval belongs in minutes, not seconds:
+  topology does not change that fast and a map redrawing while it is read is
+  hostile.
+
+  **The dividend is KAN-116.** A serve loop that retains timestamped
+  snapshots is exactly the retention prerequisite that KAN-117's `diff` is
+  blocked on, so the two share one piece of infrastructure.
+
+  The cheap alternative, worth pricing first: `unifi-map all` from cron into a
+  directory with a plain static file server in front. No new code, no resident
+  credential, no listener here, at the cost of losing viewer state every
+  refresh and having no manual refresh control.
 
 - **The controller path now has the same response cap the CDN path does**
   (KAN-134, done). The capped-read guard moved out of `assets.py` into

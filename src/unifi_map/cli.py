@@ -36,7 +36,7 @@ from . import __version__
 from .artwork import apply_drawn_icons, obtain_icon_font, resolve_icons
 from .assets import AssetError, AssetStore, IconAsset
 from .client import Snapshot, UniFiClient, UniFiError
-from .config import ConfigError, directory_defaults, load_config, source_date
+from .config import ConfigError, Resolved, load_config, resolved_settings, source_date
 from .diagnostics import Sources, build_diagnostics
 from .layout import GraphvizError, GraphvizMissing
 from .model import (
@@ -106,18 +106,32 @@ class _Parser(argparse.ArgumentParser):
     def parse_args(self, args=None, namespace=None):  # type: ignore[override]
         parsed = super().parse_args(args, namespace)
 
-        # Precedence: flag, then environment, then the built-in default. An
-        # attribute is still missing here only when no flag supplied it, which
-        # is what `argparse.SUPPRESS` buys, so the environment can fill it
-        # without ever overriding something typed on the command line.
-        from_env = directory_defaults(getattr(parsed, "env_file", None))
-        for key, value in from_env.items():
-            if not hasattr(parsed, key):
-                setattr(parsed, key, value)
+        # Precedence: flag, then environment, then the config file, then the
+        # built-in default. An attribute is still missing here only when no flag
+        # supplied it, which is what `argparse.SUPPRESS` buys, so nothing below
+        # can override something typed on the command line.
+        #
+        # Deliberately absent: `--obfuscate` and `--force`. One is a claim that
+        # the output is safe to share and the other overwrites files, and
+        # neither should be answerable by ambient state that is invisible at the
+        # call site. Both stay flag-only.
+        sources: dict[str, str] = {}
+        settled = resolved_settings(getattr(parsed, "env_file", None))
+        for key, resolved in settled.items():
+            if hasattr(parsed, key):
+                continue
+            _validate_injected(self, key, resolved)
+            setattr(parsed, key, resolved.value)
+            sources[key] = resolved.source
 
         for key, value in GLOBAL_DEFAULTS.items():
             if not hasattr(parsed, key):
                 setattr(parsed, key, value)
+
+        # Read by `cmd_render` to say where a non-default value came from. Only
+        # env and config-file sources land here: a flag is already visible in
+        # the command the reader just typed, and a default is not news.
+        parsed.setting_sources = sources
 
         # Bookkeeping for `_FormatsAction`, not part of the parsed result.
         if hasattr(parsed, _FORMATS_SEEN):
@@ -145,7 +159,75 @@ GLOBAL_DEFAULTS = {
     "out_dir": DEFAULT_OUT,
     "verbose": False,
     "progress": True,
+    "overrides": None,
+    # Suppressed on the arguments themselves so a value from the environment or
+    # a config file can fill them; see `_Parser`. The doc generator reads these
+    # for the flag table, so the printed defaults stay correct without it
+    # knowing anything about where else a value might come from.
+    "formats": ["svg", "drawio"],
+    "icons": "unifi",
+    "layout": "unifi",
+    "theme": "light",
 }
+
+
+# What `argparse` enforces for these flags. A value arriving from the
+# environment or a config file never passes through argparse's own `choices`
+# check, so it is checked against the same constants the arguments are declared
+# with: one source of truth, two ways in.
+_SETTING_CHOICES: dict[str, tuple[str, ...]] = {
+    "theme": tuple(sorted(THEMES)),
+    "layout": tuple(LAYOUTS),
+    "icons": tuple(ICON_SETS),
+    "formats": tuple(ALL_FORMATS),
+}
+
+
+def _log_setting_sources(args: argparse.Namespace) -> None:
+    """Name every setting that came from somewhere other than the command line.
+
+    Info rather than debug, unlike the directory line below it. A directory is
+    a question somebody asks once; a theme or a layout arriving from a file the
+    reader has forgotten about is the thing that makes two machines disagree,
+    and it should be visible without anybody thinking to pass `-v`.
+    """
+    sources = getattr(args, "setting_sources", None)
+    if not sources:
+        return
+    log.info(
+        "Settings not from the command line: %s",
+        ", ".join(f"{key} from {source}" for key, source in sorted(sources.items())),
+    )
+
+
+def _validate_injected(parser: argparse.ArgumentParser, key: str, resolved: Resolved) -> None:
+    """Reject a bad value that did not come from the command line.
+
+    `parser.error` rather than a raise, so a mistyped theme in a config file
+    reads like every other bad-argument message instead of a traceback. The
+    source is named in the message because the entire difficulty with a value
+    from a file is that the reader is not looking at the file.
+    """
+    allowed = _SETTING_CHOICES.get(key)
+    if not allowed:
+        return
+    values = resolved.value if isinstance(resolved.value, list) else [resolved.value]
+    # An empty list passed every check below, because iterating nothing rejects
+    # nothing. `-f` is `nargs="+"` and argparse refuses it on the command line,
+    # so `formats = []` in a config file was a way to reach a state the CLI
+    # forbids: the run did the full topology, override and artwork work, printed
+    # "Full map:" with nothing under it, wrote no files and exited 0. Found by
+    # external review of 83f6ab6.
+    if isinstance(resolved.value, list) and not values:
+        parser.error(
+            f"{key} from {resolved.source} is empty. Give at least one of: {', '.join(allowed)}"
+        )
+    for value in values:
+        if value not in allowed:
+            parser.error(
+                f"{key}={value!r} from {resolved.source} is not a valid choice. "
+                f"Choose from: {', '.join(allowed)}"
+            )
 
 
 # Marker left on the namespace by `_FormatsAction`, removed once parsing ends.
@@ -524,6 +606,12 @@ def cmd_render(args: argparse.Namespace) -> int:
         ", ".join(f"{count} {kind}" for kind, count in sorted(tally.items())) or "empty",
     )
     log.info("Style: icons=%s layout=%s theme=%s", style.icons, style.layout, args.theme)
+    # Where anything not typed on the command line came from. This is the whole
+    # answer to the objection against supporting a config file and environment
+    # variables at all: a run that looks different on two machines says why, in
+    # one line, instead of becoming a hunt through three places. Only invisible
+    # sources appear, so a run configured entirely by flags prints nothing here.
+    _log_setting_sources(args)
     # Where the directories actually resolved to. Worth saying because a flag is
     # not the only way they get set: `UNIFI_CACHE_DIR` and `UNIFI_ASSET_CACHE`
     # can come from the credential file, which is deliberately somewhere the
@@ -1017,13 +1105,13 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         action=_FormatsAction,
         choices=ALL_FORMATS,
-        default=["svg", "drawio"],
+        default=argparse.SUPPRESS,
         help="Output formats (default: svg drawio)",
     )
     render_flags.add_argument(
         "--icons",
         choices=ICON_SETS,
-        default="unifi",
+        default=argparse.SUPPRESS,
         help="unifi: real Ubiquiti product artwork, fetched and cached at runtime, "
         "falling back to our own drawings for any node it cannot resolve, including "
         "unidentified clients when no icon font is cached. "
@@ -1032,13 +1120,16 @@ def build_parser() -> argparse.ArgumentParser:
     render_flags.add_argument(
         "--layout",
         choices=LAYOUTS,
-        default="unifi",
+        default=argparse.SUPPRESS,
         help="unifi: left-to-right like the UniFi UI, no port labels. "
         "tree: top-down and leaf-staggered, with port labels, built to be "
         "readable on a busy network (default: unifi)",
     )
     render_flags.add_argument(
-        "--theme", choices=sorted(THEMES), default="light", help="Colour theme (default: light)"
+        "--theme",
+        choices=sorted(THEMES),
+        default=argparse.SUPPRESS,
+        help="Colour theme (default: light)",
     )
     render_flags.add_argument(
         "--transparent",
@@ -1064,7 +1155,7 @@ def build_parser() -> argparse.ArgumentParser:
     render_flags.add_argument(
         "--overrides",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         help=f"Manual corrections: links the controller cannot see, nesting, "
         f"renames, your own artwork, and hiding. Defaults to {DEFAULT_OVERRIDES} "
         "when that file exists",
@@ -1162,7 +1253,7 @@ def build_parser() -> argparse.ArgumentParser:
     overrides.add_argument(
         "--overrides",
         type=Path,
-        default=None,
+        default=argparse.SUPPRESS,
         help=f"Which file to check. Defaults to {DEFAULT_OVERRIDES} when it exists.",
     )
     overrides.set_defaults(func=cmd_overrides)
@@ -1171,13 +1262,28 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    # Logging first, because parsing can now fail in a way worth reporting
+    # nicely. `-v` is read straight from argv rather than from the parsed
+    # namespace, which does not exist yet.
+    verbose = any(a in ("-v", "--verbose") for a in (argv if argv is not None else sys.argv[1:]))
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if verbose else logging.INFO,
         format="%(message)s",
         # Erases the spinner before each record, so the two never share a line.
         handlers=[SpinnerAwareHandler(sys.stderr)],
     )
+
+    # Parsing reads the config file, so a malformed one, an unreadable one or
+    # an unknown key raises `ConfigError` from inside `parse_args`. Outside the
+    # try below that surfaced as a traceback rather than the ordinary message,
+    # for every command including `shape`, which exists to be safe to paste
+    # into a bug report. Found by external review of 83f6ab6.
+    try:
+        args = build_parser().parse_args(argv)
+    except ConfigError as exc:
+        log.error("Configuration error: %s", exc, exc_info=verbose)
+        return 2
+
     try:
         return int(args.func(args))
     except ConfigError as exc:
