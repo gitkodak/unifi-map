@@ -56,6 +56,16 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+### Added
+
+- **`--report` now says how many clients show a randomised MAC address.**
+  Every join here is on MAC, so a phone or laptop rotating its address (most
+  do, periodically) reappears as a new, unrelated client rather than as an
+  update to the one already on the map. Detected from IEEE 802's
+  locally-administered bit, which needs no cooperation from the controller.
+  Counted only, not named: there is nothing wrong with any specific device
+  and no overrides entry that would fix it.
+
 ## 0.11.1 - 2026-08-13
 
 ### Changed

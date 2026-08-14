@@ -1052,9 +1052,26 @@ to the three-way `cli/` package the reviews suggested without a reason per file.
   the argument for building it and is worth keeping as the measure of whether it
   earns its place.
 
-- **Randomised client MACs are not a concept here.** Every join is on MAC, so a
-  phone rotating its MAC appears as a new client with no relation to the old
-  one. Worth documenting at minimum, since it explains apparent duplicates.
+- **Randomised client MACs are not a concept the join layer knows about, but
+  `--report` now says so. Shipped** (KAN-129). Every join here is on MAC, so a
+  phone rotating its address appears as a new, unrelated client rather than an
+  update to the one already on the map — explaining an apparent duplicate was
+  the whole ask. `diagnostics._is_locally_administered()` checks IEEE 802's
+  locally-administered bit (bit 1 of the first octet) on each client's MAC,
+  which is what a randomisation feature sets and a vendor-burned address does
+  not, so this needed no cooperation from the controller and no new input.
+
+  **Counted, not named**, matching every other section's rule about what
+  qualifies for a name: an unplaced client or one with no address is a specific
+  problem an overrides file can fix, and a rotated MAC is neither. Naming a
+  device here would imply an action the reader cannot actually take.
+
+  Only clients are counted, not infrastructure — this project's own demo
+  fixtures and several test fixtures use locally-administered MACs too (the
+  `02:` prefix, precisely so a fake address doesn't resemble a real vendor's),
+  which would make an unfiltered count meaningless on its own test suite.
+  Devices don't rotate their MAC regardless, so restricting to `Kind.WIRED_CLIENT`
+  / `Kind.WIRELESS_CLIENT` is correct on both grounds at once.
 
 - **Nothing has been profiled on a large site.** The joins are dictionary-based
   and probably fine, but `sysid_for_name()` scans the catalogue per candidate.
