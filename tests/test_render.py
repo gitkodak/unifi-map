@@ -118,6 +118,7 @@ def test_a_shared_port_gets_an_asterisk_on_both_edges():
     lines = [line for line in dot_source.splitlines() if '"n_sw" -> "n_c' in line]
     assert len(lines) == 2
     assert all('label="port 7 *"' in line for line in lines)
+    assert all("arrowhead=diamond" in line for line in lines)
 
 
 def test_an_unshared_port_gets_no_asterisk():
@@ -125,6 +126,22 @@ def test_an_unshared_port_gets_no_asterisk():
     line = next(line for line in dot_source.splitlines() if '"n_sw" -> "n_c1"' in line)
     assert 'label="port 7"' in line
     assert "*" not in line
+    assert "arrowhead=diamond" not in line
+
+
+def test_a_shared_port_still_shows_the_arrowhead_when_layout_unifi_hides_labels():
+    """`--layout unifi` is the default and suppresses port labels entirely
+
+    (ortho routing can't place them), which was found to silently erase the
+    `*` marker along with every other port label -- leaving the default,
+    most-used render with no visible signal at all. The arrowhead has to be
+    the layout-independent channel this signal survives on.
+    """
+    dot_source = render_dot(_topo_with_shared_port(), "t", UNIFI)
+    lines = [line for line in dot_source.splitlines() if '"n_sw" -> "n_c' in line]
+    assert len(lines) == 2
+    assert all("label=" not in line for line in lines), "unifi layout must not show port labels"
+    assert all("arrowhead=diamond" in line for line in lines)
 
 
 def test_mac_colons_are_stripped_from_dot_identifiers(snapshot: Snapshot):

@@ -1122,9 +1122,29 @@ stub generator to act on (KAN-120).
   be different things, and only the second is still refused. `--report` names
   the port and lists the clients, in a `SHARED SWITCH PORTS` section
   (`diagnostics._shared_ports_section`); the diagram marks the same edges with
-  a plain `*` appended to the port label plus a legend note in the DOT/SVG/PDF/
+  a plain `*` appended to the port label plus a legend row in the DOT/SVG/PDF/
   PNG backend, and the label marker alone in draw.io, which has no legend at
-  all. `cmd_render` also warns on the console once per shared port
+  all.
+
+  **The `*` alone shipped invisible in the default render, caught the same
+  day by external review.** `--layout unifi` is the default, and it suppresses
+  port labels entirely (`Style.show_port_labels`), because ortho routing
+  cannot place them without the text drifting onto unrelated nodes; it
+  suppresses the legend too. The `*` rides on the port label, so on the render
+  most people actually produce, both the marker and its legend row were gone
+  and the feature had no visible signal at all — it still detected, reported
+  and logged, just never drew. Fixed by giving the edge its own layout-
+  independent channel, `arrowhead=diamond`, unconditionally rather than gated
+  on `show_port_labels`, the same way `TOPOLOGY_GRAPH`'s `arrowhead=odot`
+  already was; the two never collide since `shared_ports()` only ever counts
+  direct `CLIENT_UPLINK` edges. The legend row is still gated on
+  `show_legend`, matching every other marker here (wireless dashing, asserted
+  dotting, the odot arrowhead) — `--layout unifi` omits the legend on purpose,
+  and this is not the marker to special-case that for. draw.io needed no
+  equivalent fix: it has no `show_port_labels` concept, so its `*` was never
+  gated in the first place.
+
+  `cmd_render` also warns on the console once per shared port
   (`_hint_about_shared_ports`), obfuscation-aware like `_report_displacements`:
   named normally, a bare count under `--obfuscate`. All four read from one
   `Topology.shared_ports()`, restricted to direct `CLIENT_UPLINK` reports so a
