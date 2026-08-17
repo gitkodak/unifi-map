@@ -142,6 +142,19 @@ read and placed, exactly as given.
 - **`overrides check` and `overrides generate` still work**, since they are
   built on the same `Topology`, but their output is calibrated for
   reconciling overrides against a real fetch. Read past the framing.
+- **Every link is dotted, and there is no override for that.** Dotted is
+  what an asserted edge renders as, deliberately and permanently — it is the
+  channel this project uses to guarantee that something a human typed in
+  never looks like something a controller reported, and that guarantee has
+  to hold on a real map, which means the rendering code cannot tell a real
+  map from a fabricated one and cannot make an exception here. Considered
+  and declined for exactly that reason, not because it would be hard to
+  build (it would not be). On a from-scratch network every link genuinely
+  is asserted anyway, so the line is still accurate, just for a different
+  reason than usual. If you want a different line style regardless, this
+  tool is the wrong place to ask for it: the output is plain DOT or SVG
+  text, so `sed 's/style=dotted/style=solid/' network-map.dot` is the
+  actual answer, outside anything this project promises to maintain.
 
 ## Example
 

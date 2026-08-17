@@ -1150,6 +1150,24 @@ synthesised by `build_topology()` from a real device's real uplink, which
 the doc states as a concrete limitation and which was previously untested
 anywhere in the suite.
 
+**A per-link line-style override was raised immediately afterward and
+declined on the spot, correctly for the wrong first reason.** Jason's
+instinct was to resist it as "incredibly difficult" to implement; checked
+and that is false; it is the same shape as every other optional override
+field already on `Link`/`Device`/`Hosted`, a few hours of work at most. The
+real reason to decline holds regardless of cost: dotted is the channel this
+project uses to guarantee an asserted edge can never be mistaken for one a
+controller reported, that guarantee has to hold on a real map, and the
+renderer has no way to tell a real map from a fabricated one, so it cannot
+carve out an exception for this page without weakening the one thing every
+other override in this project depends on. Recorded so effort-estimate is
+never the reason this gets re-proposed -- the answer would be the same at
+any cost. The pressure valve, if anyone wants a different line style on a
+fabricated map anyway, is entirely outside this project: the output is
+plain text, so `sed 's/style=dotted/style=solid/'` on the `.dot` or `.svg`
+is the actual answer. Documented at `docs/diagram-as-code.md`'s own "What
+does not work" section, in the same "considered and declined" terms.
+
 ### Splitting `cli.py`. Done, and the reason was never length
 
 Raised by both external reviewers, twice, as "it is ~1350 lines". Length was the
