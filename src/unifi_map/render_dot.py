@@ -277,12 +277,20 @@ def _node_lines(
 
 def _edge_lines(topo: Topology, style: Style) -> list[str]:
     lines = []
+    shared = topo.shared_ports()
     for edge in topo.edges:
         if edge.src not in topo.nodes or edge.dst not in topo.nodes:
             continue
         attrs = []
         if edge.label and style.show_port_labels:
-            attrs.append(f'label="{_escape(edge.label)}"')
+            label_text = edge.label
+            group = shared.get((edge.dst, edge.label))
+            if group and edge.src in group:
+                # Several clients on this port: flag it rather than draw a
+                # synthetic switch, since a hidden switch and a hypervisor
+                # bridging its guests look identical from here (KAN-199).
+                label_text += " *"
+            attrs.append(f'label="{_escape(label_text)}"')
         if edge.asserted:
             # Dotted means "you told me this", so it never reads as something
             # the controller reported.
@@ -434,6 +442,10 @@ def _legend_link_rows(topo: Topology, theme: Theme) -> list[str]:
             f'FACE="{FONT}">{glyph}</FONT></TD>'
             f'<TD ALIGN="LEFT"><FONT POINT-SIZE="10" COLOR="{theme.text_muted}" '
             f'FACE="{FONT}">{label}</FONT></TD></TR>'
+        )
+    if topo.shared_ports():
+        rows.append(
+            _legend_note(theme, "* Multiple clients share a port: possibly a hidden switch.")
         )
     return rows
 

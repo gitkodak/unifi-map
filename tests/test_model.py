@@ -5,8 +5,11 @@ import pytest
 from unifi_map.client import Snapshot, unwrap
 from unifi_map.model import (
     UNKNOWN_UPLINK_ID,
+    Edge,
     Kind,
+    Node,
     Provenance,
+    Topology,
     build_fingerprints,
     build_topology,
     client_networks,
@@ -724,3 +727,52 @@ class TestProvenance:
             assert node.asserted == (node.provenance is Provenance.OVERRIDE), node.id
         for edge in topo.edges:
             assert edge.asserted == (edge.provenance is Provenance.OVERRIDE), (edge.src, edge.dst)
+
+
+class TestSharedPorts:
+    """KAN-199: several wired clients on one switch port hint at a hidden switch."""
+
+    def _topo(self):
+        topo = Topology()
+        topo.add(Node(id="sw", label="switch", kind=Kind.SWITCH))
+        topo.add(Node(id="c1", label="c1", kind=Kind.WIRED_CLIENT))
+        topo.add(Node(id="c2", label="c2", kind=Kind.WIRED_CLIENT))
+        topo.edges.append(
+            Edge(src="c1", dst="sw", label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        topo.edges.append(
+            Edge(src="c2", dst="sw", label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        return topo
+
+    def test_two_clients_on_one_port_are_grouped(self):
+        topo = self._topo()
+        groups = topo.shared_ports()
+        assert groups == {("sw", "port 7"): ["c1", "c2"]}
+
+    def test_a_single_client_on_a_port_is_not_flagged(self):
+        topo = self._topo()
+        topo.edges.pop()
+        assert topo.shared_ports() == {}
+
+    def test_different_ports_are_not_grouped_together(self):
+        topo = self._topo()
+        topo.edges[-1].label = "port 8"
+        assert topo.shared_ports() == {}
+
+    def test_a_topology_graph_inferred_edge_does_not_count(self):
+        """An inferred uplink is a step removed from what the port itself said."""
+        topo = self._topo()
+        topo.edges[-1].provenance = Provenance.TOPOLOGY_GRAPH
+        assert topo.shared_ports() == {}
+
+    def test_a_wireless_edge_does_not_count(self):
+        topo = self._topo()
+        topo.edges[-1].wireless = True
+        assert topo.shared_ports() == {}
+
+    def test_an_override_that_reparents_a_client_resolves_the_sharing(self):
+        """Once `[[hosted]]` moves a client off the shared port, it's explained."""
+        topo = self._topo()
+        topo.edges[-1] = Edge(src="c2", dst="c1", provenance=Provenance.OVERRIDE, asserted=True)
+        assert topo.shared_ports() == {}

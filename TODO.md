@@ -49,16 +49,25 @@ drawn from a thin one look equally authoritative.
   there is nothing wrong with a specific device and no overrides entry that
   would fix it.
 - **Say when something is hiding on a switch port** (KAN-199). Two signals, and
-  they are complementary. The controller's own v2 topology payload carries a
-  `has_unknown_switch` boolean that we do not read, which says one exists
-  somewhere but not where. Several wired clients reporting the same switch and
-  port says where, and needs no cooperation from the hidden device, which is
-  what makes it work where LLDP cannot.
+  they are complementary. Only one is built.
 
-  Reported rather than drawn: the signal is unambiguous and its cause is not,
-  since several MACs on a port means an unmanaged switch or a virtualisation
-  host bridging its guests. The report names the port and leaves the answer to
-  a `[[device]]` or `[[hosted]]` entry.
+  **Several wired clients reporting the same switch and port. Shipped**,
+  2026-08-16. Needs no cooperation from the hidden device, which is what makes
+  it work where LLDP cannot. Flagged, not drawn as a node: the diagram marks
+  the shared edges with `*` on the port label plus a legend note (label only in
+  draw.io, which has no legend), `--report` names the port and lists the
+  clients in a `SHARED SWITCH PORTS` section, and the console warns once per
+  shared port (a bare count under `--obfuscate`). Several MACs on a port means
+  an unmanaged switch or a virtualisation host bridging its guests, and neither
+  the diagram nor the console picks one; `[[device]]` or `[[hosted]]` is how you
+  say which it actually is.
+
+  **The controller's own `has_unknown_switch` boolean is still unread.** It
+  says one exists somewhere, never where, so it complements the signal above
+  rather than replacing it — but it is also unverified: whether it is per-site,
+  whether it clears, and whether an all-UniFi network ever sets it are all
+  still open questions. See `CLAUDE.md`'s KAN-199 notes before building this
+  half.
 
 ## More ways to look at the network
 

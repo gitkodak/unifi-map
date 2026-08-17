@@ -1093,9 +1093,10 @@ stub generator to act on (KAN-120).
   replacing it. Unverified and worth checking first: whether it is per-site,
   whether it clears, and whether an all-UniFi network ever sets it.
 
-- **Several wired clients on one switch port means something is hiding there**
-  (KAN-199). Found 2026-08-14 when Jason remembered a Netgear PoE switch the
-  map had been drawing wrong since the map existed.
+- **Several wired clients on one switch port means something is hiding there.
+  Shipped**, the shared-port half of KAN-199, 2026-08-16. Found 2026-08-14 when
+  Jason remembered a Netgear PoE switch the map had been drawing wrong since
+  the map existed.
 
   **The controller cannot see that switch at all**: no device entry, no client
   entry, no LLDP entry, no v2 topology edge. Both things behind it are reported
@@ -1105,17 +1106,39 @@ stub generator to act on (KAN-120).
   other occupied port on that switch has one. Two corroborating facts on the
   same port, worth quoting in the report when present but too weak to trigger
   on: `poe_enable = false` with `poe_power = 0.00` while a PoE camera runs
-  behind it, and 1000 Mb negotiated on `2P5GE`-capable media.
+  behind it, and 1000 Mb negotiated on `2P5GE`-capable media. Neither
+  corroborating fact is implemented; only the shared-port count is.
 
   **This is the general answer that LLDP is not.** LLDP needs the foreign
   device to advertise, and this one does not; a shared-port check needs nothing
   from it. See the LLDP entry above for the full correction.
 
-  **Report it, never draw it.** Several MACs on one port means an unmanaged
-  switch *or* a virtualisation host with bridged guests, and
-  `topology_uplinks()`'s docstring already names both. Synthesising a switch
-  that might be a hypervisor is inventing topology. Name the port, list the
-  clients, give both causes, point at `[[device]]` and `[[hosted]]`.
+  **Report it, and flag it, but never draw a node for it.** Several MACs on one
+  port means an unmanaged switch *or* a virtualisation host with bridged
+  guests, and `topology_uplinks()`'s docstring already names both. Synthesising
+  a switch that might be a hypervisor is inventing topology, so no node is ever
+  added for this. That line was drawn before the diagram gained any visible
+  signal at all; once one was added, "flag it" and "draw a node" turned out to
+  be different things, and only the second is still refused. `--report` names
+  the port and lists the clients, in a `SHARED SWITCH PORTS` section
+  (`diagnostics._shared_ports_section`); the diagram marks the same edges with
+  a plain `*` appended to the port label plus a legend note in the DOT/SVG/PDF/
+  PNG backend, and the label marker alone in draw.io, which has no legend at
+  all. `cmd_render` also warns on the console once per shared port
+  (`_hint_about_shared_ports`), obfuscation-aware like `_report_displacements`:
+  named normally, a bare count under `--obfuscate`. All four read from one
+  `Topology.shared_ports()`, restricted to direct `CLIENT_UPLINK` reports so a
+  `TOPOLOGY_GRAPH`-inferred edge (a step removed from what the port itself
+  said) never counts, and computed against the *final* topology so a
+  `[[hosted]]` override that reparents a client off the shared port already
+  resolves it rather than still flagging it.
+
+  A merged single line splitting into the several clients, proposed and
+  dropped in the same conversation this shipped in: it needs a real junction
+  node in the DOT graph (and the draw.io coordinate pass, since both share the
+  same staggered DOT), and a junction dot between a switch and its clients
+  reads as "there's a device here" exactly as much as a synthesised switch
+  would, for the same reason this section already refuses to draw one.
 
   Count only `Kind.WIRED_CLIENT`. Wireless clients share an AP by definition,
   the same reasoning that scoped KAN-129's count to clients.

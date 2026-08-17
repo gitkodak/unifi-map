@@ -245,6 +245,37 @@ def _mac_randomisation_section(topo: Topology) -> list[str]:
     ]
 
 
+def _shared_ports_section(topo: Topology) -> list[str]:
+    """Switch ports where more than one wired client reports the same port.
+
+    Two causes look identical from here: an unmanaged switch the controller
+    cannot see, or a virtualisation host bridging its guests onto one NIC
+    (KAN-199). Reported rather than drawn, because synthesising a node for
+    either would be inventing topology this map has no basis for; the diagram
+    itself only marks the port with `*`, for the same reason. `[[device]]` or
+    `[[hosted]]` in an overrides file is how you say which it actually is.
+    """
+    groups = topo.shared_ports()
+    if not groups:
+        return []
+    out = [
+        "",
+        "SHARED SWITCH PORTS",
+        "  More than one wired client reports the same switch and port. This can",
+        "  mean an unmanaged switch or a virtualisation host bridging its guests",
+        "  that the controller cannot see. An overrides file can say which: see",
+        "  docs/overrides.md for [[device]] and [[hosted]].",
+        "",
+    ]
+    for (parent, port), macs in sorted(
+        groups.items(), key=lambda item: (topo.nodes[item[0][0]].label.lower(), item[0][1])
+    ):
+        clients = sorted((topo.nodes[mac] for mac in macs), key=lambda n: n.label.lower())
+        out.append(f"  {_describe(topo.nodes[parent])}, {port}")
+        out.extend(f"      {_describe(client)}" for client in clients)
+    return out
+
+
 def _dangling_networks(topo: Topology) -> list[str]:
     """Networks a client claims to be on that the controller does not list.
 
@@ -468,6 +499,7 @@ def build_diagnostics(
     out += _endpoints_section(payloads)
     out += _unplaced_section(topo)
     out += _addressless_section(topo)
+    out += _shared_ports_section(topo)
     out += _dangling_networks(topo)
     out += _mac_randomisation_section(topo)
     out += _artwork_section(sources)

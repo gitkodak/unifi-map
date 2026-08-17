@@ -352,6 +352,43 @@ def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
     )
 
 
+def _hint_about_shared_ports(topo: Topology, obfuscated: bool) -> None:
+    """Warn when several wired clients report the same switch and port.
+
+    This is the console half of KAN-199; `render_dot`/`render_drawio` mark the
+    same thing on the diagram with a `*` on the port label, because which of
+    an unmanaged switch or a virtualisation host it is cannot be told apart
+    from here, and synthesising a node for either would be inventing topology.
+
+    Same obfuscation treatment as `_report_displacements`: naming the switch
+    and its clients here would be exactly the leak --obfuscate exists to
+    prevent, so an obfuscated run gets a count only.
+    """
+    groups = topo.shared_ports()
+    if not groups:
+        return
+    if obfuscated:
+        log.warning(
+            "%d switch port(s) report more than one wired client, which can "
+            "mean an unmanaged switch or a virtualisation host the controller "
+            "cannot see. Re-run without --obfuscate to see which.",
+            len(groups),
+        )
+        return
+    for (parent, port), macs in sorted(groups.items()):
+        switch = topo.nodes[parent].label
+        clients = ", ".join(topo.nodes[mac].label for mac in macs)
+        log.warning(
+            "%s, %s: %d wired clients share this port (%s). This can mean an "
+            "unmanaged switch or a virtualisation host the controller cannot "
+            "see; see docs/overrides.md for [[device]] and [[hosted]].",
+            switch,
+            port,
+            len(macs),
+            clients,
+        )
+
+
 def _stagger_for(topo: Topology, requested: int, style: Style) -> int:
     if requested <= 0 or not style.staggers:
         return 0
@@ -648,6 +685,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # After overrides, not before: the whole point is to report what is *still*
     # unplaced, and running first counts the clients an override just placed.
     _hint_about_unplaced(topo, path)
+    _hint_about_shared_ports(topo, args.obfuscate)
 
     # Only assembled when asked for: a normal render has no use for the tally.
     artwork_counts: dict[str, int] | None = {} if args.report else None
