@@ -54,13 +54,16 @@ drawn from a thin one look equally authoritative.
   **Several wired clients reporting the same switch and port. Shipped**,
   2026-08-16. Needs no cooperation from the hidden device, which is what makes
   it work where LLDP cannot. Flagged, not drawn as a node: the diagram marks
-  the shared edges with `*` on the port label plus a legend note (label only in
-  draw.io, which has no legend), `--report` names the port and lists the
-  clients in a `SHARED SWITCH PORTS` section, and the console warns once per
-  shared port (a bare count under `--obfuscate`). Several MACs on a port means
-  an unmanaged switch or a virtualisation host bridging its guests, and neither
-  the diagram nor the console picks one; `[[device]]` or `[[hosted]]` is how you
-  say which it actually is.
+  the shared edges with a small diamond arrowhead, present in every layout
+  including the default `unifi` (`--layout tree` additionally appends `*` to
+  the port label, and gets a legend row; draw.io gets the label marker alone,
+  since it has no legend). `--report` names the port and lists the clients in
+  a `SHARED SWITCH PORTS` section, and the console warns once per shared port
+  (a bare count under `--obfuscate`). Several MACs on a port means an
+  unmanaged switch or a virtualisation host bridging its guests, and neither
+  the diagram nor the console picks one; `[[device]]` or `[[hosted]]` is how
+  you say which it actually is. `unifi-map overrides generate` (KAN-120) now
+  prints a starting skeleton for exactly this case.
 
   **The controller's own `has_unknown_switch` boolean is still unread.** It
   says one exists somewhere, never where, so it complements the signal above

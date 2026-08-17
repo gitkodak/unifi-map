@@ -298,6 +298,36 @@ for would let a file pass here and fail there, which is the one outcome this
 command exists to prevent. If you render with `--show-offline yes`, check with
 it too.
 
+## Generating a starting point
+
+```bash
+unifi-map overrides generate > candidates.toml
+```
+
+Prints a commented skeleton to stdout, seeded from the same three things
+[`--report`](usage.md#how-much-to-trust-the-map---report) names: clients with
+no reported uplink, switch ports shared by several wired clients (a hint that
+an unmanaged switch or a virtualisation host is hiding there), and artwork
+matches refused as ambiguous.
+
+**Every block is commented out.** The file changes nothing until you edit and
+uncomment the parts you want, so it is safe to redirect straight to a file and
+read at your leisure rather than something you need to review line by line
+before it can touch anything.
+
+**The one thing it never fills in is a client's real uplink.** A `[[link]]`
+skeleton always has `from` set to the client's MAC (the one selector guaranteed
+unique) and `to = ""` left for you: guessing where a cable actually goes would
+be exactly the invented topology this whole file exists to avoid. A shared-port
+skeleton is more filled in, because less is actually unknown: the suggested
+device name and its `parent`/`port` are read straight off the map, and only
+whether the device is real is left to you, by choosing whether to uncomment it.
+
+Like `check`, this reads the cache and contacts no controller. Artwork
+ambiguity is resolved offline and best-effort, the same way `unifi-map shape`
+resolves it: only what is already cached counts, nothing is fetched, and a
+cold cache simply means that section is empty rather than the command failing.
+
 ## Where `note` shows up
 
 `note` behaves differently per block, which is worth stating because all four

@@ -56,6 +56,28 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+### Added
+
+- **Flag switch ports shared by several wired clients.** Several wired
+  clients reporting the same switch and port usually means an unmanaged
+  switch or a virtualisation host the controller cannot see, and needs no
+  cooperation from the hidden device to detect, unlike LLDP. The diagram
+  marks the shared edges with a small diamond at the child end, present in
+  every layout including the default `unifi`; `--layout tree` additionally
+  appends `*` to the port label. `--report` names the port and lists the
+  clients in a new `SHARED SWITCH PORTS` section, and the console warns once
+  per shared port, a bare count under `--obfuscate`. Never drawn as a node:
+  which of the two causes it is can't be told apart from here, so nothing is
+  synthesised either way.
+
+- **`unifi-map overrides generate` prints a commented overrides skeleton.**
+  Seeded from the same signals `--report` already names: clients with no
+  reported uplink, switch ports shared by several wired clients, and artwork
+  matches refused as ambiguous. Every block is commented out, so the file
+  changes nothing until edited and uncommented; the one field it never fills
+  in is a client's real uplink. `--report` now points at it from each of the
+  three sections it can help with.
+
 ## 0.12.0 - 2026-08-14
 
 ### Added
