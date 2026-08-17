@@ -706,6 +706,33 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
     return result
 
 
+def _comment_safe(text: str) -> str:
+    """Collapse whitespace so *text* cannot break out of a `#` comment line.
+
+    A newline ends the line it sits on, and everything after it stops being a
+    comment -- the exact "inert until edited" guarantee this generator exists
+    to keep. Node and edge labels come from a controller, or worse a support
+    file, both hostile input by this project's own threat model throughout.
+    Same technique as `render_mermaid._flatten()`.
+    """
+    return " ".join(text.split())
+
+
+def _toml_value(text: str) -> str:
+    """*text*, safe to sit inside a commented `"..."` TOML string.
+
+    Applies `_comment_safe` first -- a TOML basic string cannot contain a
+    literal newline either, and breaking out of the comment is the more
+    serious of the two hazards -- then escapes the backslash and the quote
+    that would otherwise end the string early or corrupt it once the
+    surrounding block is uncommented. Found by external review: an
+    unescaped switch label containing a `"` produced `name = "...Core
+    "A")"`, invalid TOML the moment somebody acted on the suggestion.
+    """
+    safe = _comment_safe(text)
+    return safe.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def _unplaced_candidates(topo: Topology) -> list[str]:
     """`[[link]]` skeletons for clients hanging off the placeholder."""
     stranded = sorted(
@@ -727,7 +754,7 @@ def _unplaced_candidates(topo: Topology) -> list[str]:
     for node in stranded:
         lines += [
             "# [[link]]",
-            f'# from = "{node.id}"  # {node.label}',
+            f'# from = "{_toml_value(node.id)}"  # {_comment_safe(node.label)}',
             '# to = ""  # TODO: what is this actually plugged into?',
             "",
         ]
@@ -766,18 +793,18 @@ def _shared_port_candidates(topo: Topology) -> list[str]:
         name = f"Unmanaged switch ({port} on {switch.label})"
         lines += [
             "# [[device]]",
-            f'# name = "{name}"',
+            f'# name = "{_toml_value(name)}"',
             '# kind = "switch"',
-            f'# parent = "{switch.id}"  # {switch.label}',
-            f'# port = "{_port_number(port)}"',
+            f'# parent = "{_toml_value(switch.id)}"  # {_comment_safe(switch.label)}',
+            f'# port = "{_toml_value(_port_number(port))}"',
             "",
         ]
         for mac in sorted(macs, key=lambda m: topo.nodes[m].label.lower()):
             client = topo.nodes[mac]
             lines += [
                 "# [[hosted]]",
-                f'# guest = "{client.id}"  # {client.label}',
-                f'# host = "{name}"',
+                f'# guest = "{_toml_value(client.id)}"  # {_comment_safe(client.label)}',
+                f'# host = "{_toml_value(name)}"',
                 "",
             ]
     return lines
@@ -812,7 +839,7 @@ def _artwork_candidates(topo: Topology, ambiguous_artwork: list[tuple[str, int]]
             seen.add(node.id)
             lines += [
                 "# [[node]]",
-                f'# match = "{node.id}"  # {node.label}',
+                f'# match = "{_toml_value(node.id)}"  # {_comment_safe(node.label)}',
                 f'# icon = ""  # TODO: path to artwork ({count} catalogue matches)',
                 "",
             ]

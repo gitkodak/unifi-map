@@ -854,6 +854,27 @@ at anything requiring knowledge of UniFi.
   makes it opt-in for free, which Jason asked for explicitly — nobody reaches
   it by accident, unlike a flag that could be left on by habit.
 
+  **The generated TOML was not actually safe to uncomment, caught the same
+  day by external review of cfcd2fe.** A controller-supplied label (a switch
+  or client name) went straight into the skeleton unescaped. A `"` in it
+  broke the surrounding `name = "..."` value the moment the block was
+  uncommented -- the review's repro was a switch named `Core "A"`, which
+  generated `name = "Unmanaged switch (port 7 on Core "A")"`, invalid TOML.
+  Worse, a raw newline in a label would have ended the `#` line it sat on and
+  let whatever followed be read as real TOML, unreviewed -- a genuine break
+  of "inert until edited", the one promise this command makes, not merely a
+  cosmetic bug. Fixed with two small helpers in `overrides.py`:
+  `_comment_safe()` collapses whitespace (same technique as
+  `render_mermaid._flatten()`, reused rather than re-invented) so nothing can
+  end the line it sits on, and `_toml_value()` additionally escapes `\` and
+  `"` for the values that sit inside quotes. Applied to every place a label or
+  an id (MACs are just as attacker-controlled by this project's own threat
+  model, `_norm_mac()` never validates their shape) reaches the output, not
+  only the one the reviewer's repro happened to hit. Six tests pin it,
+  including one that parses the *entire* generated file with `tomllib` and
+  asserts it comes back empty, which is what a newline actually escaping the
+  comment would have broken.
+
 - **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
   it is the shape of the network and nothing else, and the docs say so. Note
   that its direction follows `--layout` (`unifi` gives LR, `tree` gives TB) and
