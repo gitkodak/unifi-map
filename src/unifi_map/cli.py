@@ -158,6 +158,7 @@ GLOBAL_DEFAULTS = {
     "icon_font": None,
     "out_dir": DEFAULT_OUT,
     "verbose": False,
+    "quiet": False,
     "progress": True,
     "overrides": None,
     # Suppressed on the arguments themselves so a value from the environment or
@@ -1144,6 +1145,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Log every artwork lookup, including the ones that found nothing, "
         "and name nodes that --obfuscate would otherwise hide.",
     )
+    shared.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="Only log errors: no topology/style summary, no artwork tally, "
+        "no unplaced-client or shared-port hints. Those restate steady-state "
+        "facts about the network rather than something that just changed, "
+        "which is exactly the noise a scripted or cron run wants silenced. "
+        "Does not touch printed output (--report, shape, overrides generate), "
+        "only console narration. Implies --no-progress. Not allowed with "
+        "-v/--verbose.",
+    )
 
     parser = _Parser(
         prog="unifi-map",
@@ -1336,13 +1350,49 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _log_level(argv: list[str]) -> int | None:
+    """DEBUG for `-v`, ERROR for `-q`, INFO otherwise; `None` if both were given.
+
+    Read from *argv* directly rather than the parsed namespace, which does not
+    exist yet: logging has to be configured before parsing can fail in a way
+    worth reporting nicely, the same reasoning `-v` already used here.
+    """
+    verbose = any(a in ("-v", "--verbose") for a in argv)
+    quiet = any(a in ("-q", "--quiet") for a in argv)
+    if verbose and quiet:
+        return None
+    if verbose:
+        return logging.DEBUG
+    if quiet:
+        return logging.ERROR
+    return logging.INFO
+
+
+def _apply_quiet(args: argparse.Namespace) -> None:
+    """`--quiet` implies `--no-progress`.
+
+    A spinner is exactly the kind of interactive narration `--quiet` exists to
+    suppress, and there is no flag that could turn it back on afterwards to
+    conflict with.
+    """
+    if args.quiet:
+        args.progress = False
+
+
 def main(argv: list[str] | None = None) -> int:
     # Logging first, because parsing can now fail in a way worth reporting
-    # nicely. `-v` is read straight from argv rather than from the parsed
-    # namespace, which does not exist yet.
-    verbose = any(a in ("-v", "--verbose") for a in (argv if argv is not None else sys.argv[1:]))
+    # nicely.
+    raw = argv if argv is not None else sys.argv[1:]
+    verbose = any(a in ("-v", "--verbose") for a in raw)
+    level = _log_level(raw)
+    if level is None:
+        print(
+            "unifi-map: error: argument -q/--quiet: not allowed with argument -v/--verbose",
+            file=sys.stderr,
+        )
+        return 2
     logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
+        level=level,
         format="%(message)s",
         # Erases the spinner before each record, so the two never share a line.
         handlers=[SpinnerAwareHandler(sys.stderr)],
@@ -1358,6 +1408,7 @@ def main(argv: list[str] | None = None) -> int:
     except ConfigError as exc:
         log.error("Configuration error: %s", exc, exc_info=verbose)
         return 2
+    _apply_quiet(args)
 
     try:
         return int(args.func(args))

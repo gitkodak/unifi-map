@@ -95,6 +95,29 @@ device would drown the output. `-v` is where the detail lives.
 It also raises the detail on everything else, so it is the first thing to
 attach to a bug report. Redact addresses and hostnames before pasting.
 
+### Less output: `-q`/`--quiet`
+
+```bash
+unifi-map -q all
+```
+
+The opposite of `-v`: only errors are logged, so no topology/style summary, no
+artwork tally, and none of the unplaced-client or shared-port hints. Those all
+restate steady-state facts about the network rather than something that just
+changed, which is exactly the noise a scripted or cron run wants silenced —
+the same run will otherwise print the identical warning every single time
+nothing has changed.
+
+It implies `--no-progress`: a spinner is the same kind of interactive
+narration `-q` exists to suppress. Combining it with `-v` is refused rather
+than one silently winning over the other.
+
+**It only touches console narration, not printed output.** `--report`,
+`unifi-map shape` and `unifi-map overrides generate` all print to stdout
+directly rather than logging, so `-q` does not shorten any of them — including
+the cold-cache `NOTE` `overrides generate` can print, which is part of the
+file it writes, not a log line.
+
 ### How much to trust the map: `--report`
 
 ```bash
@@ -412,6 +435,7 @@ equivalent. Command options must follow the subcommand.
 | `--no-progress` | Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading. |  |
 | `--out-dir` | Where diagrams are written (default: out) | `out` |
 | `-v`, `--verbose` | Log every artwork lookup, including the ones that found nothing, and name nodes that --obfuscate would otherwise hide. |  |
+| `-q`, `--quiet` | Only log errors: no topology/style summary, no artwork tally, no unplaced-client or shared-port hints. Those restate steady-state facts about the network rather than something that just changed, which is exactly the noise a scripted or cron run wants silenced. Does not touch printed output (--report, shape, overrides generate), only console narration. Implies --no-progress. Not allowed with -v/--verbose. |  |
 | `--version` | show program's version number and exit |  |
 
 `fetch` takes only the global options above.

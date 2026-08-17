@@ -894,6 +894,52 @@ at anything requiring knowledge of UniFi.
   cannot cover every eventuality can at least cover the ones it already
   knows about.
 
+- **`-q`/`--quiet`. Shipped, 2026-08-16.** The direct consequence of that
+  principle: erring toward verbosity is only sustainable for the person who
+  wants it if the person who does not has a way to turn it off. Raised by
+  Jason immediately after the cold-cache `NOTE` above, half-jokingly as
+  `--shut-the-fuck-up` before settling on the obvious, unsurprising name --
+  `-v`/`--verbose` already existed, so its opposite needed no debate about
+  what it should be called, only about what "quiet" means here specifically.
+
+  **Maps to `logging.ERROR`, not the more common "drop INFO, keep
+  WARNING."** The warnings this project has been adding all night (shared
+  ports, unplaced clients, the cold-cache note) are steady-state
+  observations about the network, not "something just changed" alerts --
+  there is no diff/history mechanism yet (KAN-116/117) to distinguish the
+  two -- so a recurring cron run would see the identical warning on every
+  single invocation. That is exactly the noise `-q` exists to silence, which
+  only follows if it silences warnings too, not only INFO narration.
+
+  **`-v` and `-q` are refused together rather than one winning**, read
+  straight from raw `argv` in `main()` before parsing even starts, the same
+  place and the same reason `-v` was already read that way: logging has to
+  be configured before parsing can fail in a way worth reporting nicely.
+  Extracted into a pure `_log_level(argv) -> int | None` (`None` meaning
+  "refuse") specifically so the decision is unit-testable without touching
+  global logging state -- `logging.basicConfig()` is a no-op if the root
+  logger already has handlers, which it always does under pytest, so a test
+  asserting on `main()`'s actual root-logger side effect would be testing
+  pytest's own logging plugin more than this code. The existing
+  `test_nothing_identifying_reaches_the_log_either` sidesteps the identical
+  trap with `caplog.at_level(...)`, forcing the level for capture rather
+  than trusting `main()` set it.
+
+  **Implies `--no-progress`.** A spinner is interactive narration exactly
+  like the log lines `-q` suppresses, and there is no flag that could turn
+  it back on afterward to conflict with, so `_apply_quiet()` just overwrites
+  `args.progress` after parsing.
+
+  **Does not, and should not, touch printed output.** `--report`, `shape`
+  and `overrides generate` all `print()` directly to stdout rather than
+  logging, which is deliberate elsewhere in this file (`--report > file`
+  captures the report alone while progress still reaches the terminal) --
+  so `-q` has no reason to reach them and the help text says so explicitly,
+  after a first draft claimed it would suppress `overrides generate`'s
+  cold-cache `NOTE`, which is printed file content, not a log call. Caught
+  before it shipped by rereading the help text against the actual code
+  rather than against what was intended.
+
 - **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
   it is the shape of the network and nothing else, and the docs say so. Note
   that its direction follows `--layout` (`unifi` gives LR, `tree` gives TB) and

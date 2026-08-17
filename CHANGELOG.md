@@ -80,6 +80,14 @@ told something untrue and may have acted on it.
   artwork check did not run at all, and the printed file says so with a
   `NOTE` rather than reading like a clean result.
 
+- **`-q`/`--quiet`.** Only errors are logged: no topology/style summary, no
+  artwork tally, no unplaced-client or shared-port hints. Those restate
+  steady-state facts about the network rather than something that just
+  changed, which is exactly the noise a scripted or cron run wants silenced.
+  Implies `--no-progress`; refused together with `-v`/`--verbose` rather than
+  one silently winning. Does not touch printed output (`--report`, `shape`,
+  `overrides generate`), only console narration.
+
 ## 0.12.0 - 2026-08-14
 
 ### Added
