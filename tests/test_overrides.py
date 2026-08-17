@@ -453,6 +453,16 @@ class TestDeclaredDevices:
         assert node.kind is Kind.SWITCH
         assert result.devices_added == 1
 
+    def test_kind_internet_is_refused(self):
+        """`docs/diagram-as-code.md` states this as a documented limitation:
+        the Internet/cloud node is only ever synthesised by `build_topology()`
+        from a real device's real uplink, never declarable by hand. Pinned so
+        that claim cannot go stale."""
+        from unifi_map.overrides import parse
+
+        with pytest.raises(OverrideError, match=r"kind.*must be one of"):
+            parse({"device": [{"name": "Fake Cloud", "kind": "internet"}]})
+
     def test_it_is_marked_asserted_so_it_cannot_pass_for_observed(self, topo):
         # The whole point. A map that drew a typed-in device identically to a
         # reported one would misrepresent where its information came from.
@@ -809,6 +819,19 @@ class TestGenerateCandidates:
 
     def test_a_clean_topology_says_so(self, topo):
         assert "Nothing to suggest" in generate_candidates(topo)
+
+    def test_a_cold_artwork_cache_is_named_not_left_silent(self, topo):
+        """A cold cache means the ambiguous-artwork check never ran at all,
+        which reads as "nothing wrong" unless it says otherwise -- the same
+        failure `--report` and `shape` already guard against."""
+        text = generate_candidates(topo, artwork_catalog_cached=False)
+        assert "NOTE" in text
+        assert "catalogue is not cached" in text
+        assert "were" in text and "NOT checked" in text
+
+    def test_a_warm_artwork_cache_gets_no_note(self, topo):
+        assert "NOTE" not in generate_candidates(topo, artwork_catalog_cached=True)
+        assert "NOTE" not in generate_candidates(topo)
 
     def test_unplaced_clients_get_a_link_skeleton(self, unplaced_topo):
         text = generate_candidates(unplaced_topo)

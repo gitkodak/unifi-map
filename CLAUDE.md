@@ -875,6 +875,71 @@ at anything requiring knowledge of UniFi.
   asserts it comes back empty, which is what a newline actually escaping the
   comment would have broken.
 
+  **A cold artwork cache read as a clean result, raised by Jason directly
+  while working through what actually triggers each candidate section.**
+  Ambiguous-artwork matching (`AssetStore.sysid_for_name`) needs the UniFi
+  hardware catalogue, and this command resolves it offline-only, same as
+  `shape`. On a cache that never had a `render --icons unifi` or `fetch`
+  run against it, the catalogue simply is not there, so the check silently
+  never ran -- and an empty `[[node]]` section looks identical to "checked,
+  nothing ambiguous." Same failure this project already fixed once for
+  `--report` and `shape`'s artwork counts (`0 of 19` reading as "the joins
+  fail here" instead of "nothing has been fetched yet"), just not carried
+  over to this newer command. Fixed by checking `AssetStore.catalog_path
+  .is_file()` before resolution runs and threading that through to
+  `generate_candidates(..., artwork_catalog_cached=...)`, which prints an
+  explicit `NOTE` ahead of every section when the cache is cold. Jason's
+  stated principle for this command going forward: err toward verbosity
+  over letting something slip past an unknowing user, since a tool that
+  cannot cover every eventuality can at least cover the ones it already
+  knows about.
+
+- **`-q`/`--quiet`. Shipped, 2026-08-16.** The direct consequence of that
+  principle: erring toward verbosity is only sustainable for the person who
+  wants it if the person who does not has a way to turn it off. Raised by
+  Jason immediately after the cold-cache `NOTE` above, half-jokingly as
+  `--shut-the-fuck-up` before settling on the obvious, unsurprising name --
+  `-v`/`--verbose` already existed, so its opposite needed no debate about
+  what it should be called, only about what "quiet" means here specifically.
+
+  **Maps to `logging.ERROR`, not the more common "drop INFO, keep
+  WARNING."** The warnings this project has been adding all night (shared
+  ports, unplaced clients, the cold-cache note) are steady-state
+  observations about the network, not "something just changed" alerts --
+  there is no diff/history mechanism yet (KAN-116/117) to distinguish the
+  two -- so a recurring cron run would see the identical warning on every
+  single invocation. That is exactly the noise `-q` exists to silence, which
+  only follows if it silences warnings too, not only INFO narration.
+
+  **`-v` and `-q` are refused together rather than one winning**, read
+  straight from raw `argv` in `main()` before parsing even starts, the same
+  place and the same reason `-v` was already read that way: logging has to
+  be configured before parsing can fail in a way worth reporting nicely.
+  Extracted into a pure `_log_level(argv) -> int | None` (`None` meaning
+  "refuse") specifically so the decision is unit-testable without touching
+  global logging state -- `logging.basicConfig()` is a no-op if the root
+  logger already has handlers, which it always does under pytest, so a test
+  asserting on `main()`'s actual root-logger side effect would be testing
+  pytest's own logging plugin more than this code. The existing
+  `test_nothing_identifying_reaches_the_log_either` sidesteps the identical
+  trap with `caplog.at_level(...)`, forcing the level for capture rather
+  than trusting `main()` set it.
+
+  **Implies `--no-progress`.** A spinner is interactive narration exactly
+  like the log lines `-q` suppresses, and there is no flag that could turn
+  it back on afterward to conflict with, so `_apply_quiet()` just overwrites
+  `args.progress` after parsing.
+
+  **Does not, and should not, touch printed output.** `--report`, `shape`
+  and `overrides generate` all `print()` directly to stdout rather than
+  logging, which is deliberate elsewhere in this file (`--report > file`
+  captures the report alone while progress still reaches the terminal) --
+  so `-q` has no reason to reach them and the help text says so explicitly,
+  after a first draft claimed it would suppress `overrides generate`'s
+  cold-cache `NOTE`, which is printed file content, not a log call. Caught
+  before it shipped by rereading the help text against the actual code
+  rather than against what was intended.
+
 - **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
   it is the shape of the network and nothing else, and the docs say so. Note
   that its direction follows `--layout` (`unifi` gives LR, `tree` gives TB) and
@@ -1029,6 +1094,79 @@ at anything requiring knowledge of UniFi.
   One line worth keeping either way: an export is fine, a **sync** is not.
   `session.get` being the only HTTP verb in the source is a headline property,
   and creating or updating objects in somebody else's system would end it.
+
+### Diagram-as-code turned out to already work, and stayed a side effect
+
+Jason's question, 2026-08-16, right after `-q`/`--quiet`: since `overrides.toml`
+can declare a device the controller cannot see, could someone skip the
+controller entirely and draw an invented network? Checked by actually doing
+it rather than reasoning about it: three hand-written JSON files reporting
+empty lists (`{"data": []}`) satisfy `Snapshot.read()`, `[[device]]` +
+`[[link]]`/`[[hosted]]` populate the whole `Topology`, and `render_dot`/
+`render_drawio` draw it, custom artwork included, with real Ubiquiti icons
+never entering the picture. It works today, unmodified, because the renderer
+is a pure function of a `Topology` and never asks where one came from.
+
+**Not pursued as a goal.** Jason was explicit about this before asking what
+was stopping it: not "should this become a feature" but "can we mention it
+exists." Becoming a real generic diagramming tool competes in a market this
+project has no reason to enter (D2, Structurizr, plain Graphviz) and would
+mean stretching `Kind` past what a UniFi console actually shows, which is
+this project's whole reason for being shaped the way it is.
+
+**Documented instead, as loudly labelled as everything else here is
+carefully labelled.** `docs/diagram-as-code.md`, linked from the README's
+documentation table and from the Overrides feature bullet as an aside, not
+its own headline feature. The instruction, close to verbatim: document it as
+thoroughly as everything else, but make it very, very, very clear that it is
+a side effect, not a feature, and that it will never be officially supported.
+The page says so twice, at the top and again as its last line, and explains
+*why* rather than only asserting it: nothing here is designed or tested for
+a zero-real-data path, so a future change could break it without that
+counting as a breaking change from this project's own point of view.
+
+**The example uses deliberately silly custom artwork on purpose**, per
+Jason's own request -- a Pillow-drawn "Trash Router" / "Toaster Switch" /
+"Sentient Toaster" / "PoE Bidet" / "Grandma's iPad (2011)" / "Smart
+Toothbrush" network, committed as `docs/images/example-diagram-as-code.png`.
+The bidet and the toothbrush are not a second joke: they are the exact pair
+`docs/overrides.md` already uses to explain why a fingerprint match can be
+confidently wrong, added deliberately once the network existed, so the
+callback is intentional rather than convergent. Not decoration otherwise: a
+page showing a clean-looking invented topology would read as an invitation
+to make something that resembles a real product diagram out of data
+nobody's controller ever reported, which is exactly the failure mode "Never
+invent topology" warns about elsewhere in this file, just self-inflicted
+rather
+than guessed by the tool.
+
+**Two claims the page makes are pinned, not just asserted**:
+`tests/test_diagram_as_code.py` renders the documented three-file-empty-
+snapshot-plus-overrides workflow end to end, and
+`test_overrides.py::TestDeclaredDevices::test_kind_internet_is_refused` pins
+that `[[device]]` cannot declare `kind = "internet"` -- `Kind.INTERNET` is
+excluded from `_parse_devices`'s valid set because that node is only ever
+synthesised by `build_topology()` from a real device's real uplink, which
+the doc states as a concrete limitation and which was previously untested
+anywhere in the suite.
+
+**A per-link line-style override was raised immediately afterward and
+declined on the spot, correctly for the wrong first reason.** Jason's
+instinct was to resist it as "incredibly difficult" to implement; checked
+and that is false; it is the same shape as every other optional override
+field already on `Link`/`Device`/`Hosted`, a few hours of work at most. The
+real reason to decline holds regardless of cost: dotted is the channel this
+project uses to guarantee an asserted edge can never be mistaken for one a
+controller reported, that guarantee has to hold on a real map, and the
+renderer has no way to tell a real map from a fabricated one, so it cannot
+carve out an exception for this page without weakening the one thing every
+other override in this project depends on. Recorded so effort-estimate is
+never the reason this gets re-proposed -- the answer would be the same at
+any cost. The pressure valve, if anyone wants a different line style on a
+fabricated map anyway, is entirely outside this project: the output is
+plain text, so `sed 's/style=dotted/style=solid/'` on the `.dot` or `.svg`
+is the actual answer. Documented at `docs/diagram-as-code.md`'s own "What
+does not work" section, in the same "considered and declined" terms.
 
 ### Splitting `cli.py`. Done, and the reason was never length
 

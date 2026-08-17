@@ -847,7 +847,9 @@ def _artwork_candidates(topo: Topology, ambiguous_artwork: list[tuple[str, int]]
 
 
 def generate_candidates(
-    topo: Topology, ambiguous_artwork: list[tuple[str, int]] | None = None
+    topo: Topology,
+    ambiguous_artwork: list[tuple[str, int]] | None = None,
+    artwork_catalog_cached: bool = True,
 ) -> str:
     """A commented overrides skeleton seeded from what this map could not resolve.
 
@@ -858,6 +860,13 @@ def generate_candidates(
     with the selectors already filled in, since a MAC is always unambiguous and
     typing one out by hand is exactly the kind of transcription a tool should do
     instead of a person.
+
+    *artwork_catalog_cached* is `False` when `AssetStore.catalog_path` does not
+    exist locally: this command never fetches, so on a cold cache the ambiguous-
+    artwork section is not merely empty, it was never checked at all, and that
+    distinction has to be said out loud rather than read as "nothing wrong" --
+    the same failure `--report` and `shape` already guard against for a cold
+    artwork cache.
     """
     sections = [
         section
@@ -875,6 +884,15 @@ def generate_candidates(
         "# and fill in the blanks for the ones you want, save it, and point",
         "# --overrides at the file. See docs/overrides.md.",
     ]
+    if not artwork_catalog_cached:
+        header += [
+            "#",
+            "# NOTE: the UniFi hardware catalogue is not cached locally, and this",
+            "# command never fetches one. Artwork matches refused as ambiguous were",
+            "# NOT checked, so this file may be missing [[node]] candidates. Run",
+            "# `unifi-map render --icons unifi` (or `fetch`) at least once to",
+            "# populate the cache, then re-run this command.",
+        ]
     if not sections:
         return (
             "\n".join(

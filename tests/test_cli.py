@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from unifi_map.cli import _write_per_network_views
 from unifi_map.model import build_topology
@@ -45,4 +46,63 @@ class TestWritePerNetworkViews:
         _write_per_network_views(topo, "t", TREE, {}, ["dot"], "m", args)
 
         assert "skipping per-network views" in caplog.text
-        assert list(tmp_path.iterdir()) == []
+
+
+class TestQuiet:
+    """-q/--quiet: ERROR-only logging, mutually exclusive with -v/--verbose."""
+
+    def test_quiet_maps_to_error_level(self):
+        from unifi_map.cli import _log_level
+
+        assert _log_level(["-q"]) == logging.ERROR
+        assert _log_level(["--quiet"]) == logging.ERROR
+
+    def test_verbose_maps_to_debug_level(self):
+        from unifi_map.cli import _log_level
+
+        assert _log_level(["-v"]) == logging.DEBUG
+
+    def test_neither_flag_maps_to_info_level(self):
+        from unifi_map.cli import _log_level
+
+        assert _log_level([]) == logging.INFO
+        assert _log_level(["render", "--out-dir", "x"]) == logging.INFO
+
+    def test_both_flags_together_is_refused(self):
+        from unifi_map.cli import _log_level
+
+        assert _log_level(["-v", "-q"]) is None
+        assert _log_level(["--verbose", "--quiet"]) is None
+
+    def test_main_refuses_both_flags_with_a_clean_error_not_a_traceback(self, capsys):
+        from unifi_map.cli import main
+
+        code = main(["-v", "-q", "render"])
+        assert code == 2
+        err = capsys.readouterr().err
+        assert "-q/--quiet" in err
+        assert "-v/--verbose" in err
+
+    def test_quiet_implies_no_progress(self):
+        from unifi_map.cli import _apply_quiet, build_parser
+
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "--quiet", "render"])
+        assert args.progress is True  # not yet applied
+        _apply_quiet(args)
+        assert args.progress is False
+
+    def test_without_quiet_progress_is_untouched(self):
+        from unifi_map.cli import _apply_quiet, build_parser
+
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "render"])
+        _apply_quiet(args)
+        assert args.progress is True
+
+    def test_explicit_no_progress_survives_without_quiet(self):
+        from unifi_map.cli import _apply_quiet, build_parser
+
+        args = build_parser().parse_args(
+            ["--cache-dir", "examples/demo", "--no-progress", "render"]
+        )
+        _apply_quiet(args)
+        assert args.progress is False

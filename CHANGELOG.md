@@ -56,6 +56,8 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.13.0 - 2026-08-17
+
 ### Added
 
 - **Flag switch ports shared by several wired clients.** Several wired
@@ -76,7 +78,17 @@ told something untrue and may have acted on it.
   matches refused as ambiguous. Every block is commented out, so the file
   changes nothing until edited and uncommented; the one field it never fills
   in is a client's real uplink. `--report` now points at it from each of the
-  three sections it can help with.
+  three sections it can help with. On a cold artwork cache the ambiguous-
+  artwork check did not run at all, and the printed file says so with a
+  `NOTE` rather than reading like a clean result.
+
+- **`-q`/`--quiet`.** Only errors are logged: no topology/style summary, no
+  artwork tally, no unplaced-client or shared-port hints. Those restate
+  steady-state facts about the network rather than something that just
+  changed, which is exactly the noise a scripted or cron run wants silenced.
+  Implies `--no-progress`; refused together with `-v`/`--verbose` rather than
+  one silently winning. Does not touch printed output (`--report`, `shape`,
+  `overrides generate`), only console narration.
 
 ## 0.12.0 - 2026-08-14
 

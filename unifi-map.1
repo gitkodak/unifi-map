@@ -1,4 +1,4 @@
-.TH UNIFI\-MAP 1 "2026-08-14" "unifi\-map 0.12.0" "User Commands"
+.TH UNIFI\-MAP 1 "2026-08-17" "unifi\-map 0.13.0" "User Commands"
 .SH NAME
 unifi\-map \- export a UniFi network topology as vector diagrams
 .SH SYNOPSIS
@@ -100,6 +100,9 @@ Where diagrams are written (default: out)
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 Log every artwork lookup, including the ones that found nothing, and name nodes that \-\-obfuscate would otherwise hide.
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+Only log errors: no topology/style summary, no artwork tally, no unplaced\-client or shared\-port hints. Those restate steady\-state facts about the network rather than something that just changed, which is exactly the noise a scripted or cron run wants silenced. Does not touch printed output (\-\-report, shape, overrides generate), only console narration. Implies \-\-no\-progress. Not allowed with \-v/\-\-verbose.
 .TP
 \fB\-\-version\fR
 show program's version number and exit

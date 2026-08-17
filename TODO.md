@@ -278,6 +278,23 @@ help and what not to send.
 
 Recorded so they are not re-proposed as oversights.
 
+- **A generic Diagram-as-Code tool.** The capability already exists, as a
+  side effect rather than a design: `[[device]]` + `[[link]]`/`[[hosted]]`
+  is already a complete node-and-edge declaration language, and the
+  renderers are pure functions from a `Topology` to a picture with nothing
+  UniFi-specific in them, so pointing `--cache-dir` at a snapshot that
+  reports nothing and describing an entire network by hand genuinely works
+  today. Documented at
+  [`docs/diagram-as-code.md`](docs/diagram-as-code.md), as explicitly
+  **not** a feature: no tests beyond pinning the two or three claims that
+  page makes, no compatibility promise, and a real chance a future change
+  breaks it without that counting as a breaking change from this project's
+  own point of view. Becoming an actual generic diagramming tool would mean
+  a different `Kind` vocabulary, rack/location grouping, an icon library
+  instead of one image per node -- a different product, with different
+  design pressures, aimed at a market (D2, Structurizr, plain Graphviz)
+  this project has no reason to compete in.
+
 - **A `[[merge]]` override, declaring that several MACs are one machine.** A
   server with interfaces on three VLANs is drawn as three clients, because the
   controller reports interfaces and no field anywhere says they share a
