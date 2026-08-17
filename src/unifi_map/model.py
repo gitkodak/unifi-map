@@ -188,6 +188,28 @@ class Topology:
             tally[node.kind.value] = tally.get(node.kind.value, 0) + 1
         return tally
 
+    def shared_ports(self) -> dict[tuple[str, str], list[str]]:
+        """(switch id, port label) -> client ids, for ports with more than one.
+
+        Several wired clients reporting the same switch and port usually means
+        an unmanaged switch or a virtualisation host bridging its guests that
+        the controller cannot see (KAN-199) — it needs no cooperation from the
+        hidden device, unlike LLDP. Restricted to direct `CLIENT_UPLINK`
+        reports: a `TOPOLOGY_GRAPH`-inferred edge is a step removed from what
+        the port itself said, and an override that reparents a client under an
+        asserted `[[hosted]]` device already resolves the sharing, since that
+        edge is no longer a `CLIENT_UPLINK` onto the original port.
+        """
+        groups: dict[tuple[str, str], list[str]] = {}
+        for edge in self.edges:
+            if edge.provenance is not Provenance.CLIENT_UPLINK or edge.wireless or not edge.label:
+                continue
+            node = self.nodes.get(edge.src)
+            if node is None or node.kind is not Kind.WIRED_CLIENT:
+                continue
+            groups.setdefault((edge.dst, edge.label), []).append(edge.src)
+        return {key: macs for key, macs in groups.items() if len(macs) > 1}
+
 
 def _classify(device: dict[str, Any]) -> Kind:
     raw = str(device.get("type") or "").lower()

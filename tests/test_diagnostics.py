@@ -103,6 +103,7 @@ class TestItNamesWhatWentWrong:
         assert "COULD NOT BE PLACED" in text
         assert "mystery-box" in text
         assert "10.0.20.12" in text
+        assert "overrides generate" in text
 
     def test_no_unplaced_section_when_everything_resolves(self, snapshot: Snapshot):
         assert "COULD NOT BE PLACED" not in build_diagnostics(build_topology(snapshot))
@@ -197,6 +198,35 @@ class TestItNamesWhatWentWrong:
         text = build_diagnostics(build_topology(snapshot))
         assert "NETWORKS NOT IN THE CONTROLLER'S LIST" not in text
 
+    def test_a_shared_switch_port_is_named_with_both_clients(
+        self, devices: dict, clients: dict, networkconf: dict
+    ):
+        """KAN-199: several wired clients on one port hints at a hidden switch."""
+        for i, name in enumerate(("printer", "camera")):
+            clients["data"].append(
+                {
+                    "mac": f"dd:ee:ff:00:00:8{i}",
+                    "hostname": name,
+                    "is_wired": True,
+                    "sw_mac": SWITCH_MAC,
+                    "sw_port": 7,
+                    "network_id": "net1",
+                }
+            )
+        snap = Snapshot(
+            payloads={"device": devices, "client_active": clients, "networkconf": networkconf}
+        )
+        text = build_diagnostics(build_topology(snap))
+        assert "SHARED SWITCH PORTS" in text
+        assert "port 7" in text
+        assert "printer" in text
+        assert "camera" in text
+        assert "[[hosted]]" in text
+        assert "overrides generate" in text
+
+    def test_no_shared_ports_section_when_every_port_has_one_client(self, snapshot: Snapshot):
+        assert "SHARED SWITCH PORTS" not in build_diagnostics(build_topology(snapshot))
+
 
 class TestWhatTheSnapshotCarries:
     """An optional endpoint that failed is logged once at fetch time and then
@@ -263,6 +293,7 @@ class TestArtwork:
         assert "ARTWORK REFUSED AS AMBIGUOUS" in text
         assert "g3-flex" in text
         assert "matched 2 catalogue entries" in text
+        assert "overrides generate" in text
 
     def test_a_name_ambiguous_several_times_is_counted_once_with_a_multiplier(self):
         sources = Sources(ambiguous_artwork=[("g3-flex", 2), ("g3-flex", 2)])

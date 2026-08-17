@@ -277,12 +277,21 @@ def _node_lines(
 
 def _edge_lines(topo: Topology, style: Style) -> list[str]:
     lines = []
+    shared = topo.shared_ports()
     for edge in topo.edges:
         if edge.src not in topo.nodes or edge.dst not in topo.nodes:
             continue
         attrs = []
+        group = shared.get((edge.dst, edge.label)) if edge.label else None
+        is_shared = bool(group and edge.src in group)
         if edge.label and style.show_port_labels:
-            attrs.append(f'label="{_escape(edge.label)}"')
+            label_text = edge.label
+            if is_shared:
+                # Several clients on this port: flag it rather than draw a
+                # synthetic switch, since a hidden switch and a hypervisor
+                # bridging its guests look identical from here (KAN-199).
+                label_text += " *"
+            attrs.append(f'label="{_escape(label_text)}"')
         if edge.asserted:
             # Dotted means "you told me this", so it never reads as something
             # the controller reported.
@@ -296,6 +305,13 @@ def _edge_lines(topo: Topology, style: Style) -> list[str]:
             # itself said. Independent of the line style above, so it composes
             # with a wireless edge instead of competing for the same channel.
             attrs.append("arrowhead=odot")
+        elif is_shared:
+            # Independent of the `*` on the label above, and deliberately not
+            # gated on `show_port_labels`: `--layout unifi`, the default,
+            # suppresses port labels entirely (ortho routing can't place them),
+            # so without its own channel this signal would be invisible in the
+            # one render most people actually produce.
+            attrs.append("arrowhead=diamond")
         suffix = f" [{', '.join(attrs)}]" if attrs else ""
         # Emitted parent -> child, the reverse of how edges are stored, so the
         # root lands at the top (rankdir=TB) or the left (rankdir=LR) instead of
@@ -428,6 +444,12 @@ def _legend_link_rows(topo: Topology, theme: Theme) -> list[str]:
         link_styles.append((". . .", "Stated in overrides"))
     if any(e.provenance is Provenance.TOPOLOGY_GRAPH for e in topo.edges):
         link_styles.append(("&#9472;&#9675;", "Inferred from the topology graph"))
+    if topo.shared_ports():
+        # The arrowhead marker (KAN-199), not the `*` on the port label: the
+        # label is suppressed in `--layout unifi`, but this row can still show
+        # up there, since `show_legend` follows the same layout switch rather
+        # than something narrower.
+        link_styles.append(("&#9472;&#9670;", "Shared switch port (possibly a hidden switch)"))
     for glyph, label in link_styles:
         rows.append(
             f'<TR><TD ALIGN="RIGHT"><FONT POINT-SIZE="10" COLOR="{theme.edge}" '

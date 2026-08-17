@@ -212,13 +212,20 @@ def _add_edge_cell(
     index: int,
     theme: Theme,
     routes: dict[tuple[str, str], list[list[tuple[float, float]]]],
+    shared: dict[tuple[str, str], list[str]],
 ) -> None:
     source, target = _cell_id(edge.dst), _cell_id(edge.src)
+    label_text = edge.label or ""
+    group = shared.get((edge.dst, edge.label)) if edge.label else None
+    if group and edge.src in group:
+        # Same marker as the DOT/SVG renderer: several clients on this port,
+        # flagged rather than drawn as a synthetic switch (KAN-199).
+        label_text += " *"
     cell = ET.SubElement(
         root,
         "mxCell",
         id=f"e{index}",
-        value=_text(edge.label or ""),
+        value=_text(label_text),
         style=_edge_style(edge, theme),
         edge="1",
         parent="1",
@@ -248,9 +255,10 @@ def _add_edge_cells(root: ET.Element, topo: Topology, layout: Layout, theme: The
     # Graphviz reported a route per edge; consumed in order, because two nodes
     # can be joined more than once and the nth here is the nth there.
     routes = {pair: list(paths) for pair, paths in layout.edges.items()}
+    shared = topo.shared_ports()
     for index, edge in enumerate(topo.edges):
         if edge.src in topo.nodes and edge.dst in topo.nodes:
-            _add_edge_cell(root, edge, index, theme, routes)
+            _add_edge_cell(root, edge, index, theme, routes, shared)
 
 
 def render_drawio(

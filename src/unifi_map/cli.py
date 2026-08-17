@@ -55,7 +55,7 @@ from .output import (
     warn_about_svg_artwork,
     write_outputs,
 )
-from .overrides import OverrideError
+from .overrides import OverrideError, generate_candidates
 from .overrides import apply as apply_overrides
 from .overrides import load as load_overrides
 from .progress import SpinnerAwareHandler, spinner
@@ -350,6 +350,43 @@ def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
         "them: see docs/overrides.md.",
         stranded,
     )
+
+
+def _hint_about_shared_ports(topo: Topology, obfuscated: bool) -> None:
+    """Warn when several wired clients report the same switch and port.
+
+    This is the console half of KAN-199; `render_dot`/`render_drawio` mark the
+    same thing on the diagram with a `*` on the port label, because which of
+    an unmanaged switch or a virtualisation host it is cannot be told apart
+    from here, and synthesising a node for either would be inventing topology.
+
+    Same obfuscation treatment as `_report_displacements`: naming the switch
+    and its clients here would be exactly the leak --obfuscate exists to
+    prevent, so an obfuscated run gets a count only.
+    """
+    groups = topo.shared_ports()
+    if not groups:
+        return
+    if obfuscated:
+        log.warning(
+            "%d switch port(s) report more than one wired client, which can "
+            "mean an unmanaged switch or a virtualisation host the controller "
+            "cannot see. Re-run without --obfuscate to see which.",
+            len(groups),
+        )
+        return
+    for (parent, port), macs in sorted(groups.items()):
+        switch = topo.nodes[parent].label
+        clients = ", ".join(topo.nodes[mac].label for mac in macs)
+        log.warning(
+            "%s, %s: %d wired clients share this port (%s). This can mean an "
+            "unmanaged switch or a virtualisation host the controller cannot "
+            "see; see docs/overrides.md for [[device]] and [[hosted]].",
+            switch,
+            port,
+            len(macs),
+            clients,
+        )
 
 
 def _stagger_for(topo: Topology, requested: int, style: Style) -> int:
@@ -648,6 +685,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     # After overrides, not before: the whole point is to report what is *still*
     # unplaced, and running first counts the clients an override just placed.
     _hint_about_unplaced(topo, path)
+    _hint_about_shared_ports(topo, args.obfuscate)
 
     # Only assembled when asked for: a normal render has no use for the tally.
     artwork_counts: dict[str, int] | None = {} if args.report else None
@@ -759,6 +797,12 @@ def _subtitle(tally: dict[str, int]) -> str:
 
 
 def cmd_overrides(args: argparse.Namespace) -> int:
+    if args.action == "generate":
+        return _cmd_overrides_generate(args)
+    return _cmd_overrides_check(args)
+
+
+def _cmd_overrides_check(args: argparse.Namespace) -> int:
     """Validate an overrides file without rendering anything.
 
     Overrides fail loudly by design: an unmatched or ambiguous selector stops
@@ -794,6 +838,28 @@ def cmd_overrides(args: argparse.Namespace) -> int:
     )
     if result.icons:
         log.info("  %d node(s) given artwork you supplied", len(result.icons))
+    return 0
+
+
+def _cmd_overrides_generate(args: argparse.Namespace) -> int:
+    """Print a commented overrides skeleton seeded from what this map could not resolve.
+
+    Printed to stdout rather than written anywhere, the same choice `shape`
+    makes: this never had an overwrite guard to design, and `> candidates.toml`
+    or a look before saving is the reader's call, not this command's.
+
+    Artwork resolution is offline and best-effort, the same as `shape`'s: only
+    whatever is already cached counts, nothing is fetched, and a lookup failure
+    must not stop this from printing what it did find. KAN-120.
+    """
+    snapshot = Snapshot.read(args.cache_dir)
+    topo = build_topology(snapshot, include_offline=args.show_offline == "yes")
+
+    store = AssetStore(cache_dir=args.asset_cache, offline=True)
+    with contextlib.suppress(Exception):
+        resolve_icons(topo, store, get_theme("light"), {})
+
+    print(generate_candidates(topo, list(store.ambiguous_names)), end="")
     return 0
 
 
@@ -1242,19 +1308,22 @@ def build_parser() -> argparse.ArgumentParser:
     overrides = sub.add_parser(
         "overrides",
         parents=[shared, offline_flag],
-        help="Check an overrides file without rendering",
+        help="Check an overrides file, or generate a skeleton, without rendering",
     )
     overrides.add_argument(
         "action",
-        choices=("check",),
+        choices=("check", "generate"),
         help="check: apply the file against the cached snapshot and report, "
-        "failing on any selector that matches nothing or several things",
+        "failing on any selector that matches nothing or several things. "
+        "generate: print a commented overrides skeleton, seeded from what the "
+        "cached snapshot could not resolve, to stdout",
     )
     overrides.add_argument(
         "--overrides",
         type=Path,
         default=argparse.SUPPRESS,
-        help=f"Which file to check. Defaults to {DEFAULT_OVERRIDES} when it exists.",
+        help=f"Which file to check. Defaults to {DEFAULT_OVERRIDES} when it exists. "
+        "Not used by generate.",
     )
     overrides.set_defaults(func=cmd_overrides)
 

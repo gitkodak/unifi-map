@@ -97,6 +97,53 @@ def test_topology_graph_marker_composes_with_wireless_dashing():
     assert "style=dashed" in inferred
 
 
+def _topo_with_shared_port(shared: bool = True):
+    from unifi_map.model import Edge, Kind, Node, Provenance, Topology
+
+    topo = Topology()
+    topo.add(Node(id="sw", label="switch", kind=Kind.SWITCH, provenance=Provenance.DEVICE))
+    topo.add(Node(id="c1", label="c1", kind=Kind.WIRED_CLIENT, provenance=Provenance.CLIENT))
+    topo.edges.append(Edge(src="c1", dst="sw", label="port 7", provenance=Provenance.CLIENT_UPLINK))
+    if shared:
+        topo.add(Node(id="c2", label="c2", kind=Kind.WIRED_CLIENT, provenance=Provenance.CLIENT))
+        topo.edges.append(
+            Edge(src="c2", dst="sw", label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+    return topo
+
+
+def test_a_shared_port_gets_an_asterisk_on_both_edges():
+    """KAN-199: several clients on one port is flagged, never drawn as a node."""
+    dot_source = render_dot(_topo_with_shared_port(), "t", TREE)
+    lines = [line for line in dot_source.splitlines() if '"n_sw" -> "n_c' in line]
+    assert len(lines) == 2
+    assert all('label="port 7 *"' in line for line in lines)
+    assert all("arrowhead=diamond" in line for line in lines)
+
+
+def test_an_unshared_port_gets_no_asterisk():
+    dot_source = render_dot(_topo_with_shared_port(shared=False), "t", TREE)
+    line = next(line for line in dot_source.splitlines() if '"n_sw" -> "n_c1"' in line)
+    assert 'label="port 7"' in line
+    assert "*" not in line
+    assert "arrowhead=diamond" not in line
+
+
+def test_a_shared_port_still_shows_the_arrowhead_when_layout_unifi_hides_labels():
+    """`--layout unifi` is the default and suppresses port labels entirely
+
+    (ortho routing can't place them), which was found to silently erase the
+    `*` marker along with every other port label -- leaving the default,
+    most-used render with no visible signal at all. The arrowhead has to be
+    the layout-independent channel this signal survives on.
+    """
+    dot_source = render_dot(_topo_with_shared_port(), "t", UNIFI)
+    lines = [line for line in dot_source.splitlines() if '"n_sw" -> "n_c' in line]
+    assert len(lines) == 2
+    assert all("label=" not in line for line in lines), "unifi layout must not show port labels"
+    assert all("arrowhead=diamond" in line for line in lines)
+
+
 def test_mac_colons_are_stripped_from_dot_identifiers(snapshot: Snapshot):
     dot_source = render_dot(build_topology(snapshot), "t", TREE)
     # A raw colon in an identifier would parse as a DOT port specifier.
@@ -361,6 +408,39 @@ class TestUnplacedClientsAreExplained:
         assert "2 client(s)" in " ".join(r.getMessage() for r in caplog.records)
 
 
+class TestSharedPortsAreExplained:
+    """The console half of KAN-199: `_hint_about_shared_ports`."""
+
+    def test_it_names_the_switch_port_and_clients(self, caplog):
+        from unifi_map.cli import _hint_about_shared_ports
+
+        with caplog.at_level("WARNING"):
+            _hint_about_shared_ports(_topo_with_shared_port(), obfuscated=False)
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "switch" in message
+        assert "port 7" in message
+        assert "c1" in message and "c2" in message
+        assert "hosted" in message
+
+    def test_it_says_nothing_when_no_port_is_shared(self, caplog):
+        from unifi_map.cli import _hint_about_shared_ports
+
+        with caplog.at_level("WARNING"):
+            _hint_about_shared_ports(_topo_with_shared_port(shared=False), obfuscated=False)
+        assert not caplog.records
+
+    def test_obfuscated_runs_get_a_count_without_names(self, caplog):
+        from unifi_map.cli import _hint_about_shared_ports
+
+        with caplog.at_level("WARNING"):
+            _hint_about_shared_ports(_topo_with_shared_port(), obfuscated=True)
+        message = " ".join(r.getMessage() for r in caplog.records)
+        assert "1 switch port" in message
+        assert "c1" not in message
+        assert "c2" not in message
+        assert "--obfuscate" in message
+
+
 class TestSiteSelection:
     """`--site` exists so a script can loop over sites without re-exporting.
 
@@ -476,6 +556,12 @@ class TestLegendHonesty:
 
         topo = _topo_with_topology_graph_edge()
         assert "Inferred from the topology graph" in self._legend_text(topo, TREE)
+
+    def test_shared_port_note_appears_only_when_a_port_is_shared(self, snapshot: Snapshot):
+        topo = build_topology(snapshot)
+        assert "hidden switch" not in self._legend_text(topo, TREE)
+
+        assert "hidden switch" in self._legend_text(_topo_with_shared_port(), TREE)
 
 
 class TestApiKeyIsNotCarriedAcrossHosts:
@@ -697,6 +783,44 @@ class TestDrawioProvenanceMarker:
         xml = self._render(Provenance.TOPOLOGY_GRAPH, wireless=True)
         assert "endArrow=oval;endFill=0" in xml
         assert "dashed=1" in xml
+
+
+class TestDrawioSharedPortMarker:
+    """The draw.io twin of the DOT `* ` port-label marker: KAN-199."""
+
+    def _render(self, shared: bool):
+        from unifi_map.layout import Layout, Placed
+        from unifi_map.model import Edge, Kind, Node, Provenance, Topology
+        from unifi_map.render_drawio import render_drawio
+        from unifi_map.theme import LIGHT
+
+        topo = Topology()
+        topo.add(Node(id="sw", label="switch", kind=Kind.SWITCH))
+        topo.add(Node(id="c1", label="c1", kind=Kind.WIRED_CLIENT))
+        topo.edges.append(
+            Edge(src="c1", dst="sw", label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        nodes = {
+            "sw": Placed(x=0.0, y=0.0, width=10.0, height=10.0),
+            "c1": Placed(x=0.0, y=20.0, width=10.0, height=10.0),
+        }
+        if shared:
+            topo.add(Node(id="c2", label="c2", kind=Kind.WIRED_CLIENT))
+            topo.edges.append(
+                Edge(src="c2", dst="sw", label="port 7", provenance=Provenance.CLIENT_UPLINK)
+            )
+            nodes["c2"] = Placed(x=20.0, y=20.0, width=10.0, height=10.0)
+        layout = Layout(nodes=nodes, width=30.0, height=30.0)
+        return render_drawio(topo, layout, "t", LIGHT)
+
+    def test_a_shared_port_gets_an_asterisk(self):
+        xml = self._render(shared=True)
+        assert xml.count("port 7 *") == 2
+
+    def test_an_unshared_port_gets_no_asterisk(self):
+        xml = self._render(shared=False)
+        assert "port 7" in xml
+        assert "port 7 *" not in xml
 
 
 class TestDrawioGeometryIsAddressable:

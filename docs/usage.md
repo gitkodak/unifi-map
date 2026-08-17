@@ -18,6 +18,7 @@ unifi-map fetch --support-file FILE.tgz     # or read a support file instead
 unifi-map render                           # render from the cached snapshot
 unifi-map render --per-network              # one diagram per client network
 unifi-map overrides check                   # validate overrides without rendering
+unifi-map overrides generate                # print a starting overrides.toml skeleton
 unifi-map shape                             # describe the network, for sharing
 unifi-map render --no-clients               # infrastructure only
 unifi-map render -f svg pdf drawio dot      # pick formats
@@ -151,8 +152,12 @@ thinner every time with nothing saying why:
 Then, where anything needs attention, it names the devices involved rather than
 only counting them: clients that could not be placed, clients with no address
 from any source, networks a client claims to be on that the controller does not
-list, and artwork matches [refused as ambiguous](artwork.md). A map with nothing
-wrong prints no device names at all, so a short report is a good sign.
+list, switch ports shared by several wired clients (a hint that an unmanaged
+switch or a virtualisation host is hiding there), and artwork matches
+[refused as ambiguous](artwork.md). A map with nothing wrong prints no device
+names at all, so a short report is a good sign. Where any of these apply,
+`unifi-map overrides generate` prints a commented starting point seeded from
+exactly what the report found.
 
 The counts are the point of the first section: how much of the map the
 controller reported directly versus filled in from a second endpoint versus
@@ -303,9 +308,13 @@ shape, or line style, so the diagram survives greyscale printing.
 | Wireless link | Dashed line |
 | Offline device | Dashed border, `OFFLINE` in the label |
 | Client placed via the topology graph, not its own uplink report | Small hollow circle at the child end of the link |
+| Switch port shared by several wired clients | Small diamond at the child end of the link, present in every layout |
 
 With `--layout tree`, edge labels are switch port numbers (`port 12`) or the
-radio for wireless clients.
+radio for wireless clients; a shared port additionally gets a trailing `*`
+(`port 12 *`). `--layout unifi` never shows port labels at all (ortho routing
+can't place them), which is why the diamond marker above doesn't depend on
+one.
 
 The legend only lists what a given render actually encodes. A node drawn as
 artwork has no border and no fill, so it carries no accent colour and gets no
@@ -337,7 +346,9 @@ the cable goes, and [manual overrides](overrides.md) are how you say so. A
 switch the controller cannot see either, `[[device]]` declares the switch first
 and the link hangs off it. Both are drawn dotted, so the map still distinguishes
 what you asserted from what the controller reported. The placeholder disappears
-once nothing is left under it.
+once nothing is left under it. [`unifi-map overrides
+generate`](overrides.md#generating-a-starting-point) prints a skeleton with the
+selectors already filled in, so you only have to say where they connect.
 
 `--report` lists exactly which clients ended up there, with their addresses and
 networks, which is usually enough to recognise them without opening the diagram.
@@ -439,8 +450,8 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
-| `action` `{check}` | check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things |  |
+| `action` `{check,generate}` | check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things. generate: print a commented overrides skeleton, seeded from what the cached snapshot could not resolve, to stdout |  |
 | `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
-| `--overrides` | Which file to check. Defaults to overrides.toml when it exists. |  |
+| `--overrides` | Which file to check. Defaults to overrides.toml when it exists. Not used by generate. |  |
 
 <!-- END GENERATED FLAGS -->

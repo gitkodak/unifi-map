@@ -152,7 +152,8 @@ def _unplaced_section(topo: Topology) -> list[str]:
         "COULD NOT BE PLACED",
         "  Neither stat/sta nor the controller's topology graph reported an uplink",
         "  for these, so they hang off a placeholder rather than a guessed parent.",
-        "  An overrides file is how you say where they really are; see",
+        "  An overrides file is how you say where they really are; run",
+        "  `unifi-map overrides generate` for a starting point, or see",
         "  docs/overrides.md.",
         "",
     ]
@@ -243,6 +244,38 @@ def _mac_randomisation_section(topo: Topology) -> list[str]:
         "  device can reappear here as a new client rather than as the one already on",
         "  the map; this is expected, and not something an overrides file can fix.",
     ]
+
+
+def _shared_ports_section(topo: Topology) -> list[str]:
+    """Switch ports where more than one wired client reports the same port.
+
+    Two causes look identical from here: an unmanaged switch the controller
+    cannot see, or a virtualisation host bridging its guests onto one NIC
+    (KAN-199). Reported rather than drawn, because synthesising a node for
+    either would be inventing topology this map has no basis for; the diagram
+    itself only marks the port with `*`, for the same reason. `[[device]]` or
+    `[[hosted]]` in an overrides file is how you say which it actually is.
+    """
+    groups = topo.shared_ports()
+    if not groups:
+        return []
+    out = [
+        "",
+        "SHARED SWITCH PORTS",
+        "  More than one wired client reports the same switch and port. This can",
+        "  mean an unmanaged switch or a virtualisation host bridging its guests",
+        "  that the controller cannot see. An overrides file can say which; run",
+        "  `unifi-map overrides generate` for a starting point, or see",
+        "  docs/overrides.md for [[device]] and [[hosted]].",
+        "",
+    ]
+    for (parent, port), macs in sorted(
+        groups.items(), key=lambda item: (topo.nodes[item[0][0]].label.lower(), item[0][1])
+    ):
+        clients = sorted((topo.nodes[mac] for mac in macs), key=lambda n: n.label.lower())
+        out.append(f"  {_describe(topo.nodes[parent])}, {port}")
+        out.extend(f"      {_describe(client)}" for client in clients)
+    return out
 
 
 def _dangling_networks(topo: Topology) -> list[str]:
@@ -403,7 +436,8 @@ def _artwork_refused(ambiguous_artwork: list[tuple[str, int]]) -> list[str]:
         "ARTWORK REFUSED AS AMBIGUOUS",
         "  These names matched more than one product, so no artwork was used.",
         "  Refusing is deliberate: picking one would be inventing data. Rename",
-        "  the device in the console, or set an icon in an overrides file.",
+        "  the device in the console, or set an icon in an overrides file; run",
+        "  `unifi-map overrides generate` for a starting point.",
         "",
     ]
     for (name, matches), times in sorted(counted.items()):
@@ -468,6 +502,7 @@ def build_diagnostics(
     out += _endpoints_section(payloads)
     out += _unplaced_section(topo)
     out += _addressless_section(topo)
+    out += _shared_ports_section(topo)
     out += _dangling_networks(topo)
     out += _mac_randomisation_section(topo)
     out += _artwork_section(sources)

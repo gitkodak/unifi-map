@@ -836,11 +836,44 @@ at anything requiring knowledge of UniFi.
   then failed the render it had just been checked for. The flag is now shared
   between the two subparsers rather than duplicated.
 
-- **`generate-overrides`**, emitting a skeleton `overrides.toml` seeded with the
-  nodes the tool could not place. Closes a loop that is currently half open: the
-  run already counts clients with no reported uplink and points at overrides,
-  and the "no reconciliation report" gap below is asking for the same
-  information from the other end. One command could answer both.
+- **`overrides generate`. Shipped**, 2026-08-16 (KAN-120). `unifi-map overrides
+  generate` prints a commented `overrides.toml` skeleton to stdout, seeded from
+  unplaced clients, shared switch ports (KAN-199) and ambiguous artwork
+  matches — the same three signals `--report` already names, closing the loop
+  that section originally described as half open. `--report` now points at it
+  from all three sections. `overrides.generate_candidates()` is the pure
+  function; `cmd_overrides`'s `generate` action just prints its result,
+  resolving artwork offline and best-effort the same way `unifi-map shape`
+  does, so it never touches the network and a catalogue miss cannot stop it
+  from printing what it did find.
+
+  A subcommand (`overrides generate`, sibling to the existing `overrides
+  check`) rather than a flag on `render`: this produces a config skeleton, not
+  a diagram, and `render` writing a second file type on the side would be a
+  strange thing for a rendering command to do. Being its own subcommand also
+  makes it opt-in for free, which Jason asked for explicitly — nobody reaches
+  it by accident, unlike a flag that could be left on by habit.
+
+  **The generated TOML was not actually safe to uncomment, caught the same
+  day by external review of cfcd2fe.** A controller-supplied label (a switch
+  or client name) went straight into the skeleton unescaped. A `"` in it
+  broke the surrounding `name = "..."` value the moment the block was
+  uncommented -- the review's repro was a switch named `Core "A"`, which
+  generated `name = "Unmanaged switch (port 7 on Core "A")"`, invalid TOML.
+  Worse, a raw newline in a label would have ended the `#` line it sat on and
+  let whatever followed be read as real TOML, unreviewed -- a genuine break
+  of "inert until edited", the one promise this command makes, not merely a
+  cosmetic bug. Fixed with two small helpers in `overrides.py`:
+  `_comment_safe()` collapses whitespace (same technique as
+  `render_mermaid._flatten()`, reused rather than re-invented) so nothing can
+  end the line it sits on, and `_toml_value()` additionally escapes `\` and
+  `"` for the values that sit inside quotes. Applied to every place a label or
+  an id (MACs are just as attacker-controlled by this project's own threat
+  model, `_norm_mac()` never validates their shape) reaches the output, not
+  only the one the reviewer's repro happened to hit. Six tests pin it,
+  including one that parses the *entire* generated file with `tomllib` and
+  asserts it comes back empty, which is what a newline actually escaping the
+  comment would have broken.
 
 - **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
   it is the shape of the network and nothing else, and the docs say so. Note
@@ -1072,7 +1105,14 @@ interface of a multi-homed host usually has a locally-administered MAC and an
 empty OUI, while genuinely distinct devices behind an unmanaged switch have
 neither. Both groups on the reference network separate cleanly on that test,
 which is what makes it safe for `--report` to mention (KAN-199) and for the
-stub generator to act on (KAN-120).
+candidates generator to act on (KAN-120).
+
+**The generator shipped 2026-08-16 and does not yet act on this signature.**
+`unifi-map overrides generate` (`overrides.generate_candidates`) covers the
+three signals `--report` already names — unplaced clients, shared switch
+ports, ambiguous artwork — none of which distinguish a multi-homed host from
+a genuinely hidden switch. Using the locally-administered-MAC test to
+annotate or split the shared-port candidate block is still open.
 
 ### Gaps worth considering
 
@@ -1093,9 +1133,10 @@ stub generator to act on (KAN-120).
   replacing it. Unverified and worth checking first: whether it is per-site,
   whether it clears, and whether an all-UniFi network ever sets it.
 
-- **Several wired clients on one switch port means something is hiding there**
-  (KAN-199). Found 2026-08-14 when Jason remembered a Netgear PoE switch the
-  map had been drawing wrong since the map existed.
+- **Several wired clients on one switch port means something is hiding there.
+  Shipped**, the shared-port half of KAN-199, 2026-08-16. Found 2026-08-14 when
+  Jason remembered a Netgear PoE switch the map had been drawing wrong since
+  the map existed.
 
   **The controller cannot see that switch at all**: no device entry, no client
   entry, no LLDP entry, no v2 topology edge. Both things behind it are reported
@@ -1105,17 +1146,59 @@ stub generator to act on (KAN-120).
   other occupied port on that switch has one. Two corroborating facts on the
   same port, worth quoting in the report when present but too weak to trigger
   on: `poe_enable = false` with `poe_power = 0.00` while a PoE camera runs
-  behind it, and 1000 Mb negotiated on `2P5GE`-capable media.
+  behind it, and 1000 Mb negotiated on `2P5GE`-capable media. Neither
+  corroborating fact is implemented; only the shared-port count is.
 
   **This is the general answer that LLDP is not.** LLDP needs the foreign
   device to advertise, and this one does not; a shared-port check needs nothing
   from it. See the LLDP entry above for the full correction.
 
-  **Report it, never draw it.** Several MACs on one port means an unmanaged
-  switch *or* a virtualisation host with bridged guests, and
-  `topology_uplinks()`'s docstring already names both. Synthesising a switch
-  that might be a hypervisor is inventing topology. Name the port, list the
-  clients, give both causes, point at `[[device]]` and `[[hosted]]`.
+  **Report it, and flag it, but never draw a node for it.** Several MACs on one
+  port means an unmanaged switch *or* a virtualisation host with bridged
+  guests, and `topology_uplinks()`'s docstring already names both. Synthesising
+  a switch that might be a hypervisor is inventing topology, so no node is ever
+  added for this. That line was drawn before the diagram gained any visible
+  signal at all; once one was added, "flag it" and "draw a node" turned out to
+  be different things, and only the second is still refused. `--report` names
+  the port and lists the clients, in a `SHARED SWITCH PORTS` section
+  (`diagnostics._shared_ports_section`); the diagram marks the same edges with
+  a plain `*` appended to the port label plus a legend row in the DOT/SVG/PDF/
+  PNG backend, and the label marker alone in draw.io, which has no legend at
+  all.
+
+  **The `*` alone shipped invisible in the default render, caught the same
+  day by external review.** `--layout unifi` is the default, and it suppresses
+  port labels entirely (`Style.show_port_labels`), because ortho routing
+  cannot place them without the text drifting onto unrelated nodes; it
+  suppresses the legend too. The `*` rides on the port label, so on the render
+  most people actually produce, both the marker and its legend row were gone
+  and the feature had no visible signal at all — it still detected, reported
+  and logged, just never drew. Fixed by giving the edge its own layout-
+  independent channel, `arrowhead=diamond`, unconditionally rather than gated
+  on `show_port_labels`, the same way `TOPOLOGY_GRAPH`'s `arrowhead=odot`
+  already was; the two never collide since `shared_ports()` only ever counts
+  direct `CLIENT_UPLINK` edges. The legend row is still gated on
+  `show_legend`, matching every other marker here (wireless dashing, asserted
+  dotting, the odot arrowhead) — `--layout unifi` omits the legend on purpose,
+  and this is not the marker to special-case that for. draw.io needed no
+  equivalent fix: it has no `show_port_labels` concept, so its `*` was never
+  gated in the first place.
+
+  `cmd_render` also warns on the console once per shared port
+  (`_hint_about_shared_ports`), obfuscation-aware like `_report_displacements`:
+  named normally, a bare count under `--obfuscate`. All four read from one
+  `Topology.shared_ports()`, restricted to direct `CLIENT_UPLINK` reports so a
+  `TOPOLOGY_GRAPH`-inferred edge (a step removed from what the port itself
+  said) never counts, and computed against the *final* topology so a
+  `[[hosted]]` override that reparents a client off the shared port already
+  resolves it rather than still flagging it.
+
+  A merged single line splitting into the several clients, proposed and
+  dropped in the same conversation this shipped in: it needs a real junction
+  node in the DOT graph (and the draw.io coordinate pass, since both share the
+  same staggered DOT), and a junction dot between a switch and its clients
+  reads as "there's a device here" exactly as much as a synthesised switch
+  would, for the same reason this section already refuses to draw one.
 
   Count only `Kind.WIRED_CLIENT`. Wireless clients share an AP by definition,
   the same reasoning that scoped KAN-129's count to clients.

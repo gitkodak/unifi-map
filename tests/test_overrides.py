@@ -6,13 +6,22 @@ stub is not untested dead code.
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
 
 from unifi_map.assets import AssetError
 from unifi_map.client import Snapshot
-from unifi_map.model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology, build_topology
+from unifi_map.model import (
+    UNKNOWN_UPLINK_ID,
+    Edge,
+    Kind,
+    Node,
+    Provenance,
+    Topology,
+    build_topology,
+)
 from unifi_map.overrides import (
     Hosted,
     Link,
@@ -20,6 +29,7 @@ from unifi_map.overrides import (
     Overrides,
     _refuse_cycles,
     apply,
+    generate_candidates,
     load,
     parse,
     resolve,
@@ -787,3 +797,169 @@ class TestUnknownSections:
 
     def test_the_real_sections_still_parse(self):
         assert parse({"link": [{"from": "a", "to": "b"}]}).links
+
+
+class TestGenerateCandidates:
+    """KAN-120: a commented overrides skeleton seeded from what could not resolve.
+
+    Nothing here is a guessed parent or a guessed identity: every block is
+    commented out, and the one field this must never fill in (a client's real
+    uplink) is always left as an explicit TODO.
+    """
+
+    def test_a_clean_topology_says_so(self, topo):
+        assert "Nothing to suggest" in generate_candidates(topo)
+
+    def test_unplaced_clients_get_a_link_skeleton(self, unplaced_topo):
+        text = generate_candidates(unplaced_topo)
+        assert "[[link]]" in text
+        assert 'from = "dd:ee:ff:00:00:60"' in text
+        assert "vm-host" in text
+        # The one thing this must never guess.
+        assert 'to = ""' in text
+
+    def _shared_port_topo(self):
+        topo = Topology()
+        topo.add(Node(id=SWITCH_MAC, label="switch", kind=Kind.SWITCH))
+        topo.add(Node(id="c1", label="printer", kind=Kind.WIRED_CLIENT))
+        topo.add(Node(id="c2", label="camera", kind=Kind.WIRED_CLIENT))
+        topo.edges.append(
+            Edge(src="c1", dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        topo.edges.append(
+            Edge(src="c2", dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        return topo
+
+    def test_shared_ports_get_a_device_and_hosted_skeleton(self):
+        text = generate_candidates(self._shared_port_topo())
+        assert "[[device]]" in text
+        assert f'parent = "{SWITCH_MAC}"' in text
+        assert 'port = "7"' in text
+        assert "[[hosted]]" in text
+        assert 'guest = "c1"' in text
+        assert 'guest = "c2"' in text
+        # Both clients point at the same suggested device name.
+        assert text.count('host = "Unmanaged switch (port 7 on switch)"') == 2
+
+    def test_a_single_client_on_a_port_gets_no_shared_port_skeleton(self):
+        topo = self._shared_port_topo()
+        topo.edges.pop()
+        text = generate_candidates(topo)
+        assert "[[device]]" not in text
+
+    def test_ambiguous_artwork_gets_a_node_skeleton(self, topo):
+        label = next(n.label for n in topo.nodes.values())
+        node_id = next(n.id for n in topo.nodes.values() if n.label == label)
+        text = generate_candidates(topo, ambiguous_artwork=[(label, 3)])
+        assert "[[node]]" in text
+        assert f'match = "{node_id}"' in text
+        assert "3 catalogue matches" in text
+
+    def test_no_ambiguous_artwork_section_without_matches(self, topo):
+        assert "[[node]]" not in generate_candidates(topo, ambiguous_artwork=[])
+
+    def test_every_line_is_commented(self, unplaced_topo):
+        """The file must be a no-op until a human edits it."""
+        text = generate_candidates(unplaced_topo)
+        for line in text.splitlines():
+            if line.strip():
+                assert line.startswith("#"), f"uncommented line: {line!r}"
+
+
+class TestGenerateCandidatesEscaping:
+    """Found by external review of cfcd2fe: a controller-supplied label
+
+    containing a `"` produced invalid TOML the moment the suggested block was
+    uncommented, and a label containing a newline broke out of the `#`
+    comment entirely -- both violate "inert until edited", the one promise
+    this generator makes. Labels are hostile input by this project's own
+    threat model throughout, controller or (worse) support-file supplied.
+    """
+
+    def _uncommented_block(self, text: str, opening: str) -> str:
+        """Strip the leading `# ` from one `# [[block]]` ... blank-line run,
+        so it can be fed to `tomllib` as real TOML. *opening* is e.g.
+        `"[[device]]"`; the generated line itself is `"# [[device]]"`."""
+        lines = text.splitlines()
+        start = next(i for i, line in enumerate(lines) if line.strip() == f"# {opening}")
+        block = []
+        for line in lines[start:]:
+            if not line.strip():
+                break
+            block.append(line.removeprefix("# ").removeprefix("#"))
+        return "\n".join(block)
+
+    def _shared_port_topo(self, switch_label: str):
+        topo = Topology()
+        topo.add(Node(id=SWITCH_MAC, label=switch_label, kind=Kind.SWITCH))
+        topo.add(Node(id="c1", label="printer", kind=Kind.WIRED_CLIENT))
+        topo.add(Node(id="c2", label="camera", kind=Kind.WIRED_CLIENT))
+        topo.edges.append(
+            Edge(src="c1", dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        topo.edges.append(
+            Edge(src="c2", dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        return topo
+
+    def test_a_quoted_switch_label_produces_valid_toml(self):
+        text = generate_candidates(self._shared_port_topo('Core "A"'))
+        device_toml = self._uncommented_block(text, "[[device]]")
+        parsed = tomllib.loads(device_toml)
+        assert parsed["device"][0]["name"] == 'Unmanaged switch (port 7 on Core "A")'
+
+    def test_a_backslash_in_a_switch_label_produces_valid_toml(self):
+        text = generate_candidates(self._shared_port_topo(r"Core\A"))
+        device_toml = self._uncommented_block(text, "[[device]]")
+        parsed = tomllib.loads(device_toml)
+        assert parsed["device"][0]["name"] == r"Unmanaged switch (port 7 on Core\A)"
+
+    def test_a_newline_in_a_switch_label_cannot_escape_the_comment(self):
+        """The severe case: a raw newline would otherwise end the `#` line
+        and let attacker-controlled text be read as real TOML, uncommented
+        and unreviewed, the moment somebody ran `overrides check`."""
+        text = generate_candidates(self._shared_port_topo("Core\nrogue = 1"))
+        for line in text.splitlines():
+            if line.strip():
+                assert line.startswith("#"), f"uncommented line: {line!r}"
+        # The injected key must not have landed as a real top-level line either.
+        assert not tomllib.loads("\n".join(text.splitlines()))
+
+    def test_a_quoted_client_id_in_a_hosted_block_produces_valid_toml(self):
+        """`id` is normally a MAC, but `_norm_mac` never validates its shape,
+        and a support file's fields are attacker-controlled by this
+        project's own threat model. The `guest =`/`host =` values it feeds
+        are the ones actually inside quotes, unlike the trailing `# label`
+        comment, which tolerates a quote just fine either way."""
+        topo = self._shared_port_topo("switch")
+        del topo.nodes["c1"]
+        # Sorts before "camera" alphabetically, so it lands in the first
+        # [[hosted]] block this test's helper grabs.
+        topo.add(Node(id='c1"; x', label="aaa-printer", kind=Kind.WIRED_CLIENT))
+        topo.edges[0] = Edge(
+            src='c1"; x', dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK
+        )
+        text = generate_candidates(topo)
+        hosted_toml = self._uncommented_block(text, "[[hosted]]")
+        parsed = tomllib.loads(hosted_toml)
+        assert parsed["hosted"][0]["guest"] == 'c1"; x'
+
+    def test_a_quoted_unplaced_client_id_produces_valid_toml(self):
+        topo = Topology()
+        topo.add(Node(id="gw", label="gateway", kind=Kind.GATEWAY))
+        topo.add(Node(id='dd:ee:ff"; x', label="vm-host", kind=Kind.WIRED_CLIENT))
+        topo.add(Node(id=UNKNOWN_UPLINK_ID, label="Uplink not reported", kind=Kind.UNKNOWN))
+        topo.edges.append(Edge(src='dd:ee:ff"; x', dst=UNKNOWN_UPLINK_ID))
+        text = generate_candidates(topo)
+        link_toml = self._uncommented_block(text, "[[link]]")
+        parsed = tomllib.loads(link_toml)
+        assert parsed["link"][0]["from"] == 'dd:ee:ff"; x'
+
+    def test_a_quoted_ambiguous_id_produces_valid_toml(self):
+        topo = Topology()
+        topo.add(Node(id='dd:ee:ff"; x', label="thing", kind=Kind.WIRED_CLIENT))
+        text = generate_candidates(topo, ambiguous_artwork=[("thing", 2)])
+        node_toml = self._uncommented_block(text, "[[node]]")
+        parsed = tomllib.loads(node_toml)
+        assert parsed["node"][0]["match"] == 'dd:ee:ff"; x'

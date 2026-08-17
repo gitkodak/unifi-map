@@ -49,16 +49,28 @@ drawn from a thin one look equally authoritative.
   there is nothing wrong with a specific device and no overrides entry that
   would fix it.
 - **Say when something is hiding on a switch port** (KAN-199). Two signals, and
-  they are complementary. The controller's own v2 topology payload carries a
-  `has_unknown_switch` boolean that we do not read, which says one exists
-  somewhere but not where. Several wired clients reporting the same switch and
-  port says where, and needs no cooperation from the hidden device, which is
-  what makes it work where LLDP cannot.
+  they are complementary. Only one is built.
 
-  Reported rather than drawn: the signal is unambiguous and its cause is not,
-  since several MACs on a port means an unmanaged switch or a virtualisation
-  host bridging its guests. The report names the port and leaves the answer to
-  a `[[device]]` or `[[hosted]]` entry.
+  **Several wired clients reporting the same switch and port. Shipped**,
+  2026-08-16. Needs no cooperation from the hidden device, which is what makes
+  it work where LLDP cannot. Flagged, not drawn as a node: the diagram marks
+  the shared edges with a small diamond arrowhead, present in every layout
+  including the default `unifi` (`--layout tree` additionally appends `*` to
+  the port label, and gets a legend row; draw.io gets the label marker alone,
+  since it has no legend). `--report` names the port and lists the clients in
+  a `SHARED SWITCH PORTS` section, and the console warns once per shared port
+  (a bare count under `--obfuscate`). Several MACs on a port means an
+  unmanaged switch or a virtualisation host bridging its guests, and neither
+  the diagram nor the console picks one; `[[device]]` or `[[hosted]]` is how
+  you say which it actually is. `unifi-map overrides generate` (KAN-120) now
+  prints a starting skeleton for exactly this case.
+
+  **The controller's own `has_unknown_switch` boolean is still unread.** It
+  says one exists somewhere, never where, so it complements the signal above
+  rather than replacing it — but it is also unverified: whether it is per-site,
+  whether it clears, and whether an all-UniFi network ever sets it are all
+  still open questions. See `CLAUDE.md`'s KAN-199 notes before building this
+  half.
 
 ## More ways to look at the network
 
@@ -141,12 +153,15 @@ drawn from a thin one look equally authoritative.
 
 ## Overrides
 
-- **A candidates generator** (KAN-120). Emit a skeleton overrides file seeded
-  from what `--report` found: what could not be placed, artwork refused as
-  ambiguous, ports that look like they have a hidden switch behind them.
-  Commented boilerplate that still requires a human to state the relationship;
-  never a guessed parent. The other half of that ticket, `overrides check`,
-  ships already.
+- **A candidates generator. Shipped**, as `unifi-map overrides generate`
+  (KAN-120), 2026-08-16. Prints a commented skeleton to stdout, seeded from
+  the same signals `--report` names: clients with no reported uplink, switch
+  ports shared by several wired clients (KAN-199), and artwork matches
+  refused as ambiguous. Every block is commented out, so the file changes
+  nothing until a human edits and uncomments it; the one field it never fills
+  in is a client's real uplink. `--report` now points at it from each of
+  those three sections. `overrides check`, the other half of the original
+  ticket, shipped earlier.
 
 ## Multi-site
 

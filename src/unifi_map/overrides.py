@@ -704,3 +704,190 @@ def apply(topo: Topology, overrides: Overrides, cache_dir: Path | None = None) -
     _prune_placeholder(working)
     _refuse_cycles(working)
     return result
+
+
+def _comment_safe(text: str) -> str:
+    """Collapse whitespace so *text* cannot break out of a `#` comment line.
+
+    A newline ends the line it sits on, and everything after it stops being a
+    comment -- the exact "inert until edited" guarantee this generator exists
+    to keep. Node and edge labels come from a controller, or worse a support
+    file, both hostile input by this project's own threat model throughout.
+    Same technique as `render_mermaid._flatten()`.
+    """
+    return " ".join(text.split())
+
+
+def _toml_value(text: str) -> str:
+    """*text*, safe to sit inside a commented `"..."` TOML string.
+
+    Applies `_comment_safe` first -- a TOML basic string cannot contain a
+    literal newline either, and breaking out of the comment is the more
+    serious of the two hazards -- then escapes the backslash and the quote
+    that would otherwise end the string early or corrupt it once the
+    surrounding block is uncommented. Found by external review: an
+    unescaped switch label containing a `"` produced `name = "...Core
+    "A")"`, invalid TOML the moment somebody acted on the suggestion.
+    """
+    safe = _comment_safe(text)
+    return safe.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _unplaced_candidates(topo: Topology) -> list[str]:
+    """`[[link]]` skeletons for clients hanging off the placeholder."""
+    stranded = sorted(
+        (
+            topo.nodes[e.src]
+            for e in topo.edges
+            if e.dst == UNKNOWN_UPLINK_ID and e.src in topo.nodes
+        ),
+        key=lambda n: n.label.lower(),
+    )
+    if not stranded:
+        return []
+    lines = [
+        "# --- Clients with no reported uplink " + "-" * 37,
+        "# Neither stat/sta nor the controller's topology graph said where these",
+        "# are plugged in. Fill in `to` with the real parent's MAC, IP or label.",
+        "",
+    ]
+    for node in stranded:
+        lines += [
+            "# [[link]]",
+            f'# from = "{_toml_value(node.id)}"  # {_comment_safe(node.label)}',
+            '# to = ""  # TODO: what is this actually plugged into?',
+            "",
+        ]
+    return lines
+
+
+def _port_number(port_label: str) -> str:
+    """`"port 7"` -> `"7"`. Model.py always builds the label this way for a
+    wired client edge; anything else is passed through unchanged."""
+    prefix = "port "
+    return port_label[len(prefix) :] if port_label.startswith(prefix) else port_label
+
+
+def _shared_port_candidates(topo: Topology) -> list[str]:
+    """`[[device]]` + `[[hosted]]` skeletons for KAN-199's shared-port signal.
+
+    The device's name is a suggested label, not a guessed identity: nothing
+    here is active until the block is uncommented, which is the human's own
+    assertion that the device actually exists. The one thing this never fills
+    in is which real device it is -- that stays entirely up to the reader.
+    """
+    groups = topo.shared_ports()
+    if not groups:
+        return []
+    lines = [
+        "# --- Switch ports shared by several wired clients " + "-" * 24,
+        "# This usually means an unmanaged switch or a virtualisation host the",
+        "# controller cannot see. Declare it below and say these clients are",
+        "# hosted on it -- or delete the block if it's something else.",
+        "",
+    ]
+    for (parent, port), macs in sorted(
+        groups.items(), key=lambda item: (topo.nodes[item[0][0]].label.lower(), item[0][1])
+    ):
+        switch = topo.nodes[parent]
+        name = f"Unmanaged switch ({port} on {switch.label})"
+        lines += [
+            "# [[device]]",
+            f'# name = "{_toml_value(name)}"',
+            '# kind = "switch"',
+            f'# parent = "{_toml_value(switch.id)}"  # {_comment_safe(switch.label)}',
+            f'# port = "{_toml_value(_port_number(port))}"',
+            "",
+        ]
+        for mac in sorted(macs, key=lambda m: topo.nodes[m].label.lower()):
+            client = topo.nodes[mac]
+            lines += [
+                "# [[hosted]]",
+                f'# guest = "{_toml_value(client.id)}"  # {_comment_safe(client.label)}',
+                f'# host = "{_toml_value(name)}"',
+                "",
+            ]
+    return lines
+
+
+def _artwork_candidates(topo: Topology, ambiguous_artwork: list[tuple[str, int]]) -> list[str]:
+    """`[[node]]` skeletons for catalogue matches refused as ambiguous.
+
+    *ambiguous_artwork* is `AssetStore.ambiguous_names`: `(node.label, how many
+    catalogue entries matched)`, recorded because `sysid_for_name()` only
+    resolves a name that matches exactly one entry. Matched back to a node by
+    label, since that is what was actually looked up; a label is not unique, so
+    every node carrying it is offered.
+    """
+    if not ambiguous_artwork:
+        return []
+    by_label: dict[str, list[Node]] = {}
+    for node in topo.nodes.values():
+        by_label.setdefault(node.label, []).append(node)
+
+    lines = [
+        "# --- Artwork matches refused as ambiguous " + "-" * 32,
+        "# The catalogue matched more than one product for these, so nothing was",
+        "# drawn rather than guessing. Point `icon` at artwork of your own.",
+        "",
+    ]
+    seen: set[str] = set()
+    for name, count in sorted(ambiguous_artwork):
+        for node in sorted(by_label.get(name, []), key=lambda n: n.id):
+            if node.id in seen:
+                continue
+            seen.add(node.id)
+            lines += [
+                "# [[node]]",
+                f'# match = "{_toml_value(node.id)}"  # {_comment_safe(node.label)}',
+                f'# icon = ""  # TODO: path to artwork ({count} catalogue matches)',
+                "",
+            ]
+    return lines
+
+
+def generate_candidates(
+    topo: Topology, ambiguous_artwork: list[tuple[str, int]] | None = None
+) -> str:
+    """A commented overrides skeleton seeded from what this map could not resolve.
+
+    Every block is commented out, so the file is inert until edited: loading it
+    unmodified changes nothing. That is deliberate and matches the rest of this
+    module -- this never guesses a parent, an identity or a hidden device's
+    existence, it only names where the map has a gap and gives a starting point
+    with the selectors already filled in, since a MAC is always unambiguous and
+    typing one out by hand is exactly the kind of transcription a tool should do
+    instead of a person.
+    """
+    sections = [
+        section
+        for section in (
+            _unplaced_candidates(topo),
+            _shared_port_candidates(topo),
+            _artwork_candidates(topo, ambiguous_artwork or []),
+        )
+        if section
+    ]
+    header = [
+        "# Candidate overrides, generated by `unifi-map overrides generate`.",
+        "#",
+        "# Nothing here is active: every block below is commented out. Uncomment",
+        "# and fill in the blanks for the ones you want, save it, and point",
+        "# --overrides at the file. See docs/overrides.md.",
+    ]
+    if not sections:
+        return (
+            "\n".join(
+                [
+                    *header,
+                    "",
+                    "# Nothing to suggest: no unplaced clients, no shared switch ports,",
+                    "# and no ambiguous artwork matches on this map.",
+                ]
+            )
+            + "\n"
+        )
+    out = list(header)
+    for section in sections:
+        out += ["", *section]
+    return "\n".join(out).rstrip() + "\n"

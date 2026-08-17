@@ -337,6 +337,36 @@ class TestOverridesCheck:
         assert cmd_overrides(args) == 2
 
 
+class TestOverridesGenerate:
+    """KAN-120: `unifi-map overrides generate` prints a commented skeleton."""
+
+    def test_it_prints_a_commented_skeleton_to_stdout(self, capsys):
+        from unifi_map.cli import build_parser, cmd_overrides
+
+        args = build_parser().parse_args(["--cache-dir", "examples/demo", "overrides", "generate"])
+        assert cmd_overrides(args) == 0
+        out, _err = capsys.readouterr()
+        # The demo dataset ships an unplaceable client on purpose.
+        assert "[[link]]" in out
+        assert 'to = ""' in out
+        # Every candidate line is commented out, so the file is inert as-is.
+        for line in out.splitlines():
+            if line.strip():
+                assert line.startswith("#"), f"uncommented line in the skeleton: {line!r}"
+        # Log noise (artwork resolution) must not land in the printed file.
+        assert "Artwork" not in out
+
+    def test_no_overrides_file_is_needed(self, tmp_path, monkeypatch):
+        """Unlike `check`, `generate` never reads an overrides file at all, so
+        an empty directory with no overrides.toml anywhere near it is fine."""
+        from unifi_map.cli import build_parser, cmd_overrides
+
+        demo = (Path.cwd() / "examples" / "demo").resolve()
+        monkeypatch.chdir(tmp_path)
+        args = build_parser().parse_args(["--cache-dir", str(demo), "overrides", "generate"])
+        assert cmd_overrides(args) == 0
+
+
 class TestArtworkCountsSayWhatTheyMeasure:
     """`0 of 19` means something different with a cold cache than a warm one.
 
