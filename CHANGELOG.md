@@ -56,6 +56,8 @@ told something untrue and may have acted on it.
 
 ## Unreleased
 
+## 0.13.0 - 2026-08-17
+
 ### Added
 
 - **Flag switch ports shared by several wired clients.** Several wired
