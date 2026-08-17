@@ -439,8 +439,8 @@ equivalent. Command options must follow the subcommand.
 
 | Flag | What it does | Default |
 | --- | --- | --- |
-| `action` `{check}` | check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things |  |
+| `action` `{check,generate}` | check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things. generate: print a commented overrides skeleton, seeded from what the cached snapshot could not resolve, to stdout |  |
 | `--show-offline` `{yes,no}` | Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no) | `no` |
-| `--overrides` | Which file to check. Defaults to overrides.toml when it exists. |  |
+| `--overrides` | Which file to check. Defaults to overrides.toml when it exists. Not used by generate. |  |
 
 <!-- END GENERATED FLAGS -->

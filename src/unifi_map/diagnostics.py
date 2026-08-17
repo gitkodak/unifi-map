@@ -152,7 +152,8 @@ def _unplaced_section(topo: Topology) -> list[str]:
         "COULD NOT BE PLACED",
         "  Neither stat/sta nor the controller's topology graph reported an uplink",
         "  for these, so they hang off a placeholder rather than a guessed parent.",
-        "  An overrides file is how you say where they really are; see",
+        "  An overrides file is how you say where they really are; run",
+        "  `unifi-map overrides generate` for a starting point, or see",
         "  docs/overrides.md.",
         "",
     ]
@@ -263,7 +264,8 @@ def _shared_ports_section(topo: Topology) -> list[str]:
         "SHARED SWITCH PORTS",
         "  More than one wired client reports the same switch and port. This can",
         "  mean an unmanaged switch or a virtualisation host bridging its guests",
-        "  that the controller cannot see. An overrides file can say which: see",
+        "  that the controller cannot see. An overrides file can say which; run",
+        "  `unifi-map overrides generate` for a starting point, or see",
         "  docs/overrides.md for [[device]] and [[hosted]].",
         "",
     ]
@@ -434,7 +436,8 @@ def _artwork_refused(ambiguous_artwork: list[tuple[str, int]]) -> list[str]:
         "ARTWORK REFUSED AS AMBIGUOUS",
         "  These names matched more than one product, so no artwork was used.",
         "  Refusing is deliberate: picking one would be inventing data. Rename",
-        "  the device in the console, or set an icon in an overrides file.",
+        "  the device in the console, or set an icon in an overrides file; run",
+        "  `unifi-map overrides generate` for a starting point.",
         "",
     ]
     for (name, matches), times in sorted(counted.items()):

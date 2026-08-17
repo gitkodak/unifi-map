@@ -103,6 +103,7 @@ class TestItNamesWhatWentWrong:
         assert "COULD NOT BE PLACED" in text
         assert "mystery-box" in text
         assert "10.0.20.12" in text
+        assert "overrides generate" in text
 
     def test_no_unplaced_section_when_everything_resolves(self, snapshot: Snapshot):
         assert "COULD NOT BE PLACED" not in build_diagnostics(build_topology(snapshot))
@@ -221,6 +222,7 @@ class TestItNamesWhatWentWrong:
         assert "printer" in text
         assert "camera" in text
         assert "[[hosted]]" in text
+        assert "overrides generate" in text
 
     def test_no_shared_ports_section_when_every_port_has_one_client(self, snapshot: Snapshot):
         assert "SHARED SWITCH PORTS" not in build_diagnostics(build_topology(snapshot))
@@ -291,6 +293,7 @@ class TestArtwork:
         assert "ARTWORK REFUSED AS AMBIGUOUS" in text
         assert "g3-flex" in text
         assert "matched 2 catalogue entries" in text
+        assert "overrides generate" in text
 
     def test_a_name_ambiguous_several_times_is_counted_once_with_a_multiplier(self):
         sources = Sources(ambiguous_artwork=[("g3-flex", 2), ("g3-flex", 2)])

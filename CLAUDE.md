@@ -836,11 +836,23 @@ at anything requiring knowledge of UniFi.
   then failed the render it had just been checked for. The flag is now shared
   between the two subparsers rather than duplicated.
 
-- **`generate-overrides`**, emitting a skeleton `overrides.toml` seeded with the
-  nodes the tool could not place. Closes a loop that is currently half open: the
-  run already counts clients with no reported uplink and points at overrides,
-  and the "no reconciliation report" gap below is asking for the same
-  information from the other end. One command could answer both.
+- **`overrides generate`. Shipped**, 2026-08-16 (KAN-120). `unifi-map overrides
+  generate` prints a commented `overrides.toml` skeleton to stdout, seeded from
+  unplaced clients, shared switch ports (KAN-199) and ambiguous artwork
+  matches — the same three signals `--report` already names, closing the loop
+  that section originally described as half open. `--report` now points at it
+  from all three sections. `overrides.generate_candidates()` is the pure
+  function; `cmd_overrides`'s `generate` action just prints its result,
+  resolving artwork offline and best-effort the same way `unifi-map shape`
+  does, so it never touches the network and a catalogue miss cannot stop it
+  from printing what it did find.
+
+  A subcommand (`overrides generate`, sibling to the existing `overrides
+  check`) rather than a flag on `render`: this produces a config skeleton, not
+  a diagram, and `render` writing a second file type on the side would be a
+  strange thing for a rendering command to do. Being its own subcommand also
+  makes it opt-in for free, which Jason asked for explicitly — nobody reaches
+  it by accident, unlike a flag that could be left on by habit.
 
 - **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
   it is the shape of the network and nothing else, and the docs say so. Note
@@ -1072,7 +1084,14 @@ interface of a multi-homed host usually has a locally-administered MAC and an
 empty OUI, while genuinely distinct devices behind an unmanaged switch have
 neither. Both groups on the reference network separate cleanly on that test,
 which is what makes it safe for `--report` to mention (KAN-199) and for the
-stub generator to act on (KAN-120).
+candidates generator to act on (KAN-120).
+
+**The generator shipped 2026-08-16 and does not yet act on this signature.**
+`unifi-map overrides generate` (`overrides.generate_candidates`) covers the
+three signals `--report` already names — unplaced clients, shared switch
+ports, ambiguous artwork — none of which distinguish a multi-homed host from
+a genuinely hidden switch. Using the locally-administered-MAC test to
+annotate or split the shared-port candidate block is still open.
 
 ### Gaps worth considering
 

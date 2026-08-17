@@ -12,7 +12,15 @@ import pytest
 
 from unifi_map.assets import AssetError
 from unifi_map.client import Snapshot
-from unifi_map.model import UNKNOWN_UPLINK_ID, Edge, Kind, Node, Topology, build_topology
+from unifi_map.model import (
+    UNKNOWN_UPLINK_ID,
+    Edge,
+    Kind,
+    Node,
+    Provenance,
+    Topology,
+    build_topology,
+)
 from unifi_map.overrides import (
     Hosted,
     Link,
@@ -20,6 +28,7 @@ from unifi_map.overrides import (
     Overrides,
     _refuse_cycles,
     apply,
+    generate_candidates,
     load,
     parse,
     resolve,
@@ -787,3 +796,71 @@ class TestUnknownSections:
 
     def test_the_real_sections_still_parse(self):
         assert parse({"link": [{"from": "a", "to": "b"}]}).links
+
+
+class TestGenerateCandidates:
+    """KAN-120: a commented overrides skeleton seeded from what could not resolve.
+
+    Nothing here is a guessed parent or a guessed identity: every block is
+    commented out, and the one field this must never fill in (a client's real
+    uplink) is always left as an explicit TODO.
+    """
+
+    def test_a_clean_topology_says_so(self, topo):
+        assert "Nothing to suggest" in generate_candidates(topo)
+
+    def test_unplaced_clients_get_a_link_skeleton(self, unplaced_topo):
+        text = generate_candidates(unplaced_topo)
+        assert "[[link]]" in text
+        assert 'from = "dd:ee:ff:00:00:60"' in text
+        assert "vm-host" in text
+        # The one thing this must never guess.
+        assert 'to = ""' in text
+
+    def _shared_port_topo(self):
+        topo = Topology()
+        topo.add(Node(id=SWITCH_MAC, label="switch", kind=Kind.SWITCH))
+        topo.add(Node(id="c1", label="printer", kind=Kind.WIRED_CLIENT))
+        topo.add(Node(id="c2", label="camera", kind=Kind.WIRED_CLIENT))
+        topo.edges.append(
+            Edge(src="c1", dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        topo.edges.append(
+            Edge(src="c2", dst=SWITCH_MAC, label="port 7", provenance=Provenance.CLIENT_UPLINK)
+        )
+        return topo
+
+    def test_shared_ports_get_a_device_and_hosted_skeleton(self):
+        text = generate_candidates(self._shared_port_topo())
+        assert "[[device]]" in text
+        assert f'parent = "{SWITCH_MAC}"' in text
+        assert 'port = "7"' in text
+        assert "[[hosted]]" in text
+        assert 'guest = "c1"' in text
+        assert 'guest = "c2"' in text
+        # Both clients point at the same suggested device name.
+        assert text.count('host = "Unmanaged switch (port 7 on switch)"') == 2
+
+    def test_a_single_client_on_a_port_gets_no_shared_port_skeleton(self):
+        topo = self._shared_port_topo()
+        topo.edges.pop()
+        text = generate_candidates(topo)
+        assert "[[device]]" not in text
+
+    def test_ambiguous_artwork_gets_a_node_skeleton(self, topo):
+        label = next(n.label for n in topo.nodes.values())
+        node_id = next(n.id for n in topo.nodes.values() if n.label == label)
+        text = generate_candidates(topo, ambiguous_artwork=[(label, 3)])
+        assert "[[node]]" in text
+        assert f'match = "{node_id}"' in text
+        assert "3 catalogue matches" in text
+
+    def test_no_ambiguous_artwork_section_without_matches(self, topo):
+        assert "[[node]]" not in generate_candidates(topo, ambiguous_artwork=[])
+
+    def test_every_line_is_commented(self, unplaced_topo):
+        """The file must be a no-op until a human edits it."""
+        text = generate_candidates(unplaced_topo)
+        for line in text.splitlines():
+            if line.strip():
+                assert line.startswith("#"), f"uncommented line: {line!r}"

@@ -150,12 +150,15 @@ drawn from a thin one look equally authoritative.
 
 ## Overrides
 
-- **A candidates generator** (KAN-120). Emit a skeleton overrides file seeded
-  from what `--report` found: what could not be placed, artwork refused as
-  ambiguous, ports that look like they have a hidden switch behind them.
-  Commented boilerplate that still requires a human to state the relationship;
-  never a guessed parent. The other half of that ticket, `overrides check`,
-  ships already.
+- **A candidates generator. Shipped**, as `unifi-map overrides generate`
+  (KAN-120), 2026-08-16. Prints a commented skeleton to stdout, seeded from
+  the same signals `--report` names: clients with no reported uplink, switch
+  ports shared by several wired clients (KAN-199), and artwork matches
+  refused as ambiguous. Every block is commented out, so the file changes
+  nothing until a human edits and uncomments it; the one field it never fills
+  in is a client's real uplink. `--report` now points at it from each of
+  those three sections. `overrides check`, the other half of the original
+  ticket, shipped earlier.
 
 ## Multi-site
 

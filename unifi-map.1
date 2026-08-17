@@ -50,7 +50,7 @@ Fetch then render (both stages; not all formats, see \-f)
 Describe the network's shape, for sharing in an issue
 .TP
 \fBoverrides\fR
-Check an overrides file without rendering
+Check an overrides file, or generate a skeleton, without rendering
 .SH GLOBAL OPTIONS
 Accepted before or after the subcommand, so
 \fBunifi\-map all \-\-support\-file\fR \fIF\fR and
@@ -167,14 +167,14 @@ With \-\-layout tree, stagger leaf nodes into rows of ~N to control aspect ratio
 Skip the consent prompt. Read what the report contains first; `unifi\-map shape` on its own prints that and asks.
 .SH OVERRIDES OPTIONS
 .TP
-\fBaction\fR \fI{check}\fR
-check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things
+\fBaction\fR \fI{check,generate}\fR
+check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things. generate: print a commented overrides skeleton, seeded from what the cached snapshot could not resolve, to stdout
 .TP
 \fB\-\-show\-offline\fR \fI{yes,no}\fR
 Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
 .TP
 \fB\-\-overrides\fR
-Which file to check. Defaults to overrides.toml when it exists.
+Which file to check. Defaults to overrides.toml when it exists. Not used by generate.
 .SH ENVIRONMENT
 .TP
 \fBUNIFI_HOST\fR
