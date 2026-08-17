@@ -856,10 +856,16 @@ def _cmd_overrides_generate(args: argparse.Namespace) -> int:
     topo = build_topology(snapshot, include_offline=args.show_offline == "yes")
 
     store = AssetStore(cache_dir=args.asset_cache, offline=True)
+    catalog_cached = store.catalog_path.is_file()
     with contextlib.suppress(Exception):
         resolve_icons(topo, store, get_theme("light"), {})
 
-    print(generate_candidates(topo, list(store.ambiguous_names)), end="")
+    print(
+        generate_candidates(
+            topo, list(store.ambiguous_names), artwork_catalog_cached=catalog_cached
+        ),
+        end="",
+    )
     return 0
 
 

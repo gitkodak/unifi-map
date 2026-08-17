@@ -366,6 +366,47 @@ class TestOverridesGenerate:
         args = build_parser().parse_args(["--cache-dir", str(demo), "overrides", "generate"])
         assert cmd_overrides(args) == 0
 
+    def test_a_cold_asset_cache_gets_a_note_not_silence(self, tmp_path, capsys):
+        """This command never fetches, so on a cold cache the ambiguous-artwork
+        check did not merely find nothing, it never ran -- and that has to be
+        said, not left to read as a clean bill of health."""
+        from unifi_map.cli import build_parser, cmd_overrides
+
+        args = build_parser().parse_args(
+            [
+                "--cache-dir",
+                "examples/demo",
+                "--asset-cache",
+                str(tmp_path / "empty-cache"),
+                "overrides",
+                "generate",
+            ]
+        )
+        assert cmd_overrides(args) == 0
+        out, _err = capsys.readouterr()
+        assert "NOTE" in out
+        assert "catalogue is not cached" in out
+
+    def test_a_warm_asset_cache_gets_no_note(self, tmp_path, capsys):
+        from unifi_map.cli import build_parser, cmd_overrides
+
+        asset_cache = tmp_path / "warm-cache"
+        asset_cache.mkdir()
+        (asset_cache / "ui-device-catalog.json").write_text("{}", encoding="utf-8")
+        args = build_parser().parse_args(
+            [
+                "--cache-dir",
+                "examples/demo",
+                "--asset-cache",
+                str(asset_cache),
+                "overrides",
+                "generate",
+            ]
+        )
+        assert cmd_overrides(args) == 0
+        out, _err = capsys.readouterr()
+        assert "NOTE" not in out
+
 
 class TestArtworkCountsSayWhatTheyMeasure:
     """`0 of 19` means something different with a cold cache than a warm one.

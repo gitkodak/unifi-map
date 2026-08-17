@@ -810,6 +810,19 @@ class TestGenerateCandidates:
     def test_a_clean_topology_says_so(self, topo):
         assert "Nothing to suggest" in generate_candidates(topo)
 
+    def test_a_cold_artwork_cache_is_named_not_left_silent(self, topo):
+        """A cold cache means the ambiguous-artwork check never ran at all,
+        which reads as "nothing wrong" unless it says otherwise -- the same
+        failure `--report` and `shape` already guard against."""
+        text = generate_candidates(topo, artwork_catalog_cached=False)
+        assert "NOTE" in text
+        assert "catalogue is not cached" in text
+        assert "were" in text and "NOT checked" in text
+
+    def test_a_warm_artwork_cache_gets_no_note(self, topo):
+        assert "NOTE" not in generate_candidates(topo, artwork_catalog_cached=True)
+        assert "NOTE" not in generate_candidates(topo)
+
     def test_unplaced_clients_get_a_link_skeleton(self, unplaced_topo):
         text = generate_candidates(unplaced_topo)
         assert "[[link]]" in text

@@ -76,7 +76,9 @@ told something untrue and may have acted on it.
   matches refused as ambiguous. Every block is commented out, so the file
   changes nothing until edited and uncommented; the one field it never fills
   in is a client's real uplink. `--report` now points at it from each of the
-  three sections it can help with.
+  three sections it can help with. On a cold artwork cache the ambiguous-
+  artwork check did not run at all, and the printed file says so with a
+  `NOTE` rather than reading like a clean result.
 
 ## 0.12.0 - 2026-08-14
 

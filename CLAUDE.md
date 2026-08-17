@@ -875,6 +875,25 @@ at anything requiring knowledge of UniFi.
   asserts it comes back empty, which is what a newline actually escaping the
   comment would have broken.
 
+  **A cold artwork cache read as a clean result, raised by Jason directly
+  while working through what actually triggers each candidate section.**
+  Ambiguous-artwork matching (`AssetStore.sysid_for_name`) needs the UniFi
+  hardware catalogue, and this command resolves it offline-only, same as
+  `shape`. On a cache that never had a `render --icons unifi` or `fetch`
+  run against it, the catalogue simply is not there, so the check silently
+  never ran -- and an empty `[[node]]` section looks identical to "checked,
+  nothing ambiguous." Same failure this project already fixed once for
+  `--report` and `shape`'s artwork counts (`0 of 19` reading as "the joins
+  fail here" instead of "nothing has been fetched yet"), just not carried
+  over to this newer command. Fixed by checking `AssetStore.catalog_path
+  .is_file()` before resolution runs and threading that through to
+  `generate_candidates(..., artwork_catalog_cached=...)`, which prints an
+  explicit `NOTE` ahead of every section when the cache is cold. Jason's
+  stated principle for this command going forward: err toward verbosity
+  over letting something slip past an unknowing user, since a tool that
+  cannot cover every eventuality can at least cover the ones it already
+  knows about.
+
 - **Mermaid export. Shipped, as `-f mermaid`.** It necessarily loses artwork, so
   it is the shape of the network and nothing else, and the docs say so. Note
   that its direction follows `--layout` (`unifi` gives LR, `tree` gives TB) and

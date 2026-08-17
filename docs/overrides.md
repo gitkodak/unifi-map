@@ -325,8 +325,14 @@ whether the device is real is left to you, by choosing whether to uncomment it.
 
 Like `check`, this reads the cache and contacts no controller. Artwork
 ambiguity is resolved offline and best-effort, the same way `unifi-map shape`
-resolves it: only what is already cached counts, nothing is fetched, and a
-cold cache simply means that section is empty rather than the command failing.
+resolves it: only what is already cached counts, and nothing is fetched.
+
+**A cold artwork cache gets a `NOTE`, not silence.** This command never
+fetches the UniFi hardware catalogue, so if it was never downloaded (no
+`unifi-map render --icons unifi` or `fetch` has run yet), the ambiguous-
+artwork check did not merely find nothing — it never ran. The printed file
+says so explicitly, rather than reading like a clean bill of health for a
+network that was simply never checked.
 
 ## Where `note` shows up
 
