@@ -1095,6 +1095,56 @@ at anything requiring knowledge of UniFi.
   `session.get` being the only HTTP verb in the source is a headline property,
   and creating or updating objects in somebody else's system would end it.
 
+### Diagram-as-code turned out to already work, and stayed a side effect
+
+Jason's question, 2026-08-16, right after `-q`/`--quiet`: since `overrides.toml`
+can declare a device the controller cannot see, could someone skip the
+controller entirely and draw an invented network? Checked by actually doing
+it rather than reasoning about it: three hand-written JSON files reporting
+empty lists (`{"data": []}`) satisfy `Snapshot.read()`, `[[device]]` +
+`[[link]]`/`[[hosted]]` populate the whole `Topology`, and `render_dot`/
+`render_drawio` draw it, custom artwork included, with real Ubiquiti icons
+never entering the picture. It works today, unmodified, because the renderer
+is a pure function of a `Topology` and never asks where one came from.
+
+**Not pursued as a goal.** Jason was explicit about this before asking what
+was stopping it: not "should this become a feature" but "can we mention it
+exists." Becoming a real generic diagramming tool competes in a market this
+project has no reason to enter (D2, Structurizr, plain Graphviz) and would
+mean stretching `Kind` past what a UniFi console actually shows, which is
+this project's whole reason for being shaped the way it is.
+
+**Documented instead, as loudly labelled as everything else here is
+carefully labelled.** `docs/diagram-as-code.md`, linked from the README's
+documentation table and from the Overrides feature bullet as an aside, not
+its own headline feature. The instruction, close to verbatim: document it as
+thoroughly as everything else, but make it very, very, very clear that it is
+a side effect, not a feature, and that it will never be officially supported.
+The page says so twice, at the top and again as its last line, and explains
+*why* rather than only asserting it: nothing here is designed or tested for
+a zero-real-data path, so a future change could break it without that
+counting as a breaking change from this project's own point of view.
+
+**The example uses deliberately silly custom artwork on purpose**, per
+Jason's own request -- a Pillow-drawn "Trash Router" / "Toaster Switch" /
+"Sentient Toaster" / "Grandma's iPad (2011)" network, committed as
+`docs/images/example-diagram-as-code.png`. Not decoration: a page showing a
+clean-looking invented topology would read as an invitation to make
+something that resembles a real product diagram out of data nobody's
+controller ever reported, which is exactly the failure mode "Never invent
+topology" warns about elsewhere in this file, just self-inflicted rather
+than guessed by the tool.
+
+**Two claims the page makes are pinned, not just asserted**:
+`tests/test_diagram_as_code.py` renders the documented three-file-empty-
+snapshot-plus-overrides workflow end to end, and
+`test_overrides.py::TestDeclaredDevices::test_kind_internet_is_refused` pins
+that `[[device]]` cannot declare `kind = "internet"` -- `Kind.INTERNET` is
+excluded from `_parse_devices`'s valid set because that node is only ever
+synthesised by `build_topology()` from a real device's real uplink, which
+the doc states as a concrete limitation and which was previously untested
+anywhere in the suite.
+
 ### Splitting `cli.py`. Done, and the reason was never length
 
 Raised by both external reviewers, twice, as "it is ~1350 lines". Length was the

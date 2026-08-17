@@ -453,6 +453,16 @@ class TestDeclaredDevices:
         assert node.kind is Kind.SWITCH
         assert result.devices_added == 1
 
+    def test_kind_internet_is_refused(self):
+        """`docs/diagram-as-code.md` states this as a documented limitation:
+        the Internet/cloud node is only ever synthesised by `build_topology()`
+        from a real device's real uplink, never declarable by hand. Pinned so
+        that claim cannot go stale."""
+        from unifi_map.overrides import parse
+
+        with pytest.raises(OverrideError, match=r"kind.*must be one of"):
+            parse({"device": [{"name": "Fake Cloud", "kind": "internet"}]})
+
     def test_it_is_marked_asserted_so_it_cannot_pass_for_observed(self, topo):
         # The whole point. A map that drew a typed-in device identically to a
         # reported one would misrepresent where its information came from.

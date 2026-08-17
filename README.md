@@ -92,7 +92,9 @@ own controller.*
   link the controller is not in the path of; say that a VM lives on a
   particular host; correct a wrong fingerprint; hide something. All of it drawn
   as a claim rather than an observation, so a reader can tell the difference.
-  `make demo-overrides` renders the shipped example.
+  `make demo-overrides` renders the shipped example. (As a side effect, and
+  *only* as one — see [Diagram-as-code](docs/diagram-as-code.md) — the same
+  schema can describe a network with no controller involved at all.)
 - **Read-only, always.** `session.get` is the only HTTP verb in the source.
 - **Scriptable by default.** The [progress spinner](docs/output.md#progress-and-turning-it-off)
   turns itself off whenever output is not a terminal, so piping or redirecting
@@ -284,6 +286,7 @@ getting a first map out of it. Everything else is a page of its own.
 | [Support files](docs/support-files.md) | Mapping without credentials, and why the file is a secret. |
 | [Output formats](docs/output.md) | What each format is for, plus `--transparent` and turning the spinner off. |
 | [Overrides](docs/overrides.md) | Stating what the controller cannot see: unreported links, nesting, corrections. |
+| [Diagram-as-code (unsupported)](docs/diagram-as-code.md) | Skipping the controller entirely, as a side effect of the overrides schema. Not a feature; read the caveats. |
 | [Artwork](docs/artwork.md) | Where the pictures come from, how they are matched, and the licensing position. |
 | [Sharing a map](docs/sharing.md) | `--obfuscate`, and the report meant for a bug report. |
 | [Installing from GitHub](docs/install-from-github.md) | `pip install` from a tag or a release wheel, no PyPI and no checkout. |
