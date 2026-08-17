@@ -1127,12 +1127,17 @@ counting as a breaking change from this project's own point of view.
 
 **The example uses deliberately silly custom artwork on purpose**, per
 Jason's own request -- a Pillow-drawn "Trash Router" / "Toaster Switch" /
-"Sentient Toaster" / "Grandma's iPad (2011)" network, committed as
-`docs/images/example-diagram-as-code.png`. Not decoration: a page showing a
-clean-looking invented topology would read as an invitation to make
-something that resembles a real product diagram out of data nobody's
-controller ever reported, which is exactly the failure mode "Never invent
-topology" warns about elsewhere in this file, just self-inflicted rather
+"Sentient Toaster" / "PoE Bidet" / "Grandma's iPad (2011)" / "Smart
+Toothbrush" network, committed as `docs/images/example-diagram-as-code.png`.
+The bidet and the toothbrush are not a second joke: they are the exact pair
+`docs/overrides.md` already uses to explain why a fingerprint match can be
+confidently wrong, added deliberately once the network existed, so the
+callback is intentional rather than convergent. Not decoration otherwise: a
+page showing a clean-looking invented topology would read as an invitation
+to make something that resembles a real product diagram out of data
+nobody's controller ever reported, which is exactly the failure mode "Never
+invent topology" warns about elsewhere in this file, just self-inflicted
+rather
 than guessed by the tool.
 
 **Two claims the page makes are pinned, not just asserted**:

@@ -145,10 +145,12 @@ read and placed, exactly as given.
 
 ## Example
 
-Four `[[device]]` blocks, four custom icons, `--icons builtin`, `--layout
-tree`, nothing else:
+Six `[[device]]` blocks, six custom icons, `--icons builtin`, `--layout
+tree`, nothing else — the PoE Bidet and the Smart Toothbrush are the same
+pair `docs/overrides.md` uses to explain why fingerprint matching can be
+confidently wrong:
 
-![A small invented network — Trash Router, Toaster Switch, Sentient Toaster and Grandma's iPad (2011) — drawn entirely from overrides with custom placeholder artwork and no controller involved](images/example-diagram-as-code.png)
+![A small invented network — Trash Router, Toaster Switch, Sentient Toaster, PoE Bidet, Grandma's iPad (2011) and Smart Toothbrush — drawn entirely from overrides with custom placeholder artwork and no controller involved](images/example-diagram-as-code.png)
 
 Every icon there is a Pillow script drawing a coloured blob with a label on
 it. That is deliberate: nothing about this page should read as an invitation
