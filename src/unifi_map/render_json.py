@@ -7,7 +7,7 @@ not the raw responses, which lets somebody write an inventory check or a Home
 Assistant integration against something that will still parse next year.
 
 It is also the least dangerous way to hand the data to another program. A cached
-snapshot is a full controller dump; this is nodes, edges and networks, subject to
+snapshot is a full controller dump. This is nodes, edges and networks, subject to
 `--obfuscate`, overrides and per-network filtering exactly like the diagram, so
 whatever cleaning was applied to the picture applies here too.
 

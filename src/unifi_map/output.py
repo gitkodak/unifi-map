@@ -2,7 +2,7 @@
 
 Separate from `artwork.py` rather than folded in with it, because the two share
 nothing: this module knows about paths, atomic replacement and overwrite
-guards, and imports every renderer; that one knows about `AssetStore` and
+guards, and imports every renderer. That one knows about `AssetStore` and
 imports none of them. One module holding both would be a bag of things that
 happened to leave `cli.py` together.
 
@@ -111,7 +111,8 @@ def write_output(path: Path, data: bytes | str, *, force: bool, guard: bool) -> 
     briefly readable by others. Renders are as sensitive as the snapshot they
     came from: labels carry hostnames, addresses, VLAN names and the WAN
     address, and the SVG holds all of it as selectable text. `0600` restricts
-    who can read it on this machine; it does not stop you sending it to anyone.
+    who can read it on this machine. It does not stop you from sending it to
+    anyone.
     """
     if guard and not force and path.exists() and not _is_ours(path):
         raise OutputExistsError(
@@ -243,7 +244,7 @@ def write_outputs(
     if "svg" in formats or "html" in formats:
         with spinner("Rendering svg", progress):
             svg_data = run_dot(dot_source, "svg")
-        # Graphviz references artwork by filesystem path; inline it so the
+        # Graphviz references artwork by filesystem path. Inline it so the
         # SVG is a single portable file.
         svg_data = inline_svg_images(svg_data, allowed=icon_paths)
         if "svg" in formats:

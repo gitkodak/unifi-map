@@ -3,7 +3,7 @@ name: Scorecard analysis
 # OSSF Scorecard (KAN-136, and the SAST question once tracked in the task
 # list -- but a different axis from CodeQL and SonarQube Cloud): it doesn't
 # look for bugs in this code, it checks supply-chain hygiene of the
-# repository itself — branch protection, pinned CI dependencies, whether
+# repository itself: branch protection, pinned CI dependencies, whether
 # Dependabot and a security policy exist, and so on. The default GITHUB_TOKEN
 # covers every check but one: Branch-Protection needs to read this repo's
 # classic branch protection rules, which GITHUB_TOKEN cannot do (a

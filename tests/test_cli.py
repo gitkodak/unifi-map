@@ -45,7 +45,7 @@ class TestWritePerNetworkViews:
 
         _write_per_network_views(topo, "t", TREE, {}, ["dot"], "m", args)
 
-        assert "skipping per-network views" in caplog.text
+        assert "Skipping per-network views" in caplog.text
 
 
 class TestQuiet:

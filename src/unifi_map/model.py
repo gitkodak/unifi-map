@@ -88,7 +88,7 @@ class Node:
     vlan: int | None = None
     detail: str | None = None
     offline: bool = False
-    # UniFi hardware id. The join key to Ubiquiti's device catalog for artwork;
+    # UniFi hardware id. The join key to Ubiquiti's device catalog for artwork.
     # `model` strings do not reliably match the catalog's shortnames.
     sysid: int | None = None
     # Clients only. UniFi picks its client glyph from exactly these two facts.
@@ -112,7 +112,7 @@ class Node:
     # present a claim and an observation as though they were the same thing.
     asserted: bool = False
     # Where this came from. `asserted` is the rendering concern (draw it dotted)
-    # and this is the record; they are set together and a test pins that they
+    # and this is the record. They are set together, and a test pins that they
     # agree, because two fields describing one fact is exactly how drift starts.
     provenance: Provenance = Provenance.UNSPECIFIED
 
@@ -170,8 +170,8 @@ class Topology:
     @property
     def infrastructure(self) -> list[Node]:
         # UNKNOWN is included so unclassified hardware and the
-        # "uplink not reported" placeholder survive into per-network views;
-        # without it their clients would float unlinked again.
+        # "uplink not reported" placeholder survive into per-network views.
+        # Without it their clients would float unlinked again.
         infra = {
             Kind.GATEWAY,
             Kind.SWITCH,
@@ -193,7 +193,7 @@ class Topology:
 
         Several wired clients reporting the same switch and port usually means
         an unmanaged switch or a virtualisation host bridging its guests that
-        the controller cannot see (KAN-199) — it needs no cooperation from the
+        the controller cannot see (KAN-199). It needs no cooperation from the
         hidden device, unlike LLDP. Restricted to direct `CLIENT_UPLINK`
         reports: a `TOPOLOGY_GRAPH`-inferred edge is a step removed from what
         the port itself said, and an override that reparents a client under an

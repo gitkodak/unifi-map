@@ -224,7 +224,7 @@ supplied by the user, never vendored.
 - **He knew his own setup when the assistant did not.** Two review reports were
   criticised here for claiming they had pulled `origin/main` when the commit was
   not on GitHub. He pointed out that both reviewers read from a different
-  checkout, where `origin` is the staging remote — so their claims were accurate
+  checkout, where `origin` is the staging remote, so their claims were accurate
   and the criticism was not. The assistant had assumed a word meant in someone
   else's environment what it means in its own, which is the same error it had
   been cataloguing in them.
@@ -340,7 +340,7 @@ is wanted.
 **And an admission that belongs in the section above.** Asked whether these two
 files were still accurate, he added: "I really need to get better at telling you
 when I've stopped you." That confirms from his side what this record already
-guessed — the interruptions are the largest part of his input and the part that
+guessed: the interruptions are the largest part of his input and the part that
 leaves no trace. He knows it, and it still cannot be recovered.
 
 ## Standing instructions

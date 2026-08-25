@@ -44,7 +44,7 @@ ENDPOINTS: dict[str, str] = {
     # names, families and vendors. Turns "Espressif 003003" into
     # "Govee H61E1". Not site-scoped.
     "fingerprint": "v2/api/fingerprint_devices/0",
-    # Supplementary. The UI's own graph; shape varies between controller
+    # Supplementary. The UI's own graph. Shape varies between controller
     # versions, so the renderer treats it as optional enrichment rather than
     # the source of truth.
     "topology": "v2/api/site/{site}/topology",
@@ -58,7 +58,7 @@ EXTRA_ENDPOINTS: dict[str, str] = {
 }
 
 # The largest controller response this tool will read. A payload from a real
-# network of any size sits far below this; the ceiling exists so a hostile or
+# network of any size sits far below this. The ceiling exists so a hostile or
 # broken response is refused while streaming rather than buffered whole. It is
 # the same cap discipline the CDN artwork has always had, applied to the
 # endpoint people reach with UNIFI_VERIFY_TLS=false.
@@ -108,7 +108,7 @@ class _Session(requests.Session):
             return
         if prepared_request.headers.pop("X-API-KEY", None) is not None:
             log.warning(
-                "Redirected from %s to a different host; the API key was not "
+                "Redirected from %s to a different host. The API key was not "
                 "sent on. If this is a legitimate proxy, point UNIFI_HOST at "
                 "the address it answers on rather than following a redirect.",
                 response.request.url,
@@ -172,7 +172,7 @@ class Snapshot:
         # and is still writing when we finish first can have its working
         # directory removed from under it, failing that fetch loudly rather than
         # leaving a mixed snapshot behind. Closing that needs a lock or an age
-        # guard; the failure is loud, and two simultaneous fetches into one
+        # guard. The failure is loud, and two simultaneous fetches into one
         # cache directory were already asking for trouble.
         try:
             current = (cache_dir / CURRENT_POINTER).read_text(encoding="utf-8").strip()
@@ -192,7 +192,7 @@ class Snapshot:
 
         # A cache that predates generations holds flat endpoint files beside the
         # pointer. They are a full inventory nothing reads any more, which is
-        # exactly the stale copy this used to remove; take them out once the
+        # exactly the stale copy this used to remove. Take them out once the
         # pointer is in place.
         for name in (*ENDPOINTS, *EXTRA_ENDPOINTS):
             stale = cache_dir / f"{name}.json"
@@ -203,7 +203,7 @@ class Snapshot:
             except OSError:
                 log.warning(
                     "Could not remove %s, left over from a pre-generation cache. "
-                    "It is no longer read; delete it by hand.",
+                    "It is no longer read. Delete it by hand.",
                     stale,
                 )
 
@@ -253,7 +253,7 @@ class Snapshot:
         if not generation.is_dir():
             raise UniFiError(
                 f"Snapshot pointer {pointer} names {target}, which is missing. "
-                "The generation was probably removed by hand; re-run "
+                "The generation was probably removed by hand. Re-run "
                 "`unifi-map fetch`."
             )
         return generation
@@ -360,7 +360,7 @@ class UniFiClient:
         if not codepoints:
             raise UniFiError("Found no client glyph codepoints in the icon font stylesheet.")
 
-        # The stylesheet cache-busts with a query string; the path itself is stable.
+        # The stylesheet cache-busts with a query string. The path itself is stable.
         font = self._fetch_raw(f"{base}/fonts/ubnt.ttf")
         return font, codepoints
 
@@ -388,7 +388,7 @@ class UniFiClient:
 def unwrap(payload: Any) -> list[dict[str, Any]]:
     """Return the list of records from a controller response.
 
-    Version 1 endpoints wrap results in ``{"meta": ..., "data": [...]}``; some
+    Version 1 endpoints wrap results in ``{"meta": ..., "data": [...]}``. Some
     v2 endpoints return a bare list. Anything else yields an empty list so a
     surprising shape degrades into a thinner diagram instead of a traceback.
     """

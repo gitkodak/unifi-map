@@ -2,9 +2,9 @@
 
 [← Documentation index](../README.md#documentation)
 
-Two things you might want to send somebody: a diagram of your network with
-the identifying parts removed, and a description of its shape that carries
-none of them in the first place.
+This page covers two things you might want to send somebody: a diagram
+of your network with the identifying parts removed, and a description
+of its shape that carries none of them in the first place.
 
 ## Sharing a map: `--obfuscate`
 
@@ -18,67 +18,70 @@ unifi-map render --obfuscate --theme dark
 
 ![The same real network, obfuscated](images/example-obfuscated-dark.png)
 
-*A real network, obfuscated. Every device is a pseudonym, addresses are
-renumbered, and the connections, roles and port numbers are untouched. Product
-artwork stays, because it says what a device is rather than whose it is; the one
-exception is the ISP, whose brand mark is replaced by the generic cloud on the
-Internet node. Note `client-11`, with four clients hanging off it rather than off
-a switch: those are VMs behind a NAS, which `stat/sta` cannot place and the
-controller's own graph can.*
+*A real network, obfuscated. Every device is a pseudonym, and the tool
+renumbers addresses, but the connections, roles, and port numbers stay
+untouched. Product artwork stays too, because it says what a device is,
+not whose it is. The one exception is the ISP: the generic cloud
+replaces its brand mark on the Internet node. Note `client-11`, with
+four clients attached to it, rather than to a switch. Those are VMs
+behind a NAS, which `stat/sta` cannot place, but the controller's own
+graph can.*
 
-**Replaced:** hostnames and device names, IP addresses, MAC addresses (including
-the node identifiers in the DOT and draw.io output, which are derived from them),
-network and VLAN names, SSIDs, the ISP name and the WAN address.
+**Replaced:** hostnames and device names, IP addresses, MAC addresses
+(including the node identifiers in the DOT and draw.io output, which
+come from them), network and VLAN names, SSIDs, the ISP name and the WAN
+address.
 
-**Kept**, because otherwise the result is useless for the purpose: how everything
-is connected, device roles, models and artwork, port numbers, counts, and which
-clients sit on which network. Addresses are renumbered but stay grouped, so the
-VLAN structure is still visible.
+**Kept**, because otherwise the result is useless for the purpose: how
+everything connects, device roles, models and artwork, port numbers,
+counts, and which clients sit on which network. Addresses get new
+numbers but stay grouped, so the VLAN structure is still visible.
 
-Pseudonyms are stable. The same device is `client-07` in every render of the same
-snapshot, so a follow-up screenshot lines up with the first. They are assigned by
-a fixed ordering rather than derived from the real name, since a hash of a short
-hostname is trivially reversible.
+Pseudonyms are stable. The same device is `client-07` in every render of
+the same snapshot, so a follow-up screenshot lines up with the first. A
+fixed ordering assigns them, rather than a hash of the real name, since
+a hash of a short hostname is trivially reversible.
 
 ### Logs, and what `-v` reveals
 
-`--obfuscate` covers the diagram *and* the ordinary log output, so a scrubbed
-render is not accompanied by a terminal full of real names. There is a test that
-renders an identifying fixture and checks the captured log for every value it
-knows about.
+`--obfuscate` covers the diagram *and* the ordinary log output, so a
+scrubbed render does not come with a terminal full of real names. A test
+renders an identifying fixture and checks the captured log for every
+value it knows about.
 
-`-v` is the exception, deliberately. Verbose mode exists to explain why an
-individual device did not match, which means naming it. Do not paste `-v` output
-from a real network into a public issue.
+`-v` is the exception, deliberately. Verbose mode exists to explain why
+an individual device did not match, and that means it names the device.
+Do not paste `-v` output from a real network into a public issue.
 
 ### What it does not hide
 
-Two things worth understanding before you post a map publicly:
+Understand two things before you post a map publicly:
 
-- **The artwork still shows what your devices are.** A TV, a thermostat, a NAS
-  and a games console are all recognisable from their pictures, and some carry
-  brand marks. If that matters, add `--icons builtin`, which draws only our own
-  generic role icons: a device still reads as a switch or a phone, but nothing
-  says whose or which model.
-- **`--title` is yours.** If you pass a title containing your name or your
-  network's name, it will be rendered exactly as given. The default is a neutral
-  "Network map".
+- **The artwork still shows what your devices are.** A TV, a thermostat,
+  a NAS, and a games console are all recognisable from their pictures,
+  and some carry brand marks. If that matters, add `--icons builtin`,
+  which draws only our own generic role icons. A device still reads as a
+  switch or a phone, but nothing says whose or which model.
+- **`--title` is yours.** If you pass a title that contains your name or
+  your network's name, the tool renders it exactly as given. The default
+  is a neutral "Network map".
 
-This runs on the model before anything is drawn, so no renderer can leak a value
-that has already been removed. A test renders SVG, DOT and draw.io and asserts
-that not one original hostname, address, MAC, network name or SSID appears in any
-of them, because a mode that cleans one format and leaves another readable would
-be worse than none at all.
+This runs on the model before the tool draws anything, so no renderer
+can leak a value the model already removed. A test renders SVG, DOT, and
+draw.io, and asserts that not one original hostname, address, MAC,
+network name, or SSID appears in any of them. A mode that cleans one
+format and leaves another readable would be worse than none at all.
 
 ## Helping: `unifi-map shape`
 
-Several things this tool cannot do are stuck on evidence rather than effort.
-Multi-site handling has only ever seen one site. Nothing has been profiled at
-scale. The four support-file limits come from a single archive. Every endpoint
-shape is verified against exactly one controller version.
+Several things this tool cannot do are stuck on evidence, not effort.
+Multi-site handling only ever saw one site. This project never profiled
+anything at scale. The four support-file limits come from a single
+archive. This project verified every endpoint shape against exactly one
+controller version.
 
-None of that is fixable by thinking harder, and the one thing you should never
-be asked for is your data. So:
+None of that improves with more thinking. And the one thing you should
+never have to give is your data. So:
 
 ```bash
 unifi-map shape                              # from a cached snapshot
@@ -86,20 +89,23 @@ unifi-map shape --support-file support.tgz    # or straight from an archive
 unifi-map shape --yes                         # skip the prompt, once read
 ```
 
-It prints a short plain-text description of the *shape* of your network: counts,
-how many things hang off the busiest device, which field **names** your
-controller returns, and version numbers. It is built from a list written in
-advance rather than by stripping identifying values out, because a filter that
-strips can be incomplete and a list that only ever adds cannot.
+It prints a short plain-text description of the *shape* of your
+network: counts, how many things attach to the busiest device, which
+field **names** your controller returns, and version numbers. This
+project builds it from a list written in advance, rather than by
+removing identifying values. A filter that removes values can be
+incomplete. A list that only ever adds cannot.
 
-No addresses, MACs, hostnames, SSIDs, site names or network names appear in it,
-and no value from any field, only whether that field exists. It is short enough
-to read in full before you send it, and nothing is transmitted by the tool: the
-report goes to your terminal and what happens next is your decision.
+No addresses, MACs, hostnames, SSIDs, site names, or network names
+appear in it, and no value from any field, only whether that field
+exists. It is short enough to read in full before you send it. The tool
+transmits nothing: the report goes to your terminal, and what happens
+next is your decision.
 
-Pointed at an archive it also reports how much there is to walk and how many
-sites it contains, counted and never named. Those are the numbers behind the
-support-file limits and the untested multi-site handling.
+If you point it at an archive, it also reports how much there is to
+walk, and how many sites it contains, counted and never named. Those
+are the numbers behind the support-file limits and the untested
+multi-site handling.
 
 The most useful part is the schema section, which says which fields your
 controller returns and which it does not. That is the question we cannot answer

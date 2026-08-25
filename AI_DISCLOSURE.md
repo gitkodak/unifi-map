@@ -28,7 +28,7 @@ by the human and carry a `Co-Authored-By` trailer naming the model.
 
 ## What has actually been verified
 
-- **771 automated tests**, none of which touch the network. They cover the
+- **772 automated tests**, none of which touch the network. They cover the
   parsing, the model, obfuscation, override handling, support-file reading, the
   renderers and several security properties directly.
 - **Continuous integration** on every push and pull request, plus a repository
@@ -116,7 +116,7 @@ Four consecutive external reviews found defects in prose the assistant had just
 written. `docs/overrides.md` said supplied artwork was never cached, in the same
 session the assistant made it cached. The correction then claimed the cached copies were
 private when they were world-readable, and offered a `rm -rf "$VAR/user-svg"`
-that expands to an absolute root path when the variable is unset — which it
+that expands to an absolute root path when the variable is unset, which it
 usually is, because that variable normally lives in the credential file. The
 correction to *that* published a command nobody had run, which returned nothing.
 

@@ -21,8 +21,8 @@ README or a wiki, and JSON of the normalised topology for other programs.
 It only ever reads. Every request is a GET, and there is no code path that
 changes anything on the controller.
 .SS Two stages
-\fBfetch\fR caches the controller's JSON; \fBrender\fR turns that cache into
-diagrams; \fBall\fR does both. They are separable so a map can be restyled
+\fBfetch\fR caches the controller's JSON. \fBrender\fR turns that cache into
+diagrams. \fBall\fR does both. They are separable so a map can be restyled
 repeatedly without touching the controller again, and so each cached snapshot
 is a record of the network at one moment.
 .SS Without a controller
@@ -44,7 +44,7 @@ Cache controller data (or read \-\-support\-file instead)
 Render diagrams from cache
 .TP
 \fBall\fR
-Fetch then render (both stages; not all formats, see \-f)
+Fetch then render (both stages, not all formats, see \-f)
 .TP
 \fBshape\fR
 Describe the network's shape, for sharing in an issue
@@ -60,13 +60,13 @@ Accepted before or after the subcommand, so
 Credential file (default: $UNIFI_MAP_ENV, ./.env, ~/.config/unifi\-map/env)
 .TP
 \fB\-\-cache\-dir\fR
-Where controller snapshots are read/written. A snapshot is a full inventory of your network, so keeping it outside a git repository is worth doing: set $UNIFI_CACHE_DIR once instead of passing this every time (default: cache)
+Where controller snapshots are read/written. A snapshot is a full inventory of your network, so keeping it outside a git repository is worth doing: set $UNIFI_MAP_CACHE_DIR once instead of passing this every time (default: cache)
 .TP
 \fB\-\-asset\-cache\fR
 Where downloaded artwork is cached (default: cache/assets). Kept separate from \-\-cache\-dir so a read\-only snapshot directory stays clean.
 .TP
 \fB\-\-support\-file\fR \fIPATH\fR
-Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork; add \-\-offline to stop that too.
+Read the topology from a UniFi support file (.tgz) instead of a controller. Needs no credentials and never contacts a controller. Rendering may still fetch artwork. Add \-\-offline to stop that too.
 .TP
 \fB\-\-site\fR \fINAME\fR
 Which site to read. For a live fetch this overrides UNIFI_SITE, which otherwise falls back to `default`. For a support file it picks one of the sites inside, and is required when the file holds more than one: the run stops and lists them rather than choosing for you.
@@ -90,7 +90,7 @@ With \-\-support\-file, also fetch the generic client glyph font from a controll
 Load the client glyph font from a directory you copied off a controller yourself (needs its style.css and .ttf). Needs no credentials and no network. See docs/artwork.md.
 .TP
 \fB\-\-support\-max\-archive\fR \fISIZE\fR
-Total uncompressed bytes to walk in a support archive, counting files that are skipped (default 4G). This is what stops a small archive that expands enormously; the other caps only measure what is decoded.
+Total uncompressed bytes to walk in a support archive, counting files that are skipped (default 4G). This is what stops a small archive that expands enormously. The other caps only measure what is decoded.
 .TP
 \fB\-\-no\-progress\fR
 Never show the progress spinner. It already turns itself off when output is not a terminal, so this is only needed for an interactive run whose output something else is reading.
@@ -111,7 +111,7 @@ show program's version number and exit
 .SH RENDER and ALL OPTIONS
 .TP
 \fB\-\-show\-offline\fR \fI{yes,no}\fR
-Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
+Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after somebody pulls it from the rack. Use yes when you want to see what it still thinks exists (default: no)
 .TP
 \fB\-f\fR, \fB\-\-formats\fR \fI{svg,pdf,png,dot,drawio,mermaid,json,html}\fR
 Output formats (default: svg drawio)
@@ -129,7 +129,7 @@ Colour theme (default: light)
 Draw no background, so the map sits on whatever page it is placed on. Applies to svg, pdf, png and drawio. Pick the theme to match the destination: labels are drawn straight onto the canvas with nothing behind them, so light text vanishes on a light page.
 .TP
 \fB\-\-offline\fR
-Never reach the network for artwork; use only what is already cached
+Never reach the network for artwork. Use only what is already cached
 .TP
 \fB\-\-name\fR
 Output filename stem
@@ -145,7 +145,7 @@ Manual corrections: links the controller cannot see, nesting, renames, your own 
 Replace hostnames, addresses, MACs, network names and SSIDs with stable placeholders, keeping topology, roles and artwork intact, so the diagram can be shared
 .TP
 \fB\-\-report\fR
-After rendering, print a diagnostic report on stdout saying where the map came from: which endpoint placed each client, what could not be placed, and which artwork matches were refused as ambiguous. NOT safe to share, since it names your devices; use `unifi\-map shape` for that
+After rendering, print a diagnostic report on stdout saying where the map came from: which endpoint placed each client, what could not be placed, and which artwork matches were refused as ambiguous. NOT safe to share, since it names your devices. Use `unifi\-map shape` for that
 .TP
 \fB\-\-title\fR
 Diagram title (default: Network map). Note that \-\-obfuscate cannot clean a title you supply yourself
@@ -163,18 +163,18 @@ Show the legend (default: on for \-\-layout tree, off for \-\-layout unifi)
 Show the title and subtitle above the map. A title sets a minimum canvas width, so turning it off crops dead space on a narrow map (default: on for \-\-layout tree, off for \-\-layout unifi)
 .TP
 \fB\-\-stagger\fR \fIN\fR
-With \-\-layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables; higher is taller and narrower; default 12)
+With \-\-layout tree, stagger leaf nodes into rows of ~N to control aspect ratio (0 disables. Higher is taller and narrower. Default 12)
 .SH SHAPE OPTIONS
 .TP
 \fB\-\-yes\fR
-Skip the consent prompt. Read what the report contains first; `unifi\-map shape` on its own prints that and asks.
+Skip the consent prompt. Read what the report contains first. `unifi\-map shape` on its own prints that and asks.
 .SH OVERRIDES OPTIONS
 .TP
 \fBaction\fR \fI{check,generate}\fR
 check: apply the file against the cached snapshot and report, failing on any selector that matches nothing or several things. generate: print a commented overrides skeleton, seeded from what the cached snapshot could not resolve, to stdout
 .TP
 \fB\-\-show\-offline\fR \fI{yes,no}\fR
-Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after it has been pulled from the rack; use yes when you want to see what it still thinks exists (default: no)
+Include devices the controller lists but that are not currently connected. Defaults to no, because a controller keeps remembering hardware long after somebody pulls it from the rack. Use yes when you want to see what it still thinks exists (default: no)
 .TP
 \fB\-\-overrides\fR
 Which file to check. Defaults to overrides.toml when it exists. Not used by generate.
@@ -185,7 +185,7 @@ Hostname or address of the console. Required for a live fetch.
 .TP
 \fBUNIFI_API_KEY\fR
 An API key. Required for a live fetch. A key carries the permissions of the
-account that created it; UniFi offers no way to issue a read\-only one.
+account that created it. UniFi offers no way to issue a read\-only one.
 .TP
 \fBUNIFI_SITE\fR
 Which site to read. Overridden by \fB\-\-site\fR. Defaults to
@@ -247,8 +247,8 @@ Preferences, as opposed to credentials: \fBtheme\fR, \fBlayout\fR,
 \fBicons\fR, \fBformats\fR, \fBoverrides\fR, \fBcache_dir\fR,
 \fBasset_cache\fR and \fBout_dir\fR, as flat TOML keys named after the
 flags. Honours \fBXDG_CONFIG_HOME\fR, or use \fBUNIFI_MAP_CONFIG\fR. An
-unrecognised key is an error naming the ones that are accepted. Optional;
-the tool runs with no config file at all.
+unrecognised key is an error naming the ones that are accepted. Optional.
+The tool runs with no config file at all.
 .TP
 \fBcache/\fR
 Cached snapshots. A full inventory of MACs, hostnames and addresses.

@@ -65,7 +65,7 @@ told something untrue and may have acted on it.
   switch or a virtualisation host the controller cannot see, and needs no
   cooperation from the hidden device to detect, unlike LLDP. The diagram
   marks the shared edges with a small diamond at the child end, present in
-  every layout including the default `unifi`; `--layout tree` additionally
+  every layout including the default `unifi`. `--layout tree` additionally
   appends `*` to the port label. `--report` names the port and lists the
   clients in a new `SHARED SWITCH PORTS` section, and the console warns once
   per shared port, a bare count under `--obfuscate`. Never drawn as a node:
@@ -76,7 +76,7 @@ told something untrue and may have acted on it.
   Seeded from the same signals `--report` already names: clients with no
   reported uplink, switch ports shared by several wired clients, and artwork
   matches refused as ambiguous. Every block is commented out, so the file
-  changes nothing until edited and uncommented; the one field it never fills
+  changes nothing until edited and uncommented. The one field it never fills
   in is a client's real uplink. `--report` now points at it from each of the
   three sections it can help with. On a cold artwork cache the ambiguous-
   artwork check did not run at all, and the printed file says so with a
@@ -86,8 +86,8 @@ told something untrue and may have acted on it.
   artwork tally, no unplaced-client or shared-port hints. Those restate
   steady-state facts about the network rather than something that just
   changed, which is exactly the noise a scripted or cron run wants silenced.
-  Implies `--no-progress`; refused together with `-v`/`--verbose` rather than
-  one silently winning. Does not touch printed output (`--report`, `shape`,
+  Implies `--no-progress`. Refused together with `-v`/`--verbose`, rather
+  than letting one silently win. Does not touch printed output (`--report`, `shape`,
   `overrides generate`), only console narration.
 
 ## 0.12.0 - 2026-08-14
@@ -112,7 +112,7 @@ told something untrue and may have acted on it.
 
   **`--obfuscate` and `--force` are deliberately excluded**, with no variable
   and no config key. One is a claim that the output is safe to share and the
-  other overwrites files; neither should be answerable by ambient state that
+  other overwrites files. Neither should be answerable by ambient state that
   is invisible in the command being run. `docs/credentials.md` shows how to
   pass `--obfuscate` to a containerised run, including with `--entrypoint`.
 
@@ -133,7 +133,7 @@ told something untrue and may have acted on it.
 - **`UNIFI_CACHE_DIR`, `UNIFI_ASSET_CACHE` and `UNIFI_OUT_DIR` are renamed** to
   `UNIFI_MAP_CACHE_DIR`, `UNIFI_MAP_ASSET_CACHE` and `UNIFI_MAP_OUT_DIR`.
   `UNIFI_*` is the controller's namespace and these were never controller
-  settings; `UNIFI_MAP_ENV` already followed the rule they broke. The old names
+  settings. `UNIFI_MAP_ENV` already followed the rule they broke. The old names
   still work and warn, and will be removed in a later release.
 
 ### Fixed
@@ -141,7 +141,7 @@ told something untrue and may have acted on it.
 - **`unifi-map shape` no longer hands an exported `UNIFI_API_KEY` to the
   `dot -V` child process it runs to report your Graphviz version.** The two
   Graphviz child processes used to actually render a map have stripped an
-  exported key from their environment since early on; this third one, added
+  exported key from their environment since early on. This third one, added
   later purely to report a version number, was missed. `shape` is
   specifically the command meant to be safe to paste into a bug report.
   Found by external review.
@@ -249,10 +249,10 @@ told something untrue and may have acted on it.
 
   Underneath it, every node and link now records which endpoint or fallback
   produced it, at the point that decision is made rather than reconstructed
-  afterwards. The tool has always refused to guess; until now that refusal was
-  invisible, because a client the controller reported directly and one recovered
-  from a second endpoint were drawn identically and with equal apparent
-  authority. The diagram itself gains the same distinction below.
+  afterwards. This tool has always refused to guess. Until now, that refusal
+  was invisible, because a client the controller reported directly and one
+  recovered from a second endpoint were drawn identically and with equal
+  apparent authority. The diagram itself gains the same distinction below.
 
   **It is not safe to share, and says so at the top.** It names your devices,
   addresses and networks by design. `unifi-map shape` remains the one built from
@@ -268,7 +268,7 @@ told something untrue and may have acted on it.
   own reported uplink, is now marked on the diagram itself.** That link gets a
   small hollow-circle arrowhead at the child end, in every backend that draws
   the network as a picture rather than as text or data (`svg`, `pdf`, `png`,
-  `drawio`, and `html`, which embeds the same marked SVG) — the one
+  `drawio`, and `html`, which embeds the same marked SVG). It is the one
   distinction `--report` surfaced in text but the map still drew like any
   other link. Every other provenance value turned out to already have a
   channel: node role through `Kind`, an override through the existing dotted
@@ -280,7 +280,7 @@ told something untrue and may have acted on it.
   scroll or drag to pan, pinch or Ctrl+scroll to zoom, search to dim
   everything that doesn't match, click a client to trace its path back to the
   gateway, and click a switch or AP to collapse the clients hanging off it.
-  That last one is the actual point — a switch with thirty clients is
+  The collapse feature is the actual point: a switch with thirty clients is
   unreadable in every static format, which is the problem this exists to
   solve.
 
@@ -304,8 +304,8 @@ told something untrue and may have acted on it.
   controller, which is the endpoint people are told it is ordinary to reach
   with `UNIFI_VERIFY_TLS=false`. Both now stream through the same capped-read
   guard, which moved out of `assets.py` into a shared module so the two cannot
-  drift apart again. A response past 64 MiB is refused with a message; nothing
-  a real network returns comes near that.
+  drift apart again. A response past 64 MiB is refused with a message.
+  Nothing a real network returns comes near that.
 
 - **A cached snapshot is now an atomic generation.** Each payload used to be
   written as its own file with stale ones deleted afterwards, so a fetch cut
@@ -327,7 +327,7 @@ told something untrue and may have acted on it.
 
   **The man page now reaches a wheel install too.** Shipped as installed data
   at `share/man/man1/unifi-map.1`, so `man unifi-map` resolves with no
-  `MANPATH` configuration once the virtual environment is on `PATH` — both
+  `MANPATH` configuration once the virtual environment is on `PATH`. Both
   macOS's and GNU man-db's `man` search a venv's `share/man` automatically.
   Previously the committed `unifi-map.1` only worked as `man ./unifi-map.1`
   from a checkout.
@@ -374,7 +374,7 @@ told something untrue and may have acted on it.
   a file exported by a drawing tool works untouched.
 
   **Optional on purpose**, and converting the file to PNG yourself does the
-  same job with no dependency at all. Both routes are documented; the tool
+  same job with no dependency at all. Both routes are documented. The tool
   warns and names the file when an SVG is about to go missing from a format.
   Fetched artwork is unaffected: it is already PNG.
 
@@ -412,8 +412,8 @@ told something untrue and may have acted on it.
   The cache one is the point. A snapshot is a complete inventory of a network,
   the default puts it in the working directory, and for anyone working on this
   tool that directory is a git checkout. A `cache.bak` copy made before a risky
-  fetch is not covered by a `.gitignore` entry for `cache/`; one sat untracked
-  in this repository, one `git add -A` from being published. The ignore rule was
+  fetch is not covered by a `.gitignore` entry for `cache/`. One sat
+  untracked in this repository, one `git add -A` from being published. The ignore rule was
   widened in 0.8.0, and this removes the question rather than guarding it.
 
 ### Removed
@@ -468,8 +468,8 @@ told something untrue and may have acted on it.
 - **draw.io connection lines no longer run through unrelated devices.** The
   edges carried only their two endpoints, so draw.io routed them with its own
   router and drew a long run straight through whatever the layout had placed in
-  between. Graphviz had already computed a route and it was being discarded;
-  those waypoints are now written into the file. Safe to pass through unchanged
+  between. Graphviz had already computed a route, and it was being discarded.
+  Those waypoints are now written into the file. Safe to pass through unchanged
   because both layouts use `ortho` or `polyline` splines, never a bezier, so the
   reported points are corners rather than control points.
 
@@ -521,11 +521,11 @@ told something untrue and may have acted on it.
 - **`--theme dark` does not survive into a `.drawio` file.** draw.io re-themes
   a diagram on load, inverting it to contrast with its own appearance setting,
   because its dark mode assumes diagrams are authored light. A file authored
-  dark is inverted a second time and displays light; a file authored light is
+  dark is inverted a second time and displays light. A file authored light is
   correct in both of draw.io's modes.
 
   Nothing is corrupted when this happens. The inversion is holistic, so cells,
-  text and artwork flip together and the file stays coherent; it simply reads as
+  text and artwork flip together and the file stays coherent. It simply reads as
   the theme you did not ask for.
 
   **For now the tool warns and renders what you asked for.** Use `--theme light`
@@ -547,7 +547,7 @@ told something untrue and may have acted on it.
 
 **If you keep an overrides file, read this before upgrading.** A file
 containing `wireless = "false"`, `hide = "false"`, a fractional `port`, or a
-misspelled key used to render; it now stops the run with an error naming the
+misspelled key used to render. It now stops the run with an error naming the
 problem. Those files were never doing what they said, which is why this changed,
 but the failure is new and it is at the point of use. The fix in every case is
 in the error message.
@@ -587,7 +587,7 @@ in the error message.
   same material and the README was carrying second copies to drift against.
 
   The guards were widened before the split rather than after. Every link used to
-  be a same-file `#anchor`; most are now `docs/artwork.md#something`, which can
+  be a same-file `#anchor`. Most are now `docs/artwork.md#something`, which can
   fail two ways a browser renders happily: the file may be missing, or present
   without the heading. The link check now resolves cross-file targets, the flag
   and command checks read every document rather than the README alone, and the
@@ -603,7 +603,7 @@ in the error message.
   `CONTRIBUTING.md` asks for those environments alongside the other things
   nobody here has.
 - Two released sections described one change twice. 0.7.0 had two entries for
-  `unifi-map shape`, written days apart; 0.6.0 had two for `RELEASING.md` that
+  `unifi-map shape`, written days apart. 0.6.0 had two for `RELEASING.md` that
   contradicted each other, one saying a fix had been claimed and never made and
   the other making that same claim. Both are merged. A test now fails when a
   release describes the same subject twice, with genuinely separate changes to
@@ -650,21 +650,21 @@ in the error message.
 - Several documented behaviours did not match the code, all found by an external
   review reading the split documentation against the source. Each is a fix to
   the document except where noted:
-  - `docs/output.md` said nothing is ever written to stdout; `unifi-map shape`
+  - `docs/output.md` said nothing is ever written to stdout. `unifi-map shape`
     writes its report there, which is what makes it pipeable.
   - It listed `dot` among the formats needing Graphviz. `dot`, `mermaid` and
-    `json` are all written directly and work without it; only `svg`, `pdf` and
+    `json` are all written directly and work without it. Only `svg`, `pdf` and
     `png` need it. Verified by rendering with an empty `PATH`.
   - Its JSON example named version 0.6.0 and omitted `title` and `networks`,
     the latter promised two paragraphs above it.
   - Its Mermaid example claimed to be the shipped demo while showing a direction
     and header no documented command produced. The example is now byte-identical
     to `--layout tree` output, with the one edit stated.
-  - `docs/overrides.md` called `[[device]].kind` required; it defaults to
+  - `docs/overrides.md` called `[[device]].kind` required. It defaults to
     `unknown`. It also never documented what `note` does, which differs per
     block: an edge label for `[[link]]` and `[[hosted]]`, nothing at all for
     `[[device]]` and `[[node]]`. And it did not mention `overrides check`.
-  - `docs/usage.md` said `fetch` downloads the icon font only when missing; it
+  - `docs/usage.md` said `fetch` downloads the icon font only when missing. It
     replaces any cached copy every time.
   - `docs/support-files.md` said omitting `--fetch-fingerprints` leaves clients
     without product artwork. The flag governs the download, not the lookup: a
@@ -689,7 +689,7 @@ in the error message.
   `sane` layout alias in 0.6.0, which 0.6.0 did. The entries are rewritten to
   keep the constraints that still bind rather than deleted. The issue template
   for feature requests pointed contributors at that file's planned-work section,
-  naming two shipped features; it points at `TODO.md`, which exists precisely
+  naming two shipped features. It points at `TODO.md`, which exists precisely
   because `CLAUDE.md` is written for agents.
 
 - **Two defects in the override-displacement warning added earlier in this same
@@ -729,11 +729,11 @@ in the error message.
   raises it, which is the worst of the four to omit it from, since it is the one
   a legitimately large site is most likely to hit. Now tested for all four.
 - Smaller documentation corrections: the support-file page called its four
-  adjustable limits "three" twice; the overrides page said three of the four
-  block types accept `note` when all four do; the JSON example said everything
-  but `nodes` and `edges` was complete while abridging `networks` too; the
+  adjustable limits "three" twice. The overrides page said three of the four
+  block types accept `note` when all four do. The JSON example said everything
+  but `nodes` and `edges` was complete while abridging `networks` too. The
   README said Graphviz was required outright, when `dot`, `mermaid` and `json`
-  need nothing installed; and three cross-references still pointed at README
+  need nothing installed. And three cross-references still pointed at README
   sections the split had moved (`CLAUDE.md`, the `--icon-font` help text, and
   the pull request checklist).
 
@@ -763,7 +763,7 @@ in the error message.
   where. Every message names the block, the key and what was expected.
 - **SVG artwork was accepted and then broke the render.** Graphviz refuses an
   SVG with no XML declaration, reporting it as a file that "was not found",
-  which fails the whole run; measuring it here and letting it through turned a
+  which fails the whole run. Measuring it here and letting it through turned a
   bad icon into a bad map. The accepted subset is now what Graphviz will
   actually load, verified by rendering one rather than by reading a spec, and
   `width="."` no longer raises while `width="0.5"` no longer becomes a 0x0 icon
@@ -783,13 +783,13 @@ in the error message.
   hostname, an SSID and a site name look like, so a payload keyed by any of them
   was reproduced under a heading stating that could not happen. Unrecognised
   keys are now counted and never named. That loses the discovery of new field
-  names, which was half the reason to run it elsewhere; a document claiming to
+  names, which was half the reason to run it elsewhere. A document claiming to
   be publishable has to be publishable first.
 - **`--obfuscate` left real network names and ids in the JSON export.** Aliases
   were built from the networks nodes referenced, so a configured network with no
   active clients was missed and kept its real name, and every network kept its
   real controller id regardless. The leakage test excluded JSON and Mermaid
-  despite being named for every output format; it now covers both, and the
+  despite being named for every output format. It now covers both, and the
   fixture carries an unused network with an identifying name.
 - **A fresh install could not fetch the hardware catalogue at all.** `_fetch`
   returns a small `Fetched` object rather than a `requests.Response`, and the
@@ -797,7 +797,7 @@ in the error message.
   `AttributeError` was not caught by the surrounding handler, so the very first
   render on a machine with an empty cache and a reachable CDN crashed. Every
   test either seeded the cache or simulated a network failure, so the ordinary
-  success path was the one thing never exercised; it is now.
+  success path was the one thing never exercised. It is now.
 - **`--obfuscate` erased the difference between an asserted link and an observed
   one.** Edges are rebuilt field by field during obfuscation and `asserted` was
   not carried, so a link stated in an overrides file came out drawn exactly like
@@ -853,7 +853,7 @@ in the error message.
 
 - **Nine device icons, drawn by this project rather than fetched.** Ubiquiti's
   artwork covers their hardware and the clients their fingerprint database
-  recognises; everything else fell through to a bare Graphviz primitive, so an
+  recognises. Everything else fell through to a bare Graphviz primitive, so an
   access point was a trapezium and an unplaceable client was a diamond.
 
   Five are infrastructure, keyed on the device's role. Four are clients, split on
@@ -864,7 +864,7 @@ in the error message.
   longer does, which removes the last reason a support-file user needs a
   controller.
 
-  They appear in two places. `--icons builtin` no longer means "no artwork"; it
+  They appear in two places. `--icons builtin` no longer means "no artwork". It
   means artwork that is ours, the Internet cloud included, and produces a
   complete map with no network access at all. And inside `--icons unifi` they
   are the fallback for hardware absent from Ubiquiti's catalogue, which is a
@@ -906,8 +906,8 @@ in the error message.
   holds across eight files and quietly lapses on the ninth.
 - **Three documentation guards, each for a class of drift the existing checks
   could not see.** The JSON example is parsed and its version and top-level keys
-  compared against real output; the Mermaid example is diffed byte-for-byte
-  against what its stated command produces; and every document is checked for a
+  compared against real output. The Mermaid example is diffed byte-for-byte
+  against what its stated command produces. And every document is checked for a
   generated-content marker without its pair. All three were mutation-tested by
   reintroducing the exact defect they were written for.
 
@@ -945,7 +945,7 @@ in the error message.
   reproducible-builds convention. Without it the committed demo screenshots
   changed on every regeneration, by exactly the thirty pixels of their
   timestamp, which made a real rendering change indistinguishable from the clock
-  ticking. `make demo-images` sets it; a real map still stamps the time it was
+  ticking. `make demo-images` sets it. A real map still stamps the time it was
   drawn.
 
 - The first screenshot's caption said most clients "fall back to plain shapes".
@@ -966,7 +966,7 @@ in the error message.
 - `-f mermaid` writes a `.mmd` that GitHub, GitLab and most wikis draw in
   place. It reaches the one destination the other formats cannot: a page that
   renders the diagram itself, with no file to open and no colour scheme to
-  guess. Artwork is lost, necessarily, since Mermaid draws boxes and text; node
+  guess. Artwork is lost, necessarily, since Mermaid draws boxes and text. Node
   kind is carried by shape and link meaning by line style, so nothing depends on
   colour. The README embeds a live one of the demo.
 - `unifi-map overrides check` applies an overrides file against the cached
@@ -993,9 +993,9 @@ in the error message.
   It reports counts and fan-out, topology depth, artwork resolution rates, the
   Graphviz version and the offline device count. The artwork numbers were
   already computed and thrown away as log lines, and they measure the most
-  fragile join in the tool; depth because fan-out alone does not distinguish a
-  flat network from a daisy chain; the Graphviz version because layout differs
-  between them.
+  fragile join in the tool. Depth matters because fan-out alone does not
+  distinguish a flat network from a daisy chain. The Graphviz version matters
+  because layout differs between them.
 
   Pointed at an archive with `--support-file` it reads that directly rather
   than the cache, and adds how much there was to walk, how many entries, and
@@ -1020,7 +1020,7 @@ in the error message.
 - A small rendering flourish, off unless an environment variable asks for it.
   Not in `--help`, not in the README, and not described further here. It is
   emitted straight into the DOT rather than added to the topology, so it cannot
-  reach counts, filtering, obfuscation or the report; a test holds that. Harmless
+  reach counts, filtering, obfuscation or the report. A test holds that. Harmless
   and cosmetic, and findable by anyone who already knows to look.
 
 ## 0.6.0 - 2026-08-02
@@ -1057,14 +1057,14 @@ in the error message.
   the section `CONTRIBUTING.md` tells contributors to use. It never mentioned
   `make docs`, which is mandatory now that the man page carries the version. It
   said CI could not be checked from here, which stopped being true once `gh` was
-  installed; the instruction now runs `gh run watch` and says to read the
+  installed. The instruction now runs `gh run watch` and says to read the
   per-job output, because `Dependency advisories` is `continue-on-error` and
   reports success having failed inside. And it counted how many times things had
   happened, where two of the counts were wrong and none told a reader anything
   the sentence did not.
 - `CLAUDE.md` said the `sane` layout alias goes in 0.5.0. It goes in 0.6.0,
-  which the code, the tests and the changelog all said; that one heading was
-  missed when the promise moved.
+  which the code, the tests and the changelog all said. Somebody missed that
+  one heading when the promise moved.
 
 ### Changed
 
@@ -1101,8 +1101,8 @@ in the error message.
   A version is promised here, unlike the open-ended `UDM_*` deprecation, because
   this is one flag value that anyone using it can change in seconds, and an
   indefinite alias would keep the word in `--help` indefinitely. The target is
-  0.6.0 rather than 0.5.0 because 0.5.0 is the release that introduces `tree`;
-  removing the old name in the same version it is deprecated would leave nobody
+  0.6.0 rather than 0.5.0 because 0.5.0 is the release that introduces `tree`.
+  Removing the old name in the same version it is deprecated would leave nobody
   a release to migrate in.
 
 ### Fixed
@@ -1138,7 +1138,7 @@ in the error message.
 - `_fetch` returns a small `Fetched` object rather than a `requests.Response`
   with two private attributes assigned by hand. The body is streamed through a
   size cap rather than read by `requests`, which is why the response had to be
-  doctored; callers only ever used three fields.
+  doctored. Callers only ever used three fields.
 - The example unmanaged switch is described as "unmanaged" rather than "dumb",
   in `examples/overrides.toml` and the README. "Unmanaged" is also the accurate
   term: it names the absent management plane, which is why such a device has to
@@ -1187,8 +1187,8 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
 
 ### Deprecated
 
-- The `UDM_*` environment variable names. `UNIFI_*` is the supported spelling;
-  the old one still works and now prints a warning naming its replacement, once
+- The `UDM_*` environment variable names. `UNIFI_*` is the supported spelling.
+  The old one still works and now prints a warning naming its replacement, once
   per run rather than once per variable. No removal version is promised, since
   anything here may change before 1.0.
 
@@ -1200,7 +1200,7 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
   including a detail crop whose bounds are computed from the layout rather than
   fixed pixel coordinates, so it follows the overrides instead of silently
   framing the wrong part of the map. The two existing screenshots are refreshed
-  by the same run; both predated the ISP mark on the Internet node and were
+  by the same run. Both predated the ISP mark on the Internet node and were
   visibly the wrong shape.
 - `docs/overrides.md` and `examples/overrides.toml` document `[[device]]`,
   which they had both missed entirely despite it being implemented, tested and
@@ -1209,7 +1209,7 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
   template still parses.
 - A flag reference at the bottom of the README, generated from the argument
   parser rather than written, so it cannot drift from `--help`. The flags are
-  still explained in context where they are relevant; this is for looking one
+  still explained in context where they are relevant. This is for looking one
   up. `make docs` regenerates it and a test fails if it is stale.
 - `--out-dir` and `-v` have help text. They had none, so they were missing from
   `--help` output as well as from every reference.
@@ -1221,14 +1221,14 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
 - `--site NAME` selects the site from the command line, for a live fetch as
   well as a support file. It overrides `UNIFI_SITE`, so a script can loop over
   sites without re-exporting a variable per invocation. `--support-site` still
-  works and now warns; it only ever covered support files.
+  works and now warns. It only ever covered support files.
 - A progress spinner on the three steps slow enough to look like a hang:
   reading a support archive, resolving artwork, and running Graphviz. It turns
   itself off whenever output is not a terminal, so piping, redirecting and CI
-  are unaffected and need no flag; `--no-progress` covers an interactive
+  are unaffected and need no flag. `--no-progress` covers an interactive
   terminal whose output something else is reading.
 - `--support-max-entries` caps how much of a support archive is walked. It was
-  already capped at 100,000; what is new is being able to change it. The two
+  already capped at 100,000. What is new is that you can change it now. The two
   size caps guard memory and this one guards time, since entry count does not
   follow the bytes decoded, and all three now behave the same way.
 - Raising `--support-max-entries` above the default warns that the run may take
@@ -1243,9 +1243,9 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
 
 - Documentation corrections from an external review. Support-file mode was
   described as touching nothing, when `all` goes on to render and rendering
-  fetches artwork; the README said read-only API keys were sufficient while
-  `SECURITY.md` explains UniFi will not issue one; the rendering issue template
-  still said overrides were unimplemented; and `--per-network` was described as
+  fetches artwork. The README said read-only API keys were sufficient, while
+  `SECURITY.md` explains UniFi will not issue one. The rendering issue template
+  still said overrides were unimplemented. And `--per-network` was described as
   per-VLAN when it iterates client networks, which need not have a VLAN.
 - The informal register is confined to `README.md`, `AI_DISCLOSURE.md` and
   `HUMAN_INPUT.md`, and kept out of `SECURITY.md`, `docs/` and `examples/`,
@@ -1287,7 +1287,7 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
   it is for, and the README says so.
 - Support-file size limits are tunable with `--support-max-member` and
   `--support-max-total`, and the defaults drop from 256M/512M to 64M/128M. The
-  old values were large enough to be no real limit; the new ones are about 160x
+  old values were large enough to be no real limit. The new ones are about 160x
   the largest member observed in a real archive, and a genuinely large site can
   raise them rather than being refused.
 - Snapshots and rendered output are created mode `0600`, with the mode set
@@ -1405,7 +1405,7 @@ and the two documentation reviews. Eight findings, all reproduced and fixed.
 ## 0.1.0
 
 First versioned release. The tool was already public and working before this
-point; the version simply starts being tracked here.
+point. Version tracking simply starts here.
 
 ### Output
 
@@ -1433,7 +1433,7 @@ point; the version simply starts being tracked here.
 
 ### Presentation
 
-- Two layouts. `unifi` approximates the console view; `sane` is top down with
+- Two layouts. `unifi` approximates the console view. `sane` is top down with
   leaf nodes staggered and port numbers on the links.
 - Light and dark themes.
 - Okabe-Ito accent palette, with every distinction also carried by artwork, shape
@@ -1458,7 +1458,7 @@ point; the version simply starts being tracked here.
 
 ### Other
 
-- Authenticates with an API key. The tool only ever reads; `session.get` is the
+- Authenticates with an API key. The tool only ever reads. `session.get` is the
   only HTTP verb in the source.
 - A synthetic demo dataset, so the output can be seen without pointing the tool
   at real infrastructure.

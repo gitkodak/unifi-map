@@ -21,7 +21,7 @@ output is safe.
 The concrete trap that settles the design: a support file's `devices.json` is a
 list of objects **keyed by site name**, which users choose. Enumerating JSON keys
 to describe a payload would therefore leak site names, on precisely the
-multi-site archives most worth seeing. Container keys are never read; only
+multi-site archives most worth seeing. Container keys are never read. Only
 records inside them, and only their field names.
 
 Unrecognised keys are **counted, never printed**. An earlier version printed
@@ -295,7 +295,7 @@ def build_report(topo: Topology, payloads: dict[str, Any], extras: Extras | None
             f"  members read        {extras.members_found} of 7",
         ]
 
-    out += ["", "SCHEMA   (field names only; no values are read or shown)"]
+    out += ["", "SCHEMA   (field names only. No values are read or shown)"]
     for name in sorted(payloads):
         out += _field_report(name, _records_for(name, payloads[name]))
 

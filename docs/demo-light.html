@@ -520,8 +520,8 @@ let R={animate:!1,canvas:!1,cursor:"move",disablePan:!1,disableZoom:!1,disableXA
   // sends, and it is what a mouse wheel sends, and those two devices want
   // opposite things from it. Every pan/zoom canvas that gets this right
   // (Figma, Miro, Google Maps) agrees on the resolution: ctrlKey means zoom.
-  // Browsers set it on their own for a trackpad pinch — no physical Ctrl
-  // involved — so this also covers an actual Ctrl+scroll for free. Anything
+  // Browsers set it on their own for a trackpad pinch (no physical Ctrl
+  // involved), so this also covers an actual Ctrl+scroll for free. Anything
   // without ctrlKey pans, which is what a two-finger swipe is for. Binding
   // every wheel event straight to zoom, as an earlier version of this did,
   // meant the single most common gesture (swipe to pan) zoomed instead.
