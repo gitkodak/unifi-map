@@ -10,7 +10,7 @@ copies of a help string means one of them is wrong, and nothing would fail. The
 source of truth is `build_parser()` in `cli.py`, so a flag added there appears
 here and cannot be forgotten.
 
-`make docs` rewrites the section; `make check` fails if it is stale, which is
+`make docs` rewrites the section. `make check` fails if it is stale, which is
 the pattern that keeps it honest. Everything between the markers is replaced, so
 do not hand-edit it: change the `help=` text in `cli.py` instead.
 """
@@ -69,8 +69,8 @@ def render() -> str:
         "## Flag reference",
         "",
         "Generated from the argument parser by `scripts/generate_cli_docs.py`, so it",
-        "cannot drift from `--help`. Each flag is explained in context further up;",
-        "this is for looking one up. Run `unifi-map --help` for the same thing in a",
+        "cannot drift from `--help`. Each flag is explained in context further up.",
+        "This is for looking one up. Run `unifi-map --help` for the same thing in a",
         "terminal.",
         "",
         "```",

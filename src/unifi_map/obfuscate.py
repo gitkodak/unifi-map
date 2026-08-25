@@ -170,7 +170,7 @@ def obfuscate(topo: Topology) -> Topology:
         nodes[new_node.id] = new_node
 
     # `asserted` travels with the edge. Nodes keep theirs for free because they
-    # are rebuilt with `replace()`; edges are constructed field by field, so a
+    # are rebuilt with `replace()`. Edges are constructed field by field, so a
     # new field has to be added here or it is silently dropped. It was, and the
     # effect was that obfuscating a map redrew every override-asserted link as
     # though a controller had reported it. That is the one distinction this

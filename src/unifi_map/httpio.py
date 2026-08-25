@@ -10,16 +10,16 @@ must agree on how a hostile response is refused.
 Two things live here:
 
 - **`read_capped`**, the streaming read that stops at a cap instead of
-  buffering an endless body whole. It existed first as `assets._read_capped`;
-  this module is where the second copy would have landed, so it is where the
+  buffering an endless body whole. It existed first as `assets._read_capped`.
+  This module is where the second copy would have landed, so it is where the
   one copy lives.
 - **`Fetched`**, the minimal response object carrying only what callers use.
-  `assets` originally handed back a hand-patched `requests.Response`; this is
+  `assets` originally handed back a hand-patched `requests.Response`. This is
   that same idea without the dependency on two private attributes of somebody
   else's library.
 
 Keep the cap values with their callers. `MAX_ASSET_BYTES` says what an icon is
-and `MAX_RESPONSE_BYTES` what a controller payload is; neither is a property of
+and `MAX_RESPONSE_BYTES` what a controller payload is. Neither is a property of
 reading.
 """
 

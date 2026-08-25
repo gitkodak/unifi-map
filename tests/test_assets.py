@@ -1061,8 +1061,8 @@ class TestSvgRendersNotJustMeasures:
 
         `Path.chmod()` follows links, so before this a symlink planted at
         `user-svg/` or at one of its PNGs made the repair strip permissions from
-        whatever it pointed at. Nothing is disclosed — access is removed, not
-        granted — but an unrelated path loses group or world access, and in a
+        whatever it pointed at. Nothing is disclosed. Access is removed, not
+        granted. But an unrelated path loses group or world access, and in a
         cache directory somebody else can write to that is a local
         denial-of-service primitive.
 

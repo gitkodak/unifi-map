@@ -131,7 +131,7 @@ def stagger(dot_source: str, depth: int) -> str:
         return dot_source
     executable = shutil.which("unflatten")
     if executable is None:
-        log.warning("`unflatten` not found; skipping stagger. Diagram may be very wide.")
+        log.warning("`unflatten` not found. Skipping stagger. Diagram may be very wide.")
         return dot_source
     try:
         result = subprocess.run(
@@ -143,10 +143,10 @@ def stagger(dot_source: str, depth: int) -> str:
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        log.warning("`unflatten` failed; using unstaggered layout.", exc_info=True)
+        log.warning("`unflatten` failed. Using unstaggered layout.", exc_info=True)
         return dot_source
     if result.returncode != 0 or not result.stdout.strip():
-        log.warning("`unflatten` returned no output; using unstaggered layout.")
+        log.warning("`unflatten` returned no output. Using unstaggered layout.")
         return dot_source
     return result.stdout.decode("utf-8", errors="replace")
 
@@ -231,7 +231,7 @@ def _parse_plain_records(
 def parse_plain(plain: str) -> Layout:
     """Parse `-Tplain` into pixel-space positions.
 
-    Graphviz emits inches with a bottom-left origin; draw.io wants pixels with
+    Graphviz emits inches with a bottom-left origin. draw.io wants pixels with
     a top-left origin, so y is flipped against the reported graph height.
     """
     scale, graph_w, graph_h, raw, raw_edges = _parse_plain_records(plain)
@@ -247,7 +247,7 @@ def parse_plain(plain: str) -> Layout:
         # somebody added a `size` attribute.
         width = w * POINTS_PER_INCH * scale
         height = h * POINTS_PER_INCH * scale
-        # x,y is the node centre; draw.io geometry is the top-left corner.
+        # x,y is the node centre. draw.io geometry is the top-left corner.
         nodes[name] = Placed(
             x=x * POINTS_PER_INCH * scale - width / 2.0,
             y=(graph_h - y) * POINTS_PER_INCH * scale - height / 2.0,

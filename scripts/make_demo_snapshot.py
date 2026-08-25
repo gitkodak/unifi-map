@@ -4,7 +4,7 @@
 Everything here is invented: MACs use the locally-administered `02:` prefix,
 addresses are RFC 1918, and no hostname belongs to a real person. The `sysid`
 values ARE real, because they are what the tool joins against Ubiquiti's device
-catalog to fetch artwork; with fake sysids the demo could not show icons.
+catalog to fetch artwork. With fake sysids the demo could not show icons.
 
 Regenerate with:  python scripts/make_demo_snapshot.py
 """

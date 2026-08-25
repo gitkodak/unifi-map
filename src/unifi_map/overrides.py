@@ -116,7 +116,7 @@ class NodeOverride:
 
     Exists because Ubiquiti's fingerprint is sometimes wrong, and a wrong
     fingerprint yields both a wrong name and wrong artwork. `icon` points at a
-    file the user supplies; nothing is fetched for it.
+    file the user supplies. Nothing is fetched for it.
     """
 
     match: str
@@ -125,7 +125,7 @@ class NodeOverride:
     note: str | None = None
     # Drop the node from the map entirely: gear the controller still calls online
     # but which is idle by choice, or a host you would rather not put on a map
-    # you are sharing. Leaf nodes only; see the TODO about children.
+    # you are sharing. Leaf nodes only. See the TODO about children.
     hide: bool = False
 
 
@@ -763,7 +763,7 @@ def _unplaced_candidates(topo: Topology) -> list[str]:
 
 def _port_number(port_label: str) -> str:
     """`"port 7"` -> `"7"`. Model.py always builds the label this way for a
-    wired client edge; anything else is passed through unchanged."""
+    wired client edge. Anything else is passed through unchanged."""
     prefix = "port "
     return port_label[len(prefix) :] if port_label.startswith(prefix) else port_label
 
@@ -816,7 +816,7 @@ def _artwork_candidates(topo: Topology, ambiguous_artwork: list[tuple[str, int]]
     *ambiguous_artwork* is `AssetStore.ambiguous_names`: `(node.label, how many
     catalogue entries matched)`, recorded because `sysid_for_name()` only
     resolves a name that matches exactly one entry. Matched back to a node by
-    label, since that is what was actually looked up; a label is not unique, so
+    label, since that is what was actually looked up. A label is not unique, so
     every node carrying it is offered.
     """
     if not ambiguous_artwork:

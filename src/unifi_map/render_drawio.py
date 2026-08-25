@@ -252,7 +252,7 @@ def _add_edge_cell(
 
 
 def _add_edge_cells(root: ET.Element, topo: Topology, layout: Layout, theme: Theme) -> None:
-    # Graphviz reported a route per edge; consumed in order, because two nodes
+    # Graphviz reported a route per edge, consumed in order, because two nodes
     # can be joined more than once and the nth here is the nth there.
     routes = {pair: list(paths) for pair, paths in layout.edges.items()}
     shared = topo.shared_ports()
@@ -289,7 +289,7 @@ def render_drawio(
         pageWidth="1169",
         pageHeight="826",
         # draw.io treats a missing background as none, which is what
-        # `--transparent` wants; writing the string "none" is not portable
+        # `--transparent` wants. Writing the string "none" is not portable
         # across versions, so the attribute is left out instead.
         **({} if transparent else {"background": theme.background}),
         math="0",

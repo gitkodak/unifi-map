@@ -137,7 +137,7 @@ def _icon_label(topo: Topology, node_id: str, theme: Theme, accent: str, icon: I
     """Bare artwork with the label beneath, as the UniFi topology view shows it.
 
     No border and no fill: the artwork is the node. SRC must be a filesystem
-    path because Graphviz cannot read a data URI here; inline_svg_images()
+    path because Graphviz cannot read a data URI here. `inline_svg_images()`
     rewrites these into data URIs afterwards so the SVG stands alone.
     """
     node = topo.nodes[node_id]
@@ -187,7 +187,7 @@ def _graph_attrs(style: Style) -> list[str]:
             "  splines=ortho;",
             "  nodesep=0.45;",
             "  ranksep=1.3;",
-            # Trim the canvas to the drawing; no framing whitespace.
+            # Trim the canvas to the drawing. No framing whitespace.
             "  pad=0.08;",
         ]
     else:
@@ -228,7 +228,7 @@ def _node_attrs(
 
     # Whatever the caller resolved, without second-guessing it. This used to
     # be gated on `style.icons == "unifi"`, back when `builtin` meant no
-    # artwork existed at all; now it means artwork we drew ourselves rather
+    # artwork existed at all. Now it means artwork we drew ourselves rather
     # than artwork fetched from Ubiquiti, and there is plenty of it. The gate
     # also silently discarded icons a user supplied through an overrides file,
     # which were never fetched from anywhere either.
@@ -256,7 +256,7 @@ def _node_attrs(
     if node.asserted:
         # Artwork alone would read as something the controller reported, so an
         # asserted device gets a dotted outline around it. Dotted matches the
-        # asserted edge style; offline uses dashed, so the two stay
+        # asserted edge style. Offline uses dashed, so the two stay
         # distinguishable and both survive greyscale.
         attrs += ["shape=box", "style=dotted", f'color="{accent}"', "penwidth=1"]
     return attrs
@@ -470,7 +470,7 @@ def _legend(
 
     Only describes what the diagram actually encodes. A node drawn as artwork has
     no border and no fill, so its accent colour is never visible and a role
-    swatch for it would be a lie; role is carried by the artwork instead. Swatches
+    swatch for it would be a lie. Role is carried by the artwork instead. Swatches
     are therefore emitted only for roles that really were drawn as shapes in this
     render.
     """

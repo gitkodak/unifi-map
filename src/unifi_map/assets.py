@@ -15,7 +15,7 @@ its artwork from Ubiquiti's public CDN, and so do we.
 Devices are matched on **sysid**, not model name: the controller's ``model``
 string does not reliably match the catalog's ``shortnames`` (a USW Pro HD 24 PoE
 reports ``USWED72`` while the catalog calls it ``USPH24P``). Catalog sysids are
-hex strings and the controller reports a decimal int; all 1178 catalog values
+hex strings and the controller reports a decimal int. All 1178 catalog values
 are unambiguously hex, so strict base-16 parsing is correct.
 
 Everything degrades: no network, no Pillow, or an unknown device all fall back to
@@ -46,7 +46,7 @@ from .httpio import Fetched, declared_size, read_capped
 log = logging.getLogger(__name__)
 
 
-# Re-exported so `from unifi_map.assets import Fetched` keeps working; the
+# Re-exported so `from unifi_map.assets import Fetched` keeps working. The
 # definition lives in httpio.py, which is where the controller fetch reads it
 # too.
 __all__ = ["Fetched"]
@@ -66,8 +66,8 @@ FONT_MAP_FILE = "ubnt-icon.json"
 
 # The generic client glyphs. UniFi picks one of exactly these four by CSS class
 # for any client it has no product artwork for, so they are the whole of the
-# fallback. They live in a custom icon font that only a controller serves; there
-# is no published copy, which is why obtaining it is a deliberate step.
+# fallback. They live in a custom icon font that only a controller serves.
+# There is no published copy, which is why obtaining it is a deliberate step.
 CLIENT_GLYPHS = ("user-wired", "user-wireless", "guest-wired", "guest-wireless")
 _GLYPH_RULE = r"ubnt-icon--{name}[^{{]*\{{[^}}]*content:\s*\"\\([0-9a-fA-F]+)\""
 
@@ -131,7 +131,7 @@ IMAGE_URL = "https://static.ui.com/fingerprint/ui/images/{id}/{variant}/{hash}.p
 # Client artwork, keyed by the fingerprint dev_id that stat/sta already reports.
 # This is `staticFingerprintOld` in the Network UI's config, and it is what the
 # topology view actually renders for clients: real product artwork, not glyphs.
-# Only these three sizes exist; anything else 302s to ui.com.
+# Only these three sizes exist. Anything else 302s to ui.com.
 CLIENT_ICON_URL = "https://static.ui.com/fingerprint/0/{dev_id}_{size}.png"
 CLIENT_ICON_SIZES = ("257x257", "129x129", "101x101")
 
@@ -140,19 +140,19 @@ CLIENT_ICON_SIZES = ("257x257", "129x129", "101x101")
 # The controller serves its own copy at v2/api/fingerprint_devices/0, but this
 # is the same data and was a superset when compared, which is what allows
 # `--support-file` to resolve client artwork without connecting to a console.
-# Found in a support file's own logs; both static.ui.com and the older
+# Found in a support file's own logs. Both static.ui.com and the older
 # static.ubnt.com serve it identically.
 CLIENT_CATALOG_URL = "https://static.ui.com/fingerprint/0/devicelist.json"
 
 # ISP brand marks, keyed purely on the autonomous system number that
 # `stat/health` already reports. The console's own speed-test daemon logs the
 # URL it builds for this as `ispImg`, which is how the pattern was found after
-# a long search through the web bundles turned up nothing. Largest first;
-# unlike the fingerprint paths, a missing ASN or size returns a real 404.
+# a long search through the web bundles turned up nothing. Largest first.
+# Unlike the fingerprint paths, a missing ASN or size returns a real 404.
 ISP_LOGO_URL = "https://static.ui.com/asn/{asn}_{size}.png"
 ISP_LOGO_SIZES = ("257x257", "129x129", "101x101", "51x51", "25x25")
 
-# Preference order. `topology` is what the UniFi topology view uses; the others
+# Preference order. `topology` is what the UniFi topology view uses. The others
 # are fallbacks for hardware that lacks it.
 VARIANTS = ("topology", "nopadding", "default")
 
@@ -265,7 +265,7 @@ class IconAsset:
 
     Dimensions travel with the path so renderers can size a cell to the real
     aspect ratio without depending on Pillow themselves. Rack switches are wide
-    and short; forcing them into a square cell letterboxes them into a thin
+    and short. Forcing them into a square cell letterboxes them into a thin
     strip surrounded by dead space.
     """
 
@@ -334,12 +334,12 @@ class AssetStore:
             )
             declared = declared_size(response)
             if declared is not None and declared > max_bytes:
-                log.warning("%s claims %s bytes; refusing to read it.", url, declared)
+                log.warning("%s claims %s bytes. Refusing to read it.", url, declared)
                 response.close()
                 return None
             body = read_capped(response, max_bytes)
             if body is None:
-                log.warning("%s is larger than %d bytes; refusing it.", url, max_bytes)
+                log.warning("%s is larger than %d bytes. Refusing it.", url, max_bytes)
                 return None
             return Fetched(status_code=response.status_code, content=body, url=url)
         except requests.RequestException as exc:
@@ -427,7 +427,7 @@ class AssetStore:
             payload = json.loads(response.content)
         except (requests.RequestException, ValueError) as exc:
             log.warning(
-                "Could not fetch the client fingerprint database (%s); client artwork disabled.",
+                "Could not fetch the client fingerprint database (%s). Client artwork disabled.",
                 describe_network_error(exc),
             )
             return None
@@ -504,7 +504,7 @@ class AssetStore:
         theme rather than being pinned to one background. Measured at 5.8:1 on
         light and 8.4:1 on dark, both past WCAG AA for graphics, and it is a
         luminance difference rather than a hue one so it survives greyscale and
-        colour blindness. Each colour caches to its own file; sharing one would
+        colour blindness. Each colour caches to its own file. Sharing one would
         leave a dark cloud on a dark canvas.
         """
         cached = self.icon_dir / f"internet-{color.lstrip('#')}-{ICON_PX}.png"
@@ -529,7 +529,7 @@ class AssetStore:
         point beats a trapezium either way.
 
         *color* should be the theme's muted text colour, as the cloud uses, so
-        the icon tracks the theme. Each colour caches separately; sharing one
+        the icon tracks the theme. Each colour caches separately. Sharing one
         file would leave a dark icon on a dark canvas.
 
         Returns None rather than raising if Pillow is missing or the colour is
@@ -591,7 +591,7 @@ class AssetStore:
         wired/wireless. Rendering that same font glyph is therefore the actual
         artwork the UI shows, not an approximation of it.
 
-        The font comes from the controller and is cached; it is deliberately not
+        The font comes from the controller and is cached. It is deliberately not
         shipped in this repository.
         """
         codepoints = self.glyph_codepoints()
@@ -624,7 +624,7 @@ class AssetStore:
         asset = _measure(path)
         if asset is not None:
             return asset
-        log.debug("Cached icon %s is unreadable; regenerating.", path)
+        log.debug("Cached icon %s is unreadable. Regenerating.", path)
         try:
             path.unlink()
         except OSError:
@@ -636,10 +636,10 @@ class AssetStore:
             try:
                 return json.loads(self.catalog_path.read_text(encoding="utf-8"))
             except ValueError:
-                log.warning("Cached device catalog is corrupt; refetching.")
+                log.warning("Cached device catalog is corrupt. Refetching.")
 
         if self.offline:
-            log.warning("Offline and no cached device catalog; icons disabled.")
+            log.warning("Offline and no cached device catalog. Icons disabled.")
             return None
 
         response = self._fetch(CATALOG_URL)
@@ -649,7 +649,7 @@ class AssetStore:
             response.raise_for_status()
             # `json.loads`, not `response.json()`. `_fetch` returns `Fetched`,
             # which carries only what callers use and has never had a `json()`
-            # method; calling it raised AttributeError, which the clause below
+            # method. Calling it raised AttributeError, which the clause below
             # does not catch. That made a successful catalogue download on a
             # cold cache crash the run, the single most ordinary first-use path
             # there is. Every test either seeded the cache or simulated a
@@ -662,7 +662,7 @@ class AssetStore:
             )
             return None
         if not isinstance(payload, dict):
-            log.warning("The UniFi device catalog is not an object; icons disabled.")
+            log.warning("The UniFi device catalog is not an object. Icons disabled.")
             return None
 
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -683,7 +683,7 @@ class AssetStore:
             if entry.get("sysid") is not None:
                 raw.append(entry["sysid"])
             for value in raw:
-                # Catalog sysids are hex strings; verified unambiguous.
+                # Catalog sysids are hex strings. Verified unambiguous.
                 sysid = _to_int(value, 16)
                 if sysid is not None:
                     index.setdefault(sysid, entry)
@@ -726,7 +726,7 @@ class AssetStore:
         if len(matches) == 1:
             return matches.pop()
         if matches:
-            log.debug("Name %r matched %d catalog entries; refusing to guess.", text, len(matches))
+            log.debug("Name %r matched %d catalog entries. Refusing to guess.", text, len(matches))
             self.ambiguous_names.append((str(text), len(matches)))
         return None
 
@@ -796,7 +796,7 @@ def _make_private(path: Path) -> None:
     nofollow = getattr(os, "O_NOFOLLOW", 0)
     if not nofollow:
         # Windows and anything else without it. The repair is a courtesy for
-        # caches written by a pre-0.9.0 checkout; skipping it beats following a
+        # caches written by a pre-0.9.0 checkout. Skipping it beats following a
         # link blindly.
         return
     try:
@@ -824,7 +824,7 @@ def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
     Two things fall out of doing it ourselves, and both are the point:
 
     * **The XML declaration stops mattering.** Graphviz refuses an SVG without
-      one; CairoSVG does not care, and produces byte-identical output either
+      one. CairoSVG does not care, and produces byte-identical output either
       way. So the file the user already has works untouched, and nothing needs
       to write a corrected copy into their pictures folder.
     * **The result is a PNG like everything else.** All fetched artwork is
@@ -849,7 +849,7 @@ def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
     except OSError:
         return None
     if len(data) > MAX_ASSET_BYTES:
-        log.warning("%s is larger than %d bytes; not rasterising.", path, MAX_ASSET_BYTES)
+        log.warning("%s is larger than %d bytes. Not rasterising.", path, MAX_ASSET_BYTES)
         return None
 
     out_dir = cache_dir / "user-svg"
@@ -857,7 +857,7 @@ def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
 
     # Repair anything an earlier version left world-readable. Before this was
     # made private, the directory was created at the umask and the PNG written
-    # 0644 like the rest of the artwork cache; neither `mkdir_private` nor the
+    # 0644 like the rest of the artwork cache. Neither `mkdir_private` nor the
     # `is_file()` skip below would ever have touched them again, so an upgraded
     # checkout kept a public copy of the user's artwork indefinitely.
     #
@@ -950,7 +950,7 @@ def _pillow_image():
     try:
         from PIL import Image as pil_image
     except ImportError as exc:  # pragma: no cover - depends on environment
-        raise AssetError("Pillow is not installed; cannot process artwork.") from exc
+        raise AssetError("Pillow is not installed. Cannot process artwork.") from exc
     # Applied on every use rather than once at import, since Pillow is imported
     # lazily and a caller could have relaxed it.
     pil_image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
@@ -1106,7 +1106,7 @@ def _render_cloud(color: str, dest: Path, box: int) -> IconAsset:
     try:
         from PIL import ImageDraw
     except ImportError as exc:  # pragma: no cover - depends on environment
-        raise AssetError("Pillow is not installed; cannot draw the Internet icon.") from exc
+        raise AssetError("Pillow is not installed. Cannot draw the Internet icon.") from exc
 
     scale = 4
     width = box * scale
@@ -1153,7 +1153,7 @@ def _render_glyph(font_path: Path, codepoint: int, color: str, dest: Path, box: 
     try:
         from PIL import ImageDraw, ImageFont
     except ImportError as exc:  # pragma: no cover - depends on environment
-        raise AssetError("Pillow is not installed; cannot render glyphs.") from exc
+        raise AssetError("Pillow is not installed. Cannot render glyphs.") from exc
 
     char = chr(codepoint)
     try:
@@ -1181,7 +1181,7 @@ def _render_glyph(font_path: Path, codepoint: int, color: str, dest: Path, box: 
 def _downscale(raw: bytes, dest: Path, box: int) -> IconAsset:
     """Shrink *raw* PNG to fit *box*, preserving alpha and aspect ratio.
 
-    Product renders arrive 1-2 MB each; trimming transparent margins first means
+    Product renders arrive 1-2 MB each. Trimming transparent margins first means
     the visible artwork actually fills the box rather than floating in padding.
     """
     from io import BytesIO

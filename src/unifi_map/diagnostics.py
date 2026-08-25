@@ -12,7 +12,7 @@ that refusal was invisible. A map built from a perfect fetch and one built from
 a thin one looked equally authoritative, because a client placed from
 `stat/sta`, one placed from the controller's own topology graph, and one placed
 by a line somebody typed into an overrides file were drawn identically. The
-diagram itself now marks the topology-graph and overrides cases (KAN-137); this
+diagram itself now marks the topology-graph and overrides cases (KAN-137). This
 report is the text form of the same underlying `Provenance` data, and existed
 first. Most of the reasoning was already available at runtime and thrown away
 as log lines.
@@ -59,7 +59,7 @@ _CLIENT_KINDS = (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
 # that nothing knew at all.
 _NODE_SOURCES: tuple[tuple[Provenance, str], ...] = (
     (Provenance.DEVICE, "stat/device (the device inventory)"),
-    (Provenance.CLIENT, "stat/sta (the client list; 'sta' is UniFi's term for a connected client)"),
+    (Provenance.CLIENT, "stat/sta (the client list. 'sta' is UniFi's term for a connected client)"),
     (Provenance.SYNTHETIC, "ours (Internet, placeholder)"),
     (Provenance.OVERRIDE, "an overrides file"),
     (Provenance.UNSPECIFIED, "UNRECORDED (a bug, please report)"),
@@ -152,7 +152,7 @@ def _unplaced_section(topo: Topology) -> list[str]:
         "COULD NOT BE PLACED",
         "  Neither stat/sta nor the controller's topology graph reported an uplink",
         "  for these, so they hang off a placeholder rather than a guessed parent.",
-        "  An overrides file is how you say where they really are; run",
+        "  An overrides file is how you say where they really are. Run",
         "  `unifi-map overrides generate` for a starting point, or see",
         "  docs/overrides.md.",
         "",
@@ -242,7 +242,7 @@ def _mac_randomisation_section(topo: Topology) -> list[str]:
         f"  {randomised} of {len(clients)} client(s) advertise a locally-administered",
         "  MAC, which most phones and laptops rotate periodically. The same physical",
         "  device can reappear here as a new client rather than as the one already on",
-        "  the map; this is expected, and not something an overrides file can fix.",
+        "  the map. This is expected, and not something an overrides file can fix.",
     ]
 
 
@@ -252,7 +252,7 @@ def _shared_ports_section(topo: Topology) -> list[str]:
     Two causes look identical from here: an unmanaged switch the controller
     cannot see, or a virtualisation host bridging its guests onto one NIC
     (KAN-199). Reported rather than drawn, because synthesising a node for
-    either would be inventing topology this map has no basis for; the diagram
+    either would be inventing topology this map has no basis for. The diagram
     itself only marks the port with `*`, for the same reason. `[[device]]` or
     `[[hosted]]` in an overrides file is how you say which it actually is.
     """
@@ -264,7 +264,7 @@ def _shared_ports_section(topo: Topology) -> list[str]:
         "SHARED SWITCH PORTS",
         "  More than one wired client reports the same switch and port. This can",
         "  mean an unmanaged switch or a virtualisation host bridging its guests",
-        "  that the controller cannot see. An overrides file can say which; run",
+        "  that the controller cannot see. An overrides file can say which. Run",
         "  `unifi-map overrides generate` for a starting point, or see",
         "  docs/overrides.md for [[device]] and [[hosted]].",
         "",
@@ -313,12 +313,12 @@ def _dangling_networks(topo: Topology) -> list[str]:
 # `device`, `client_active` and `networkconf` are required and a fetch fails
 # without them, so they are here to be counted rather than to be missed.
 _PAYLOADS: tuple[tuple[str, str, str], ...] = (
-    ("device", "device", "infrastructure; the map is empty without it"),
-    ("client_active", "client", "clients; without it the map is infrastructure only"),
+    ("device", "device", "infrastructure. The map is empty without it"),
+    ("client_active", "client", "clients. Without it the map is infrastructure only"),
     ("networkconf", "network", "network names and VLANs"),
     ("topology", "edge", "clients behind non-UniFi gear cannot be placed without it"),
     # Names only. Client *artwork* is keyed on the `dev_id` carried on each
-    # client record, so it survives this being absent; the demo dataset is
+    # client record, so it survives this being absent. The demo dataset is
     # exactly that case and draws product icons with no fingerprint payload at
     # all. Saying "and artwork" here would send somebody hunting the wrong gap.
     ("fingerprint", "product", "product names in client labels"),
@@ -419,8 +419,8 @@ def _artwork_summary(art: dict[str, int]) -> list[str]:
         )
     if art.get("from_drawn"):
         # The reason differs by mode and the parenthetical has to follow it.
-        # In `builtin` these were drawn because that is what was asked for;
-        # saying "no catalogue match" there would invent a lookup failure.
+        # In `builtin` these were drawn because that is what was asked for.
+        # Saying "no catalogue match" there would invent a lookup failure.
         why = "no catalogue match" if looked_up else "--icons builtin, nothing was looked up"
         out.append(f"  drawn by us         {art['from_drawn']}   ({why})")
     return out
@@ -436,7 +436,7 @@ def _artwork_refused(ambiguous_artwork: list[tuple[str, int]]) -> list[str]:
         "ARTWORK REFUSED AS AMBIGUOUS",
         "  These names matched more than one product, so no artwork was used.",
         "  Refusing is deliberate: picking one would be inventing data. Rename",
-        "  the device in the console, or set an icon in an overrides file; run",
+        "  the device in the console, or set an icon in an overrides file. Run",
         "  `unifi-map overrides generate` for a starting point.",
         "",
     ]

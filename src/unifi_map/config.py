@@ -21,7 +21,7 @@ class ConfigError(RuntimeError):
 
 
 # The credential variables. `UDM_*` spellings were accepted until 0.9.0 and
-# warned from 0.7.0; they are gone. Anyone still on them gets the ordinary
+# warned from 0.7.0. They are gone. Anyone still on them gets the ordinary
 # "missing required configuration" error, which names the variable to set.
 _VARS: dict[str, str] = {
     "host": "UNIFI_HOST",
@@ -36,7 +36,7 @@ _VARS: dict[str, str] = {
 #
 # `UNIFI_*` is the controller's namespace and `UNIFI_MAP_*` is ours, which is
 # the rule `UNIFI_MAP_ENV` already followed. Three of these shipped under the
-# controller prefix before that line was drawn; see `_LEGACY_SETTING_VARS`.
+# controller prefix before that line was drawn. See `_LEGACY_SETTING_VARS`.
 _SETTING_VARS: dict[str, str] = {
     "cache_dir": "UNIFI_MAP_CACHE_DIR",
     "asset_cache": "UNIFI_MAP_ASSET_CACHE",
@@ -70,7 +70,7 @@ _PATH_SETTINGS = frozenset({"cache_dir", "asset_cache", "out_dir", "overrides"})
 # real TOML array in the config file.
 _LIST_SETTINGS = frozenset({"formats"})
 
-# Searched in order; the first existing file wins. Set UNIFI_MAP_ENV to point at
+# Searched in order. The first existing file wins. Set UNIFI_MAP_ENV to point at
 # a credential file kept outside the project directory.
 ENV_FILE_VAR = "UNIFI_MAP_ENV"
 
@@ -160,7 +160,7 @@ def _coerce_setting(key: str, raw: object, *, from_toml: bool) -> object:
 
     Values are shaped here and validated in `cli.py`, which is where the legal
     themes and layouts are declared. This function will happily return
-    ``"chartreuse"`` for a theme; the parser is what rejects it.
+    ``"chartreuse"`` for a theme. The parser is what rejects it.
     """
     if key in _LIST_SETTINGS:
         if from_toml and isinstance(raw, list):
@@ -255,7 +255,7 @@ def resolved_settings(
             if value is not None and value.strip():
                 if candidate_name == legacy:
                     log.warning(
-                        "%s is deprecated; rename it to %s. The old name still "
+                        "%s is deprecated. Rename it to %s. The old name still "
                         "works but will be removed.",
                         legacy,
                         name,
@@ -360,7 +360,7 @@ def source_date() -> datetime.datetime | None:
 
 def flourish() -> str | None:
     """A rendering nicety, or None. Read here because this module owns the
-    environment; see the note at the top of `cli.py` about why that matters."""
+    environment. See the note at the top of `cli.py` about why that matters."""
     return os.environ.get(_FLOURISH_VAR) or None
 
 

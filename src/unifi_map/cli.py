@@ -16,7 +16,7 @@ What lives here is argument parsing, credential and directory resolution,
 logging setup, and the `cmd_*` functions that sequence a run. What does not is
 anything a caller without a command line would still need: resolving nodes to
 artwork is `artwork.py` and writing files is `output.py`. The split is by
-concern rather than by length; the symptom that prompted it was a rendering
+concern rather than by length. The symptom that prompted it was a rendering
 test importing a private function from this module to exercise the renderer.
 """
 
@@ -141,7 +141,7 @@ class _Parser(argparse.ArgumentParser):
 
 # Defaults for the options shared between the top-level parser and every
 # subcommand. They live here rather than on the arguments because those must use
-# `argparse.SUPPRESS`; see `_Parser` above.
+# `argparse.SUPPRESS`. See `_Parser` above.
 GLOBAL_DEFAULTS = {
     "env_file": None,
     "cache_dir": DEFAULT_CACHE,
@@ -162,7 +162,7 @@ GLOBAL_DEFAULTS = {
     "progress": True,
     "overrides": None,
     # Suppressed on the arguments themselves so a value from the environment or
-    # a config file can fill them; see `_Parser`. The doc generator reads these
+    # a config file can fill them. See `_Parser`. The doc generator reads these
     # for the flag table, so the printed defaults stay correct without it
     # knowing anything about where else a value might come from.
     "formats": ["svg", "drawio"],
@@ -188,7 +188,7 @@ def _log_setting_sources(args: argparse.Namespace) -> None:
     """Name every setting that came from somewhere other than the command line.
 
     Info rather than debug, unlike the directory line below it. A directory is
-    a question somebody asks once; a theme or a layout arriving from a file the
+    a question somebody asks once. A theme or a layout arriving from a file the
     reader has forgotten about is the thing that makes two machines disagree,
     and it should be visible without anybody thinking to pass `-v`.
     """
@@ -243,8 +243,8 @@ class _FormatsAction(argparse.Action):
     format that failed to render, and both spellings look equally reasonable to
     somebody who has not read the flag table.
 
-    Refusing rather than appending, deliberately. An error states what happened;
-    appending would quietly change what an existing invocation produces, and the
+    Refusing rather than appending, deliberately. An error states what happened.
+    Appending would quietly change what an existing invocation produces, and the
     current behaviour, while wrong, is at least deterministic.
     """
 
@@ -319,7 +319,7 @@ def _report_displacements(result, obfuscated: bool) -> None:
         return
     for item in result.displaced:
         log.warning(
-            "%s: %s was reported by the controller under %s; the override replaces that link.",
+            "%s: %s was reported by the controller under %s. The override replaces that link.",
             item.context,
             item.node,
             item.parent,
@@ -332,7 +332,7 @@ def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
     Somebody meeting "Uplink not reported by controller" on a map has no way to
     know the tool is refusing to guess rather than failing, or that they can
     place it themselves. Saying so in the README only helps whoever reads that
-    section; this reaches the person looking at the diagram.
+    section. This reaches the person looking at the diagram.
 
     The count is reported either way, because somebody who already wrote an
     overrides file and still has stranded clients is exactly who benefits from
@@ -356,7 +356,7 @@ def _hint_about_unplaced(topo: Topology, overrides_path: Path | None) -> None:
 def _hint_about_shared_ports(topo: Topology, obfuscated: bool) -> None:
     """Warn when several wired clients report the same switch and port.
 
-    This is the console half of KAN-199; `render_dot`/`render_drawio` mark the
+    This is the console half of KAN-199. `render_dot`/`render_drawio` mark the
     same thing on the diagram with a `*` on the port label, because which of
     an unmanaged switch or a virtualisation host it is cannot be told apart
     from here, and synthesising a node for either would be inventing topology.
@@ -382,7 +382,7 @@ def _hint_about_shared_ports(topo: Topology, obfuscated: bool) -> None:
         log.warning(
             "%s, %s: %d wired clients share this port (%s). This can mean an "
             "unmanaged switch or a virtualisation host the controller cannot "
-            "see; see docs/overrides.md for [[device]] and [[hosted]].",
+            "see. See docs/overrides.md for [[device]] and [[hosted]].",
             switch,
             port,
             len(macs),
@@ -406,7 +406,7 @@ def _requested_site(args: argparse.Namespace) -> str | None:
     it. `--site` wins if somebody passes both.
     """
     if args.support_site and not args.site:
-        log.warning("--support-site is deprecated; use --site, which works for both inputs.")
+        log.warning("--support-site is deprecated. Use --site, which works for both inputs.")
     return args.site or args.support_site
 
 
@@ -431,8 +431,8 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         store.save_icon_font(font, codepoints)
         log.info("Cached the controller's icon font (%d client glyphs).", len(codepoints))
     except UniFiError as exc:
-        # Only needed for clients with no usable fingerprint; not fatal.
-        log.warning("Could not cache the icon font (%s); generic client glyphs disabled.", exc)
+        # Only needed for clients with no usable fingerprint. Not fatal.
+        log.warning("Could not cache the icon font (%s). Generic client glyphs disabled.", exc)
 
     snapshot.write(args.cache_dir)
     log.info("Wrote snapshot to %s/", args.cache_dir)
@@ -448,7 +448,7 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
     including per-network diagrams, overrides and obfuscation, works afterwards
     without knowing the difference. No credentials are read and no request is
     made, which is what makes reading one safe. Sending one is a different
-    question entirely, and the answer is no; see the warning below.
+    question entirely, and the answer is no. See the warning below.
     """
     # Said here rather than only in the docs, because this is the moment someone
     # has the archive in hand and is deciding what to do with it next. The
@@ -459,13 +459,13 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
         "IP and lease on the network, the SSIDs and subnets, the WAN addresses, "
         "and logs of client activity. UniFi redacts some credentials by field "
         "name, but that pass is incomplete. Keep it protected and delete it when "
-        "you are done; see SECURITY.md."
+        "you are done. See SECURITY.md."
     )
 
     store = AssetStore(cache_dir=args.asset_cache, offline=getattr(args, "offline", False))
     # Not in the archive. Downloading it is opt-in, because someone reading a
     # support file has often chosen this path precisely to avoid outbound
-    # traffic; an already-cached copy is used either way, being purely local.
+    # traffic. An already-cached copy is used either way, since that stays local.
     fingerprint_db = store.fingerprint_db(download=args.fetch_fingerprints)
     if fingerprint_db is None and not args.fetch_fingerprints:
         log.info(
@@ -502,7 +502,7 @@ def _fetch_from_support_file(args: argparse.Namespace) -> int:
 def _describe(payload: object) -> str:
     """Summarise a payload for the fetch log.
 
-    v1 endpoints wrap records in `data`; the v2 topology endpoint returns a dict
+    v1 endpoints wrap records in `data`. The v2 topology endpoint returns a dict
     of `vertices`/`edges` instead, which would otherwise read as "0 records" and
     look like a failure.
     """
@@ -592,7 +592,7 @@ def _resolve_render_icons(
 
     # Both modes: anything still without artwork gets one of ours rather than a
     # bare Graphviz primitive. In `unifi` that is hardware absent from
-    # Ubiquiti's catalogue; in `builtin` it is everything.
+    # Ubiquiti's catalogue. In `builtin` it is everything.
     drawn_count = apply_drawn_icons(topo, store, style.theme, icons, counts)
     if drawn_count:
         log.info("Artwork: %d node(s) drawn locally", drawn_count)
@@ -612,7 +612,7 @@ def _obfuscate_render(
     mapping = id_map(topo)
     icons = {mapping[key]: value for key, value in icons.items() if key in mapping}
     # The one piece of artwork that must not survive. Every other icon says what
-    # a device is; the ISP brand mark says who the owner buys transit from, and
+    # a device is. The ISP brand mark says who the owner buys transit from, and
     # hiding the name while drawing the logo would be theatre. `obfuscate()`
     # clears the ASN, but this dict was built before that ran, so swap the mark
     # for the generic cloud rather than just dropping it.
@@ -678,7 +678,7 @@ def cmd_render(args: argparse.Namespace) -> int:
     topo, override_icons, path = _apply_render_overrides(topo, args)
     if path is not None:
         # Recounted, because overrides add declared devices and hide nodes. The
-        # log above deliberately reports what was fetched; the subtitle drawn on
+        # log above deliberately reports what was fetched. The subtitle drawn on
         # the diagram has to describe the diagram, and it was still quoting the
         # pre-override numbers.
         tally = topo.counts()
@@ -764,7 +764,7 @@ def _write_per_network_views(
     """Write one rendering per client network, sharing the already-resolved icons."""
     names = client_networks(topo)
     if not names:
-        log.warning("No client networks found; skipping per-network views.")
+        log.warning("No client networks found. Skipping per-network views.")
     # Resolved across the whole set, since a collision is a property of the
     # set rather than of any one name.
     stems = unique_names(names)
@@ -1042,7 +1042,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Read the topology from a UniFi support file (.tgz) instead of a "
         "controller. Needs no credentials and never contacts a controller. "
-        "Rendering may still fetch artwork; add --offline to stop that too.",
+        "Rendering may still fetch artwork. Add --offline to stop that too.",
     )
     shared.add_argument(
         "--site",
@@ -1119,7 +1119,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="SIZE",
         help=f"Total uncompressed bytes to walk in a support archive, counting "
         f"files that are skipped (default {SUPPORT_MAX_ARCHIVE // 1024**3}G). This "
-        "is what stops a small archive that expands enormously; the other caps "
+        "is what stops a small archive that expands enormously. The other caps "
         "only measure what is decoded.",
     )
     shared.add_argument(
@@ -1180,7 +1180,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="no",
         help="Include devices the controller lists but that are not currently "
         "connected. Defaults to no, because a controller keeps remembering "
-        "hardware long after it has been pulled from the rack; use yes when you "
+        "hardware long after somebody pulls it from the rack. Use yes when you "
         "want to see what it still thinks exists (default: no)",
     )
 
@@ -1228,7 +1228,7 @@ def build_parser() -> argparse.ArgumentParser:
     render_flags.add_argument(
         "--offline",
         action="store_true",
-        help="Never reach the network for artwork; use only what is already cached",
+        help="Never reach the network for artwork. Use only what is already cached",
     )
     render_flags.add_argument("--name", default="network-map", help="Output filename stem")
     render_flags.add_argument(
@@ -1259,7 +1259,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="After rendering, print a diagnostic report on stdout saying where "
         "the map came from: which endpoint placed each client, what could not be "
         "placed, and which artwork matches were refused as ambiguous. NOT safe to "
-        "share, since it names your devices; use `unifi-map shape` for that",
+        "share, since it names your devices. Use `unifi-map shape` for that",
     )
     render_flags.add_argument(
         "--title",
@@ -1297,7 +1297,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=12,
         metavar="N",
         help="With --layout tree, stagger leaf nodes into rows of ~N to control "
-        "aspect ratio (0 disables; higher is taller and narrower; default 12)",
+        "aspect ratio (0 disables. Higher is taller and narrower. Default 12)",
     )
 
     sub.add_parser(
@@ -1311,7 +1311,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "all",
         parents=[shared, render_flags],
-        help="Fetch then render (both stages; not all formats, see -f)",
+        help="Fetch then render (both stages, not all formats, see -f)",
     ).set_defaults(func=cmd_all)
     shape = sub.add_parser(
         "shape",
@@ -1321,7 +1321,7 @@ def build_parser() -> argparse.ArgumentParser:
     shape.add_argument(
         "--yes",
         action="store_true",
-        help="Skip the consent prompt. Read what the report contains first; "
+        help="Skip the consent prompt. Read what the report contains first. "
         "`unifi-map shape` on its own prints that and asks.",
     )
     shape.set_defaults(func=cmd_shape)
@@ -1351,7 +1351,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _log_level(argv: list[str]) -> int | None:
-    """DEBUG for `-v`, ERROR for `-q`, INFO otherwise; `None` if both were given.
+    """DEBUG for `-v`, ERROR for `-q`, INFO otherwise. `None` if both were given.
 
     Read from *argv* directly rather than the parsed namespace, which does not
     exist yet: logging has to be configured before parsing can fail in a way

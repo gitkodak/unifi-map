@@ -74,7 +74,7 @@ def _topo_with_topology_graph_edge(also_wireless: bool = False):
 
 def test_topology_graph_edges_get_a_hollow_circle_arrowhead():
     """A client placed via the v2 graph, not its own uplink report, is real but
-    a step removed from what the device itself said — see CLAUDE.md's KAN-137
+    a step removed from what the device itself said. See CLAUDE.md's KAN-137
     notes. Nothing distinguished it from a directly reported edge before this.
     """
     dot_source = render_dot(_topo_with_topology_graph_edge(), "t", TREE)

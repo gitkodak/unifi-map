@@ -6,7 +6,7 @@ needs to draw a map, which makes it a second input worth supporting: it needs
 neither credentials nor network access.
 
 That is not the same as the archive being safe to hand over, and the two get
-conflated easily. Reading one requires no trust; *sending* one discloses far
+conflated easily. Reading one requires no trust. *Sending* one discloses far
 more than this module reads, including material this module never opens. See the
 warning in `cli._fetch_from_support_file` and the section in `SECURITY.md`.
 
@@ -65,7 +65,7 @@ _GENERATED_NAME = re.compile(r"^(?P<product>.*[^\s])\s+(?P<tail>[0-9a-f]{2}:[0-9
 #
 # The anchoring is load-bearing rather than tidy. Matching on a trailing path
 # fragment instead lets a crafted archive add `evil/unifi/devices.json`, which
-# ends with the same fragment; put it earlier in the stream and it is taken as
+# ends with the same fragment. Put it earlier in the stream and it is taken as
 # the real file. Since the entire premise of this mode is that somebody else
 # can send you the archive, that hands them the topology you see.
 MEMBERS: dict[str, str] = {
@@ -287,7 +287,7 @@ def _read_members(
             entries += 1
             if entries > max_entries:
                 raise SupportFileError(
-                    f"{path} holds more than {max_entries} entries; refusing to "
+                    f"{path} holds more than {max_entries} entries. Refusing to "
                     "keep walking it. The one archive measured held about 2,500. "
                     "Raise it with --support-max-entries if yours is legitimately "
                     "larger, and please open an issue saying so."
@@ -379,7 +379,7 @@ def _pick_site(devices: Any, requested: str | None) -> tuple[str, list[dict[str,
         available = ", ".join(sorted(real))
         raise SupportFileError(
             f"This support file holds {len(real)} sites ({available}). Pass "
-            "--site NAME to say which one to map; there is no sensible way to "
+            "--site NAME to say which one to map. There is no sensible way to "
             "choose for you."
         )
 
@@ -426,7 +426,7 @@ def _networkconf(devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
         ]
         if records:
             return records
-    log.warning("No gateway network_table in the support file; VLAN names will be missing.")
+    log.warning("No gateway network_table in the support file. VLAN names will be missing.")
     return []
 
 
@@ -454,7 +454,7 @@ def _parse_neighbours(raw: bytes | None) -> dict[str, str]:
     """MAC to address from `ip neigh` output.
 
     Covers hosts with static addresses, which never appear in a lease file. A
-    MAC can hold several addresses across VLANs; the first wins, and IPv4 is
+    MAC can hold several addresses across VLANs. The first wins, and IPv4 is
     preferred because that is what the rest of the map shows.
     """
     neighbours: dict[str, str] = {}
@@ -519,7 +519,7 @@ def _dev_id_from_name(name: str, mac: str, index: dict[str, int]) -> int | None:
 
     The rule is deliberately strict, because the alternative is inventing a
     product match. The trailing octets must genuinely be this client's, which
-    is what proves the console generated the name rather than a person; and the
+    is what proves the console generated the name rather than a person. The
     remaining text must equal exactly one catalogue entry. On the network this
     was developed against it resolved 12 clients with no wrong answers, while
     correctly refusing a human-named "RokuUltraGreatRoom" that a looser
@@ -568,7 +568,7 @@ def _dpi_hosts(raw: bytes | None) -> dict[str, dict[str, Any]]:
     Two things are taken from it, with different levels of trust. The address is
     an observation and is used freely, as a fallback behind the lease and
     neighbour tables. The fingerprint is an inference and is used only when the
-    gateway itself is confident; see MIN_FINGERPRINT_CONFIDENCE.
+    gateway itself is confident. See MIN_FINGERPRINT_CONFIDENCE.
     """
     hosts: dict[str, dict[str, Any]] = {}
     if not raw:
@@ -580,7 +580,7 @@ def _dpi_hosts(raw: bytes | None) -> dict[str, dict[str, Any]]:
     try:
         payload = json.loads(text[start:])
     except ValueError:
-        log.debug("DPI fingerprint stats were not parseable; skipping them.")
+        log.debug("DPI fingerprint stats were not parseable. Skipping them.")
         return hosts
 
     entries = payload.get("hosts") if isinstance(payload, dict) else None
@@ -647,7 +647,7 @@ def _client_record(
         record["dev_id"] = seen["dev_id"]
     if wired:
         record["sw_mac"] = edge.get("uplinkMac")
-        # The port is the one occupied on the *uplink* device;
+        # The port is the one occupied on the *uplink* device.
         # downlinkPortNumber is the client's own interface and is absent.
         record["sw_port"] = edge.get("uplinkPortNumber")
     else:
@@ -704,7 +704,7 @@ def _health(infrastructure: dict[str, Any]) -> list[dict[str, Any]]:
     """A `stat/health` WAN subsystem record from `ispData`.
 
     The archive names every WAN, active or not. The active one is what the
-    Internet node should be labelled with; failing that, the highest priority.
+    Internet node should be labelled with. Failing that, the highest priority.
     """
     isp_data = infrastructure.get("ispData")
     if not isinstance(isp_data, list):
@@ -740,15 +740,15 @@ def load_support_file(
     """Read *path* and return a Snapshot equivalent to a live fetch.
 
     *fingerprint_db* is the client fingerprint database, which a support file
-    does not contain. Supplying it is what lets client artwork resolve; without
+    does not contain. Supplying it is what lets client artwork resolve. Without
     it clients still draw, without product artwork. `AssetStore.fingerprint_db()`
     obtains it from Ubiquiti's published copy, so no controller is involved.
 
-    *max_member* and *max_total* cap what is decoded into memory; *max_entries*
+    *max_member* and *max_total* cap what is decoded into memory. *max_entries*
     and *max_archive* cap how much of the archive is walked, in entries and in
     uncompressed bytes, which are separate concerns because neither follows the
     bytes decoded. All four are arguments because the right value depends on the
-    site; see the constants.
+    site. See the constants.
 
     Raises `SupportFileError` if the archive is unreadable or does not carry
     the device and topology data a map needs.
@@ -798,7 +798,7 @@ def load_support_file(
     addressed = sum(1 for c in clients if c.get("ip"))
     if clients and addressed < len(clients):
         log.info(
-            "  %d of %d clients have an address; the rest took no DHCP lease "
+            "  %d of %d clients have an address. The rest took no DHCP lease "
             "and were not in the neighbour table.",
             addressed,
             len(clients),
@@ -806,7 +806,7 @@ def load_support_file(
     fingerprinted = sum(1 for c in clients if c.get("dev_id") is not None)
     if index:
         log.info(
-            "  %d of %d clients resolved a fingerprint for product artwork; the "
+            "  %d of %d clients resolved a fingerprint for product artwork. The "
             "rest fall back to glyphs.",
             fingerprinted,
             len(clients),

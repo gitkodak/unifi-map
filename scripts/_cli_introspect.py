@@ -51,7 +51,7 @@ def _default_for(action: argparse.Action) -> str:
     value = action.default
     if value is argparse.SUPPRESS:
         # Shared options suppress so subparsers cannot clobber a value given
-        # before the subcommand; their real defaults live in GLOBAL_DEFAULTS.
+        # before the subcommand. Their real defaults live in GLOBAL_DEFAULTS.
         value = GLOBAL_DEFAULTS.get(action.dest)
     if value is None or value is argparse.SUPPRESS or isinstance(value, bool):
         # A store_true's False is just "off", and a store_false's True describes

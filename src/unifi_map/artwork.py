@@ -219,7 +219,7 @@ def resolve_icons(
 
     UniFi devices are matched on sysid against Ubiquiti's hardware catalog.
     Clients are matched on their fingerprint dev_id against Ubiquiti's client
-    artwork, which is what the topology view itself renders; clients with no
+    artwork, which is what the topology view itself renders. Clients with no
     usable fingerprint fall back to the controller's own icon-font glyph, the
     same way the UI does.
 
@@ -244,7 +244,7 @@ def apply_drawn_icons(
 
     Last, deliberately. Ubiquiti's product artwork is the real picture of the
     real hardware and the console's icon font is what the UI itself falls back
-    to; both are better answers than a generic drawing. This only covers what
+    to. Both are better answers than a generic drawing. This only covers what
     neither could name, which previously left a bare Graphviz primitive.
 
     The Internet node is skipped: `resolve_icons` already gives it a brand mark
@@ -255,7 +255,7 @@ def apply_drawn_icons(
         if node.id in icons or node.kind is Kind.INTERNET:
             continue
         # Clients split four ways on guest/wireless, the same split the
-        # console's icon font encodes; everything else is drawn by kind.
+        # console's icon font encodes. Everything else is drawn by kind.
         name = node.glyph_name or node.kind.value
         asset = store.drawn_icon(name, theme.text_muted)
         if asset is not None:

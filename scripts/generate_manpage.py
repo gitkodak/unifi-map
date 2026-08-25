@@ -10,7 +10,7 @@ parser and little else, and two things it cannot do are the two that matter
 here: every global option is attached to every subparser via `parents=`, so it
 printed all fifteen of them three times over, and there is no way to add the
 sections that make a man page worth opening. ENVIRONMENT, FILES, EXAMPLES and
-the note about support files are not derivable from a parser; they are the
+the note about support files are not derivable from a parser. They are the
 reason somebody reaches for `man` instead of `--help`.
 
 So the flags come from the parser and the prose lives below. Those are the two
@@ -110,8 +110,8 @@ def render() -> str:
         "It only ever reads. Every request is a GET, and there is no code path that",
         "changes anything on the controller.",
         ".SS Two stages",
-        "\\fBfetch\\fR caches the controller's JSON; \\fBrender\\fR turns that cache into",
-        "diagrams; \\fBall\\fR does both. They are separable so a map can be restyled",
+        "\\fBfetch\\fR caches the controller's JSON. \\fBrender\\fR turns that cache into",
+        "diagrams. \\fBall\\fR does both. They are separable so a map can be restyled",
         "repeatedly without touching the controller again, and so each cached snapshot",
         "is a record of the network at one moment.",
         ".SS Without a controller",
@@ -155,7 +155,7 @@ def render() -> str:
         ".TP",
         "\\fBUNIFI_API_KEY\\fR",
         "An API key. Required for a live fetch. A key carries the permissions of the",
-        "account that created it; UniFi offers no way to issue a read\\-only one.",
+        "account that created it. UniFi offers no way to issue a read\\-only one.",
         ".TP",
         "\\fBUNIFI_SITE\\fR",
         "Which site to read. Overridden by \\fB\\-\\-site\\fR. Defaults to",
@@ -219,8 +219,8 @@ def render() -> str:
         "\\fBicons\\fR, \\fBformats\\fR, \\fBoverrides\\fR, \\fBcache_dir\\fR,",
         "\\fBasset_cache\\fR and \\fBout_dir\\fR, as flat TOML keys named after the",
         "flags. Honours \\fBXDG_CONFIG_HOME\\fR, or use \\fBUNIFI_MAP_CONFIG\\fR. An",
-        "unrecognised key is an error naming the ones that are accepted. Optional;",
-        "the tool runs with no config file at all.",
+        "unrecognised key is an error naming the ones that are accepted. Optional.",
+        "The tool runs with no config file at all.",
         ".TP",
         "\\fBcache/\\fR",
         "Cached snapshots. A full inventory of MACs, hostnames and addresses.",

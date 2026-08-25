@@ -2,7 +2,7 @@
 
 Pure function from `Topology` plus an already-rendered SVG string to one HTML
 document, the same shape as every other backend. Nothing here talks to
-Graphviz or the network; the caller renders the SVG exactly as it would for
+Graphviz or the network. The caller renders the SVG exactly as it would for
 `-f svg` (icons already inlined by `svg_post.inline_svg_images`) and hands it
 here.
 
@@ -239,8 +239,8 @@ _VIEWER_JS = r"""
   // sends, and it is what a mouse wheel sends, and those two devices want
   // opposite things from it. Every pan/zoom canvas that gets this right
   // (Figma, Miro, Google Maps) agrees on the resolution: ctrlKey means zoom.
-  // Browsers set it on their own for a trackpad pinch — no physical Ctrl
-  // involved — so this also covers an actual Ctrl+scroll for free. Anything
+  // Browsers set it on their own for a trackpad pinch (no physical Ctrl
+  // involved), so this also covers an actual Ctrl+scroll for free. Anything
   // without ctrlKey pans, which is what a two-finger swipe is for. Binding
   // every wheel event straight to zoom, as an earlier version of this did,
   // meant the single most common gesture (swipe to pan) zoomed instead.
@@ -386,9 +386,9 @@ _VIEWER_JS = r"""
 def render_html(topo: Topology, svg: str, theme: Theme, title: str | None = None) -> str:
     """A single self-contained HTML file: pan/zoom, search, path highlight, collapse.
 
-    *svg* is the already-rendered, already-icon-inlined SVG for *topo* — the
+    *svg* is the already-rendered, already-icon-inlined SVG for *topo*: the
     same string `-f svg` would write. Callers pass the theme actually used to
-    render it, purely for the toolbar chrome to match; the SVG's own colours
+    render it, purely for the toolbar chrome to match. The SVG's own colours
     are untouched.
     """
     tagged_svg = _tag_svg_with_data_ids(svg.encode("utf-8"), topo).decode("utf-8")

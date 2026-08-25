@@ -20,7 +20,7 @@ Plus two committed copies of the interactive viewer:
     docs/demo-dark.html
 
 **These two are `--icons builtin --offline` on purpose, unlike the PNGs
-above.** A PNG is a flattened raster; whatever product photography went into
+above.** A PNG is a flattened raster. Whatever product photography went into
 drawing it cannot be pulled back out. `-f html` is the opposite: it embeds
 every icon as a separately extractable base64 image, byte-identical to
 whatever was fetched. Committing that with the default `--icons unifi` would
@@ -75,8 +75,8 @@ DOCS = ROOT / "docs"
 # under the lowest node are not sheared off.
 CROP_PADDING = 38.0
 
-# The date stamped into the committed screenshots. Any fixed value would do;
-# this is the day the images were last deliberately regenerated. Bump it when
+# The date stamped into the committed screenshots. Any fixed value would do.
+# This is the day the images were last deliberately regenerated. Bump it when
 # they are redone for a real reason, not otherwise.
 SOURCE_DATE_EPOCH = "1786363200"
 
@@ -135,13 +135,13 @@ def _crop_box(dot_path: Path, image: Image.Image) -> tuple[int, int, int, int]:
         if edge.asserted:
             wanted.update((edge.src, edge.dst))
     if not wanted:
-        raise SystemExit("No asserted nodes or edges in the demo overrides; nothing to crop to.")
+        raise SystemExit("No asserted nodes or edges in the demo overrides. Nothing to crop to.")
 
     layout = compute_layout(dot_path.read_text(encoding="utf-8"))
-    # `_node_id` returns the quoted form used in DOT source; layout keys are bare.
+    # `_node_id` returns the quoted form used in DOT source. Layout keys are bare.
     placed = [layout.nodes[key] for i in wanted if (key := _node_id(i).strip('"')) in layout.nodes]
     if not placed:
-        raise SystemExit("Asserted nodes are missing from the layout; did node ids change?")
+        raise SystemExit("Asserted nodes are missing from the layout. Did node ids change?")
 
     left = min(p.x for p in placed) - CROP_PADDING
     top = min(p.y for p in placed) - CROP_PADDING
@@ -187,7 +187,7 @@ def main() -> int:
         with Image.open(full) as image:
             box = _crop_box(dot_path, image)
             image.crop(box).save(IMAGES / f"example-overrides-detail-{theme}.png")
-        # The .dot was only a means of getting coordinates; committing it would
+        # The .dot was only a means of getting coordinates. Committing it would
         # be a second copy of the map that nothing reads.
         dot_path.unlink()
 

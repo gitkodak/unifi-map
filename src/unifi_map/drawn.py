@@ -8,7 +8,7 @@ labelled "Office AP" is readable but plainly geometric.
 
 These are ours, so they need no network, raise no licensing question, and work
 in both cases. `_render_cloud()` in `assets.py` proved the approach for the
-Internet node; this is the same trick applied to the rest of the map.
+Internet node. This is the same trick applied to the rest of the map.
 
 Three constraints, each learned the hard way elsewhere in this project:
 
@@ -36,8 +36,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# Every name this module can draw. Infrastructure is keyed by `Kind.value`;
-# clients are keyed by `Node.glyph_name`, which is the same user/guest x
+# Every name this module can draw. Infrastructure is keyed by `Kind.value`.
+# Clients are keyed by `Node.glyph_name`, which is the same user/guest x
 # wired/wireless split the console's own icon font encodes.
 #
 # Drawing all four client variants is the point rather than completeness: that
@@ -47,7 +47,7 @@ INFRASTRUCTURE = ("gateway", "switch", "ap", "bridge", "unknown")
 CLIENTS = ("user-wired", "user-wireless", "guest-wired", "guest-wireless")
 NAMES = INFRASTRUCTURE + CLIENTS
 
-# Height as a fraction of width. A switch is a rack unit; a phone is taller than
+# Height as a fraction of width. A switch is a rack unit. A phone is taller than
 # it is wide. These are what stop every icon rendering as a square.
 _ASPECT: dict[str, float] = {
     "gateway": 0.80,
@@ -190,7 +190,7 @@ def render(name: str, color: str, dest: Path, box: int) -> tuple[int, int]:
     from PIL import Image, ImageDraw
 
     if name not in _DRAW:
-        raise ValueError(f"no drawn icon named {name!r}; have {', '.join(sorted(_DRAW))}")
+        raise ValueError(f"no drawn icon named {name!r}. Have {', '.join(sorted(_DRAW))}")
 
     scale = 4
     width = box * scale

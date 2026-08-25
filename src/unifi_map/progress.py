@@ -1,9 +1,9 @@
 """A spinner for the parts that take long enough to look like a hang.
 
 Three steps here are slow with nothing to show for it: walking a support
-archive, which streams 150 MiB past to read seven files; fetching artwork, which
-is a request per device on a cold cache; and Graphviz, which on a large network
-thinks for a while before writing anything. A silent terminal during any of them
+archive, which streams 150 MiB past to read seven files. Fetching artwork,
+which is a request per device on a cold cache. And Graphviz, which on a large
+network thinks for a while before writing anything. A silent terminal during any of them
 reads as frozen, and the honest fix is to say what is happening.
 
 Two rules shape everything below.
@@ -39,7 +39,7 @@ from contextlib import contextmanager
 from typing import TextIO
 
 # Braille cycles smoothly and is one column wide, but it needs a stream that can
-# encode it; a Windows console on a legacy code page cannot. ASCII is the
+# encode it. A Windows console on a legacy code page cannot. ASCII is the
 # fallback rather than a crash, chosen by asking the stream what it supports.
 _BRAILLE = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 _ASCII = "|/-\\"
@@ -64,7 +64,7 @@ def _frames(stream: TextIO) -> str:
 
 
 class _Spinner:
-    """One running spinner. Not used directly; see `spinner()`."""
+    """One running spinner. Not used directly. See `spinner()`."""
 
     def __init__(self, message: str, stream: TextIO) -> None:
         self._message = message
@@ -81,7 +81,7 @@ class _Spinner:
             self._stream.write(text)
             self._stream.flush()
         except (OSError, ValueError):
-            # The terminal went away mid-run. A spinner is decoration; losing it
+            # The terminal went away mid-run. A spinner is decoration. Losing it
             # must never take the actual work down with it.
             self._stop.set()
 
@@ -139,7 +139,7 @@ class SpinnerAwareHandler(logging.StreamHandler):
 def enabled_for(stream: TextIO, requested: bool) -> bool:
     """Whether to actually spin.
 
-    `requested` is the flag; everything else is the stream deciding it is not
+    `requested` is the flag. Everything else is the stream deciding it is not
     being watched by a person. A file, a pipe or a CI log all fail `isatty()`,
     which is what keeps a spinner out of captured output without anyone having
     to remember to pass `--no-progress`.
