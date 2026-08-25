@@ -855,6 +855,18 @@ def rasterise_svg(path: Path, cache_dir: Path) -> IconAsset | None:
     out_dir = cache_dir / "user-svg"
     target = out_dir / f"{hashlib.sha256(data).hexdigest()[:16]}.png"
 
+    # `_make_private` below correctly declines to `chmod` through a symlink,
+    # but that alone is not enough: `mkdir_private` treats a symlink as an
+    # existing directory (`Path.exists()` follows links) and no-ops, and
+    # `atomic_write`'s `tempfile.NamedTemporaryFile(dir=path.parent, ...)`
+    # then follows the same link, writing the rasterised PNG wherever it
+    # points rather than into our private cache. `user-svg/` is ours; nothing
+    # legitimate ever replaces it with a link, so refuse outright instead of
+    # writing through one.
+    if out_dir.is_symlink():
+        log.warning("%s is a symlink. Refusing to rasterise into it.", out_dir)
+        return None
+
     # Repair anything an earlier version left world-readable. Before this was
     # made private, the directory was created at the umask and the PNG written
     # 0644 like the rest of the artwork cache. Neither `mkdir_private` nor the

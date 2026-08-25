@@ -1094,6 +1094,43 @@ class TestSvgRendersNotJustMeasures:
         assert stat.S_IMODE(victim.stat().st_mode) == expected
         assert link.is_symlink(), "the link itself should still be a link"
 
+    def test_rasterise_svg_refuses_a_symlinked_user_svg_directory(self, tmp_path):
+        """A symlinked `user-svg/` must not redirect the write elsewhere.
+
+        `_make_private` declines to `chmod` through a symlink, but that alone
+        does not stop the write: `mkdir_private` treats a symlink as an
+        existing directory and no-ops, and `atomic_write`'s temporary file is
+        created with `dir=path.parent`, which the OS resolves through the
+        link. Before the guard, planting a symlink at `<asset-cache>/user-svg`
+        made this function write the rasterised PNG into the link's target
+        instead of the private cache, defeating the boundary `_make_private`
+        exists to protect.
+        """
+        pytest.importorskip("cairosvg")
+        import os
+
+        from unifi_map.assets import rasterise_svg
+
+        if os.name != "posix":
+            pytest.skip("POSIX symlinks only")
+
+        icon = tmp_path / "icon.svg"
+        icon.write_text(
+            '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"/>',
+            encoding="utf-8",
+        )
+        cache = tmp_path / "cache"
+        cache.mkdir()
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        (cache / "user-svg").symlink_to(elsewhere)
+
+        result = rasterise_svg(icon, cache)
+
+        assert result is None
+        assert list(elsewhere.iterdir()) == [], "must not write through the symlink"
+        assert (cache / "user-svg").is_symlink(), "must not replace or follow the link"
+
     def test_the_raster_keeps_the_aspect_ratio(self, tmp_path):
         pytest.importorskip("cairosvg")
         from unifi_map.assets import local_icon
