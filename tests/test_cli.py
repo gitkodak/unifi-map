@@ -48,6 +48,51 @@ class TestWritePerNetworkViews:
         assert "Skipping per-network views" in caplog.text
 
 
+class TestCmdFetch:
+    """`unifi-map fetch` against a live controller (not a support file)."""
+
+    def test_a_failed_icon_font_fetch_warns_rather_than_aborting(
+        self, monkeypatch, tmp_path, caplog
+    ):
+        """The icon font is only a fallback for clients with no fingerprint, so
+        a controller that refuses to serve it must not fail the whole fetch.
+        """
+        from unifi_map.cli import cmd_fetch
+        from unifi_map.client import Snapshot, UniFiError
+
+        monkeypatch.setenv("UNIFI_HOST", "unifi.example.invalid")
+        monkeypatch.setenv("UNIFI_API_KEY", "test-key")
+
+        class _FakeClient:
+            def __init__(self, config, timeout=30.0):
+                pass
+
+            def snapshot(self):
+                return Snapshot(payloads={})
+
+            def fetch_icon_font(self):
+                raise UniFiError("simulated failure")
+
+        monkeypatch.setattr("unifi_map.cli.UniFiClient", _FakeClient)
+
+        args = argparse.Namespace(
+            support_file=None,
+            env_file=None,
+            site=None,
+            support_site=None,
+            asset_cache=tmp_path / "assets",
+            cache_dir=tmp_path / "cache",
+            progress=False,
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = cmd_fetch(args)
+
+        assert result == 0
+        assert "Could not cache the icon font" in caplog.text
+        assert "simulated failure" in caplog.text
+
+
 class TestQuiet:
     """-q/--quiet: ERROR-only logging, mutually exclusive with -v/--verbose."""
 

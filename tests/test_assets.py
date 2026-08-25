@@ -1094,6 +1094,28 @@ class TestSvgRendersNotJustMeasures:
         assert stat.S_IMODE(victim.stat().st_mode) == expected
         assert link.is_symlink(), "the link itself should still be a link"
 
+    def test_rasterise_svg_refuses_a_file_over_the_size_cap(self, tmp_path):
+        """An oversized SVG must not reach CairoSVG at all.
+
+        Rasterising is meant for icons, not an unbounded decompression target.
+        `MAX_ASSET_BYTES` is the same cap the CDN download path enforces, so a
+        user-supplied file gets no more trust than a fetched one.
+        """
+        pytest.importorskip("cairosvg")
+        from unifi_map.assets import MAX_ASSET_BYTES, rasterise_svg
+
+        icon = tmp_path / "icon.svg"
+        padding = "<!--" + ("x" * (MAX_ASSET_BYTES + 1)) + "-->"
+        head = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 32"/>'
+        icon.write_text(head + padding, encoding="utf-8")
+        cache = tmp_path / "cache"
+        cache.mkdir()
+
+        result = rasterise_svg(icon, cache)
+
+        assert result is None
+        assert not (cache / "user-svg").exists(), "must not create the cache dir for a refused file"
+
     def test_rasterise_svg_refuses_a_symlinked_user_svg_directory(self, tmp_path):
         """A symlinked `user-svg/` must not redirect the write elsewhere.
 
