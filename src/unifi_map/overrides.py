@@ -125,7 +125,10 @@ class NodeOverride:
     note: str | None = None
     # Drop the node from the map entirely: gear the controller still calls online
     # but which is idle by choice, or a host you would rather not put on a map
-    # you are sharing. Leaf nodes only. See the TODO about children.
+    # you are sharing. Leaf nodes only, by design, not by omission: there is no
+    # honest answer for what should happen to a hidden node's children, so
+    # reparenting them is refused rather than guessed at. See CLAUDE.md's
+    # Overrides section.
     hide: bool = False
 
 
