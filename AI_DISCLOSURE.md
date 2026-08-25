@@ -116,7 +116,7 @@ Four consecutive external reviews found defects in prose the assistant had just
 written. `docs/overrides.md` said supplied artwork was never cached, in the same
 session the assistant made it cached. The correction then claimed the cached copies were
 private when they were world-readable, and offered a `rm -rf "$VAR/user-svg"`
-that expands to an absolute root path when the variable is unset — which it
+that expands to an absolute root path when the variable is unset, which it
 usually is, because that variable normally lives in the credential file. The
 correction to *that* published a command nobody had run, which returned nothing.
 
