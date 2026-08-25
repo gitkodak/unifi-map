@@ -1025,7 +1025,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=argparse.SUPPRESS,
         help=f"Where controller snapshots are read/written. A snapshot is a full "
         f"inventory of your network, so keeping it outside a git repository is "
-        f"worth doing: set $UNIFI_CACHE_DIR once instead of passing this every "
+        f"worth doing: set $UNIFI_MAP_CACHE_DIR once instead of passing this every "
         f"time (default: {DEFAULT_CACHE})",
     )
     shared.add_argument(
