@@ -827,7 +827,8 @@ class TestGenerateCandidates:
         text = generate_candidates(topo, artwork_catalog_cached=False)
         assert "NOTE" in text
         assert "catalogue is not cached" in text
-        assert "were" in text and "NOT checked" in text
+        assert "were" in text
+        assert "NOT checked" in text
 
     def test_a_warm_artwork_cache_gets_no_note(self, topo):
         assert "NOTE" not in generate_candidates(topo, artwork_catalog_cached=True)

@@ -419,7 +419,8 @@ class TestSharedPortsAreExplained:
         message = " ".join(r.getMessage() for r in caplog.records)
         assert "switch" in message
         assert "port 7" in message
-        assert "c1" in message and "c2" in message
+        assert "c1" in message
+        assert "c2" in message
         assert "hosted" in message
 
     def test_it_says_nothing_when_no_port_is_shared(self, caplog):

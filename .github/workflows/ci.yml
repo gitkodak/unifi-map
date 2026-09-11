@@ -17,7 +17,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -27,6 +26,12 @@ jobs:
   check:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    # pull-requests: read is scoped to this job alone: it is what lets the
+    # SonarQube Cloud step (below, 3.12 only) decorate a pull request with its
+    # analysis. Nothing in the hygiene or advisory jobs touches PR data.
+    permissions:
+      contents: read
+      pull-requests: read
     strategy:
       fail-fast: false
       matrix:

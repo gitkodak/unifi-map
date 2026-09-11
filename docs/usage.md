@@ -311,6 +311,22 @@ Concretely, what differs:
 If you need the real thing, the real thing is in your browser. This is for when
 you need it in a file.
 
+### `--no-clients` is not the console's infrastructure view
+
+The console has a second diagram, separate from its client map. It shows:
+
+- A port badge at both ends of every link, not one plain label in the middle.
+- Edges coloured by link speed.
+- Live CPU and memory on each device card.
+- A crown on whichever switch currently holds `STP Root`.
+
+`--no-clients` does not produce that diagram. It renders the same client
+map with the clients left out: gateway, switches, and access points, each
+link still carrying one plain label.
+
+This project has not built the console's infrastructure view. `TODO.md`
+and `CLAUDE.md` track it as planned work, not as something already shipped.
+
 **`--show-offline yes|no`** (default `no`) controls whether devices the
 controller still lists, but that are not connected, appear on the map.
 This is the one place the defaults deviate from the web view, on purpose.
