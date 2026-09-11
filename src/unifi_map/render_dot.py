@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .assets import IconAsset
-from .model import Kind, Provenance, Topology
+from .model import Edge, Kind, Provenance, Topology
 from .theme import KIND_LABEL, KIND_SHAPE, Theme, network_colors
 
 _CLIENT_KINDS = (Kind.WIRED_CLIENT, Kind.WIRELESS_CLIENT)
@@ -275,43 +275,65 @@ def _node_lines(
     return lines
 
 
+def _edge_is_shared(edge: Edge, shared: dict) -> bool:
+    """True when several clients report the same switch port as this edge.
+
+    Split out of `_edge_lines` (KAN-145 cognitive-complexity cleanup): pure
+    lookup, no attribute-building, so it reads as one decision rather than
+    adding another branch to an already-branchy loop.
+    """
+    group = shared.get((edge.dst, edge.label)) if edge.label else None
+    return bool(group and edge.src in group)
+
+
+def _edge_attrs(edge: Edge, style: Style, is_shared: bool) -> list[str]:
+    """The DOT attribute list for one edge.
+
+    Split out of `_edge_lines` (KAN-145 cognitive-complexity cleanup): every
+    branch here decides a single attribute, independent of the others, so
+    pulling them into their own function is a pure refactor -- no behaviour
+    changes, only where the branching lives.
+    """
+    attrs = []
+    if edge.label and style.show_port_labels:
+        label_text = edge.label
+        if is_shared:
+            # Several clients on this port: flag it rather than draw a
+            # synthetic switch, since a hidden switch and a hypervisor
+            # bridging its guests look identical from here (KAN-199).
+            label_text += " *"
+        attrs.append(f'label="{_escape(label_text)}"')
+    if edge.asserted:
+        # Dotted means "you told me this", so it never reads as something
+        # the controller reported.
+        attrs.append("style=dotted")
+    elif edge.wireless:
+        # The wired/wireless distinction must survive greyscale printing.
+        attrs.append("style=dashed")
+    if edge.provenance is Provenance.TOPOLOGY_GRAPH:
+        # A client placed via the v2 topology graph rather than its own
+        # reported uplink: real, but a step removed from what the device
+        # itself said. Independent of the line style above, so it composes
+        # with a wireless edge instead of competing for the same channel.
+        attrs.append("arrowhead=odot")
+    elif is_shared:
+        # Independent of the `*` on the label above, and deliberately not
+        # gated on `show_port_labels`: `--layout unifi`, the default,
+        # suppresses port labels entirely (ortho routing can't place them),
+        # so without its own channel this signal would be invisible in the
+        # one render most people actually produce.
+        attrs.append("arrowhead=diamond")
+    return attrs
+
+
 def _edge_lines(topo: Topology, style: Style) -> list[str]:
     lines = []
     shared = topo.shared_ports()
     for edge in topo.edges:
         if edge.src not in topo.nodes or edge.dst not in topo.nodes:
             continue
-        attrs = []
-        group = shared.get((edge.dst, edge.label)) if edge.label else None
-        is_shared = bool(group and edge.src in group)
-        if edge.label and style.show_port_labels:
-            label_text = edge.label
-            if is_shared:
-                # Several clients on this port: flag it rather than draw a
-                # synthetic switch, since a hidden switch and a hypervisor
-                # bridging its guests look identical from here (KAN-199).
-                label_text += " *"
-            attrs.append(f'label="{_escape(label_text)}"')
-        if edge.asserted:
-            # Dotted means "you told me this", so it never reads as something
-            # the controller reported.
-            attrs.append("style=dotted")
-        elif edge.wireless:
-            # The wired/wireless distinction must survive greyscale printing.
-            attrs.append("style=dashed")
-        if edge.provenance is Provenance.TOPOLOGY_GRAPH:
-            # A client placed via the v2 topology graph rather than its own
-            # reported uplink: real, but a step removed from what the device
-            # itself said. Independent of the line style above, so it composes
-            # with a wireless edge instead of competing for the same channel.
-            attrs.append("arrowhead=odot")
-        elif is_shared:
-            # Independent of the `*` on the label above, and deliberately not
-            # gated on `show_port_labels`: `--layout unifi`, the default,
-            # suppresses port labels entirely (ortho routing can't place them),
-            # so without its own channel this signal would be invisible in the
-            # one render most people actually produce.
-            attrs.append("arrowhead=diamond")
+        is_shared = _edge_is_shared(edge, shared)
+        attrs = _edge_attrs(edge, style, is_shared)
         suffix = f" [{', '.join(attrs)}]" if attrs else ""
         # Emitted parent -> child, the reverse of how edges are stored, so the
         # root lands at the top (rankdir=TB) or the left (rankdir=LR) instead of

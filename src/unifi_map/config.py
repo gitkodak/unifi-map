@@ -200,6 +200,53 @@ def read_config_file(path: Path) -> dict[str, object]:
     return payload
 
 
+def _find_env_file(env_file: Path | None) -> tuple[dict[str, str], Path | None]:
+    """The first existing credential file's contents, searched in order.
+
+    Split out of `resolved_settings` (KAN-145 cognitive-complexity cleanup):
+    a self-contained "search a list, stop at the first hit" loop that reads
+    the same whether or not it sits inside the bigger function.
+    """
+    searched: list[Path] = [env_file] if env_file is not None else default_env_files()
+    for candidate in searched:
+        if candidate.is_file():
+            return read_dotenv(candidate), candidate
+    return {}, None
+
+
+def _resolve_from_environment(
+    key: str, name: str, from_env_file: dict[str, str], env_file_path: Path | None
+) -> Resolved | None:
+    """One setting's value from the real environment or the credential file.
+
+    Split out of `resolved_settings` (KAN-145 cognitive-complexity cleanup):
+    the environment/legacy-name/credential-file precedence for a single
+    setting, independent of every other setting and of the config-file
+    fallback that only applies once this returns nothing.
+    """
+    legacy = _LEGACY_SETTING_VARS.get(key)
+    for candidate_name, where in ((name, "environment"), (legacy, "environment")):
+        if candidate_name is None:
+            continue
+        value = os.environ.get(candidate_name)
+        if value is None or not value.strip():
+            value = from_env_file.get(candidate_name)
+            where = f"credential file {env_file_path}" if env_file_path else where
+        if value is not None and value.strip():
+            if candidate_name == legacy:
+                log.warning(
+                    "%s is deprecated. Rename it to %s. The old name still "
+                    "works but will be removed.",
+                    legacy,
+                    name,
+                )
+            return Resolved(
+                _coerce_setting(key, value, from_toml=False),
+                f"{where} ({candidate_name})",
+            )
+    return None
+
+
 def resolved_settings(
     env_file: Path | None = None, config_file: Path | None = None
 ) -> dict[str, Resolved]:
@@ -224,50 +271,17 @@ def resolved_settings(
     `--cache-dir examples/demo` must not cause downloads to be written into the
     shipped demo dataset.
     """
-    searched: list[Path] = [env_file] if env_file is not None else default_env_files()
-    from_env_file: dict[str, str] = {}
-    env_file_path: Path | None = None
-    for candidate in searched:
-        if candidate.is_file():
-            from_env_file = read_dotenv(candidate)
-            env_file_path = candidate
-            break
+    from_env_file, env_file_path = _find_env_file(env_file)
 
     path = config_file if config_file is not None else default_config_file()
     from_config = read_config_file(path)
 
     resolved: dict[str, Resolved] = {}
     for key, name in _SETTING_VARS.items():
-        legacy = _LEGACY_SETTING_VARS.get(key)
-
-        raw: object | None = None
-        source: str | None = None
-        for candidate_name, where in (
-            (name, "environment"),
-            (legacy, "environment"),
-        ):
-            if candidate_name is None:
-                continue
-            value = os.environ.get(candidate_name)
-            if value is None or not value.strip():
-                value = from_env_file.get(candidate_name)
-                where = f"credential file {env_file_path}" if env_file_path else where
-            if value is not None and value.strip():
-                if candidate_name == legacy:
-                    log.warning(
-                        "%s is deprecated. Rename it to %s. The old name still "
-                        "works but will be removed.",
-                        legacy,
-                        name,
-                    )
-                raw, source = value, f"{where} ({candidate_name})"
-                break
-
-        if raw is not None:
-            resolved[key] = Resolved(_coerce_setting(key, raw, from_toml=False), source or "")
-            continue
-
-        if key in from_config:
+        from_env = _resolve_from_environment(key, name, from_env_file, env_file_path)
+        if from_env is not None:
+            resolved[key] = from_env
+        elif key in from_config:
             resolved[key] = Resolved(
                 _coerce_setting(key, from_config[key], from_toml=True),
                 f"config file {path}",
