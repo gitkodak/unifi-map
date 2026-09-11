@@ -48,6 +48,51 @@ class TestWritePerNetworkViews:
         assert "Skipping per-network views" in caplog.text
 
 
+class TestControllerVersion:
+    """`_controller_version()` must name the gateway, not whichever device
+    happens to report a version string first.
+
+    Found on a live network 2026-08-24: `stat/device` listed a switch before
+    the gateway, and the first version returned was that switch's firmware
+    rather than the UniFi OS version the report claims to show. Every fixture
+    in this suite happens to list its gateway first, which is why this passed
+    every existing test before this one.
+    """
+
+    def test_a_switch_listed_before_the_gateway_is_not_reported_as_the_version(self):
+        from unifi_map.cli import _controller_version
+        from unifi_map.client import Snapshot
+
+        snapshot = Snapshot(
+            payloads={
+                "device": {
+                    "data": [
+                        {"mac": "02:00:00:00:00:01", "type": "usw", "version": "2.1.6.762"},
+                        {"mac": "02:00:00:00:00:02", "type": "udm", "version": "5.1.31.34074"},
+                    ]
+                }
+            }
+        )
+
+        assert _controller_version(snapshot) == "5.1.31.34074"
+
+    def test_no_gateway_record_reports_no_version_rather_than_a_wrong_one(self):
+        from unifi_map.cli import _controller_version
+        from unifi_map.client import Snapshot
+
+        snapshot = Snapshot(
+            payloads={
+                "device": {
+                    "data": [
+                        {"mac": "02:00:00:00:00:01", "type": "usw", "version": "2.1.6.762"},
+                    ]
+                }
+            }
+        )
+
+        assert _controller_version(snapshot) is None
+
+
 class TestCmdFetch:
     """`unifi-map fetch` against a live controller (not a support file)."""
 

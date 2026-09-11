@@ -1552,7 +1552,7 @@ placed from the controller's own graph, `--support-file` is implemented, the
 and JSON exports all shipped, the man page exists, controller responses are
 capped (KAN-134), snapshots are atomic generations (KAN-138), the interactive
 HTML viewer shipped as `-f html` (KAN-126), the controller is reached over
-HTTPS only, and 0.9.0 is released.
+HTTPS only, and 0.13.0 is released.
 
 **Four of those were still written up here as future work well after they
 shipped** — the failure this file is most prone to, edited for whatever is
@@ -1560,9 +1560,13 @@ being discussed with nothing sweeping it. The same sweep `TODO.md` gets at
 every handover is worth running here too.
 
 **This sentence said "0.7.2 is released" until 2026-08-10**, two releases
-(0.8.0, 0.9.0) after the fact — the released version is the one fact here
-checkable in a single command, and it still went stale since nothing in a
-release touches this paragraph. Check against the changelog, not memory:
+(0.8.0, 0.9.0) after the fact, and then said "0.9.0 is released" until a
+2026-08-24 Jira reconciliation found it four releases stale again (0.10.1,
+0.11.0, 0.12.0, 0.13.0 later). Twice now this exact sentence has been the
+stale fact in a paragraph about staleness. The released version is the one
+fact here checkable in a single command, and it keeps going stale because
+nothing in a release touches this paragraph. Check against the changelog,
+not memory:
 
 ```bash
 grep -m2 "^## " CHANGELOG.md
