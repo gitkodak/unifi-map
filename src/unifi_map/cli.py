@@ -43,6 +43,7 @@ from .model import (
     UNKNOWN_UPLINK_ID,
     Kind,
     Topology,
+    _classify,
     build_topology,
     client_networks,
     filter_by_network,
@@ -906,15 +907,28 @@ def _graphviz_version() -> str | None:
 
 
 def _controller_version(snapshot: Snapshot) -> str | None:
-    """The controller version, from whichever device reports one.
+    """The gateway's own version, the one "controller version" actually means.
 
     Not identifying, and the single most useful line in the report: every
     endpoint shape in this tool is verified against exactly one version.
+
+    Every device in `stat/device` carries its own firmware `version`, not
+    only the gateway, so taking whichever record happened to report one
+    first returns a switch or AP's firmware on a real network: nothing
+    guarantees the gateway sorts first. A live fetch caught this directly, a
+    USW's firmware labelled "controller version" while the real UDM sat
+    sixth in the list. Every fixture in this project's own test suite
+    happens to list its gateway first, which is why this passed every
+    existing test before that.
     """
     payload = snapshot.get("device") or []
     records = payload.get("data", []) if isinstance(payload, dict) else payload
     for record in records:
-        if isinstance(record, dict) and isinstance(record.get("version"), str):
+        if (
+            isinstance(record, dict)
+            and _classify(record) is Kind.GATEWAY
+            and isinstance(record.get("version"), str)
+        ):
             return record["version"]
     return None
 
