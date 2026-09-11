@@ -2043,6 +2043,43 @@ fetches are unaffected either way: `stat/sta` reports addresses directly.
   installed project freezes as `unifi-map @ file://...` — the first
   attempt failed exactly there.
 
+- **Dependabot's own `pip-compile` re-run for `requirements/ci.txt` silently
+  dropped every package outside `pip-audit`'s own dependency chain, `ruff`
+  included, and auto-merge would have shipped it** (PR #35, 2026-09-11,
+  bumping `ruff` 0.16.3 → 0.16.5). This is the pip-directory Dependabot
+  entry recompiling the file rather than only bumping one pin — the exact
+  mechanism the dependabot.yml comment above says to expect — and this is
+  the first time it ran since that entry was added, so nothing had verified
+  the recompile actually reproduces `make lock`'s output rather than some
+  narrower resolution of `requirements/ci.in` alone. It silently resolved
+  against `pip-audit`'s own chain only: the lock went from 43 packages to
+  29, `ruff` disappeared from the file entirely (not just left outdated),
+  and `Python 3.11/3.12/3.13` failed with "No module named ruff" — a
+  required check, so this did not merge itself; a genuine gap, not a false
+  sense of safety.
+
+  **The fix needed two attempts, and the failure of the first is the
+  reusable lesson.** Re-running `make lock` restored all 43 packages, but
+  the first attempt ran on whatever Python `make` resolved to locally
+  (3.14), not the 3.12 the file's own header names and CI actually locks
+  against. That changed how `pip-compile` resolved `typing-extensions`:
+  it stopped being pinned as its own top-level entry and surfaced instead
+  as an unpinned transitive constraint from `cyclonedx-python-lib`, which
+  `--require-hashes` correctly refused ("all requirements must have their
+  versions pinned with =="). A lock file is a function of the Python
+  version that generated it as well as of `pyproject.toml`; regenerating
+  on the wrong interpreter is a real, silent difference, not a rounding
+  error. Fixed by compiling with `python3.12 -m pip-tools` specifically.
+
+  **Never trust a regenerated lock file without installing from it.**
+  Both passes were verified the same way before pushing: a clean venv,
+  `pip install --require-hashes -r requirements/ci.txt`, then the local
+  package `--no-deps`, then the full test suite — on both 3.11 and 3.12,
+  matching what CI's own `Install` step does. The first pass would have
+  looked identical to the second from a diff alone (both "restored the
+  missing packages"); only actually installing caught that it restored
+  them in a way `--require-hashes` would still reject.
+
 ## License and project values
 
 Three releases in one day, 2026-08-11, changed what redistributing this
